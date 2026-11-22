@@ -24,3 +24,12 @@ export async function verifyAttestation(envelope,policy,verifier){
   if(signer.toLowerCase()!==verifier.toLowerCase())throw Error('Unknown proof verifier');
   verifyEvidence(envelope.evidence,policy);return digest(envelope.evidence);
 }
+export function enrolledProofBlob({pr,files,tree,head}){
+  const proofPath='research/proofs/renaming.proof';
+  if(pr.changed_files!==1||files.length!==1||files[0].filename!==proofPath||!['added','modified'].includes(files[0].status)||files[0].previous_filename)throw Error('Only an added or modified enrolled proof may change');
+  if(head.parents?.length!==1||head.parents[0].sha!==pr.base.sha)throw Error('Pilot requires one proof commit directly on the current base');
+  if(tree.truncated||!Array.isArray(tree.tree))throw Error('Complete immutable tree required');
+  const entry=tree.tree.find(e=>e.path===proofPath);
+  if(!entry||entry.mode!=='100644'||entry.type!=='blob'||!/^[a-f0-9]{40}$/.test(entry.sha)||entry.sha!==files[0].sha)throw Error('Plain immutable proof blob required; symlinks are forbidden');
+  return entry.sha;
+}
