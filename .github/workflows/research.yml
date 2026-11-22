@@ -17,7 +17,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   process:
-    if: github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && startsWith(github.event.comment.body, 'Open-Mathematics-Claim: '))
+    if: >-
+      github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && startsWith(github.event.comment.body, 'Open-Mathematics-Claim: '))
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
