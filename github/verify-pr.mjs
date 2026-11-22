@@ -9,9 +9,8 @@ const signer=await recoverMessageAddress({message:message(claim),signature});if(
 const gh=new GitHub({repository:process.env.GITHUB_REPOSITORY,token:process.env.GITHUB_TOKEN});const pr=await gh.bindAuthor(claim.pr,claim);
 // Narrow formal adapter. General research contributions need their own reviewed
 // objective evidence policy, not a universal "verified" flag.
-const files=await gh.request(`/pulls/${claim.pr}/files?per_page=100`);
-const [tree,head]=await Promise.all([gh.request(`/git/trees/${claim.head}?recursive=1`),gh.commit(claim.head)]);
-const blobSha=enrolledProofBlob({pr,files,tree,head});
+const [tree,baseTree,head]=await Promise.all([gh.request(`/git/trees/${claim.head}?recursive=1`),gh.request(`/git/trees/${pr.base.sha}?recursive=1`),gh.commit(claim.head)]);
+const blobSha=enrolledProofBlob({pr,tree,baseTree,head});
 const blob=await gh.request(`/git/blobs/${blobSha}`);
 if(blob.sha!==blobSha||blob.encoding!=='base64'||blob.size>12000)throw Error('Invalid proof blob');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-proof-'));try{

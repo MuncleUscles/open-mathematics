@@ -24,12 +24,15 @@ export async function verifyAttestation(envelope,policy,verifier){
   if(signer.toLowerCase()!==verifier.toLowerCase())throw Error('Unknown proof verifier');
   verifyEvidence(envelope.evidence,policy);return digest(envelope.evidence);
 }
-export function enrolledProofBlob({pr,files,tree,head}){
+export function enrolledProofBlob({pr,tree,baseTree,head}){
   const proofPath='research/proofs/renaming.proof';
-  if(pr.changed_files!==1||files.length!==1||files[0].filename!==proofPath||!['added','modified'].includes(files[0].status)||files[0].previous_filename)throw Error('Only an added or modified enrolled proof may change');
   if(head.parents?.length!==1||head.parents[0].sha!==pr.base.sha)throw Error('Pilot requires one proof commit directly on the current base');
-  if(tree.truncated||!Array.isArray(tree.tree))throw Error('Complete immutable tree required');
+  if(tree.truncated||baseTree.truncated||!Array.isArray(tree.tree)||!Array.isArray(baseTree.tree))throw Error('Complete immutable tree required');
+  const old=new Map(baseTree.tree.filter(e=>e.type!=='tree').map(e=>[e.path,e]));
+  const current=new Map(tree.tree.filter(e=>e.type!=='tree').map(e=>[e.path,e]));
+  const changed=[...new Set([...old.keys(),...current.keys()])].filter(p=>old.get(p)?.sha!==current.get(p)?.sha||old.get(p)?.mode!==current.get(p)?.mode||old.get(p)?.type!==current.get(p)?.type);
+  if(changed.length!==1||changed[0]!==proofPath)throw Error('Only the enrolled proof may change between the exact commits');
   const entry=tree.tree.find(e=>e.path===proofPath);
-  if(!entry||entry.mode!=='100644'||entry.type!=='blob'||!/^[a-f0-9]{40}$/.test(entry.sha)||entry.sha!==files[0].sha)throw Error('Plain immutable proof blob required; symlinks are forbidden');
+  if(!entry||entry.mode!=='100644'||entry.type!=='blob'||!/^[a-f0-9]{40}$/.test(entry.sha))throw Error('Plain immutable proof blob required; symlinks are forbidden');
   return entry.sha;
 }

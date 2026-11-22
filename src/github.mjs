@@ -15,6 +15,7 @@ export class GitHub {
     return {enforce_admins:{enabled:sets.length>0},required_status_checks:{strict:checks.some(r=>r.parameters.strict_required_status_checks_policy),checks:checks.flatMap(r=>r.parameters.required_status_checks.map(c=>({context:c.context,app_id:c.integration_id})))}};
   }
   commit(sha){if(!/^[a-f0-9]{40}$/.test(sha))throw Error('Invalid merge commit');return this.request(`/git/commits/${sha}`);}
+  async canonicalMerge(branch,merge){const c=await this.request(`/compare/${merge}...${encodeURIComponent(branch)}`);return ['ahead','identical'].includes(c.status)&&c.merge_base_commit?.sha===merge;}
   merge(n,head){return this.request(`/pulls/${n}/merge`,{method:'PUT',body:{sha:head,merge_method:'merge'}});}
 }
 // The caller supplies a chain adapter, never a user-provided verdict. The chain
@@ -33,13 +34,15 @@ export async function executeDecision({id,chain,github,journal}){
   // to the receipt hash. It cannot publish the independent verifier's check.
   await chain.publishFinalCheck(d);
   const current=await github.pr(d.pr);
-  if(current.head.sha!==d.head||(!current.merged&&current.base.sha!==d.base))throw Error('PR changed before merge');
+  if(current.head.sha!==d.head||current.base.ref!==d.branch||(!current.merged&&current.base.sha!==d.base))throw Error('PR changed before merge');
   let merged;
   if(current.merged){merged={merged:true,sha:current.merge_commit_sha};}
   else {if(current.state!=='open'||current.mergeable!==true)throw Error('PR not mechanically mergeable');merged=await github.merge(d.pr,d.head);}
   if(!merged.merged||!merged.sha)throw Error('Merge not confirmed');
   const commit=await github.commit(merged.sha);
   if(commit.parents?.length!==2||commit.parents[0].sha!==d.base||commit.parents[1].sha!==d.head)throw Error('Merge commit does not bind approved base and head');
+  const confirmed=await github.pr(d.pr);
+  if(!confirmed.merged||confirmed.base.ref!==d.branch||confirmed.head.sha!==d.head||confirmed.merge_commit_sha!==merged.sha||!await github.canonicalMerge(d.branch,merged.sha))throw Error('Merge is not confirmed on the canonical branch');
   await journal.record(id,merged.sha);
   // Persisted journal + on-contract idempotency recover a crash after merge.
   await chain.confirmMerge(id,d.head,merged.sha);
