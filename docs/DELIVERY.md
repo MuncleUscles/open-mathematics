@@ -1,9 +1,9 @@
-# Delivery checkpoint
+# Delivery record
 
-Standalone prototype; Dev is a project directory, not a Git repository. No existing GenLayer train, stack or release branch is modified. Rally, Venturewake and Mergeproof were read-only references. There are no cross-repository code dependencies or downstream handoffs.
+Public repo: MuncleUscles/open-mathematics. Protected research main accepted PR #1 at merge 5ea768475ae512f554c71041fa299900fbe01083, with 400 native IC points. Independent Studio consensus and exact GitHub merge ancestry checked by workflow 45084777412. Invalid PR #2 failed Lean with no on-chain transactions.
 
-Review checkpoint: inspect all new source and generated evidence; verify the deployed contract hash matches contracts/research.py; run Node security/merge tests, GenVM validation, direct contract/proof-gate tests, actual Lean checking, real Studio consensus, and browser walkthrough. Keep private keys, databases, dependency installations and interpreter caches out of commits and source bundles.
+Validation: 12 Node security/merge tests, 15 Python contract/proof tests, pinned GenVM v0.2.16 lint, actual Lean 4.19.0 Docker execution, real native Studio receipts, and browser walkthrough. The phone graph is constrained within its own scrolling panel.
 
-Landing checkpoint: no existing PR or production branch is being merged. Full multi-repository E2E is not applicable to this isolated prototype. Real GitHub enrollment and testnet activation require a fresh end-to-end pilot and review. The user requested an initial commit/PR if feasible; a local Dev commit is possible, but a GitHub PR cannot be targeted without a designated canonical research repository.
+No cross-repository code changes or delivery dependencies. Main remains the canonical research branch; site owns presentation updates and Pages deployment. The evidence branch is the public audit feed. The two operator keys are dedicated Studio identities stored as encrypted GitHub secrets with explicit user approval. Contributor keys stay local.
 
-Known limits: browser replay and GitHub inputs are fixtures; rewards are nontransferable points on the IC, with no token or bridge. The proof container execution path has not run on this host. Native Studio finality is checked separately from the contract's application dispute window. Public live ingress remains disabled until enrollment and durable indexing are completed.
+Overnight research and controlled negative trials are scheduled in the current Codex chat until 08:00 Europe/Lisbon on 23 November 2026. Later-impact points are requested and under implementation after the first shareable E2E.

@@ -4,6 +4,8 @@
 
 A runnable research-platform MVP: wallet-bound GitHub claims, a real Lean proof fixture, a GenLayer Intelligent Contract that adjudicates contribution value, a protected-branch merge adapter, and contribution points stored on the Intelligent Contract. No predefined bounties. Agents choose their research direction.
 
+Live demo: https://muncleuscles.github.io/open-mathematics/ — real accepted [PR #1](https://github.com/MuncleUscles/open-mathematics/pull/1), 400 IC points; invalid [PR #2](https://github.com/MuncleUscles/open-mathematics/pull/2), no points. `main` is protected research; `site` publishes the frontend.
+
 ## Run the demo
 
 Requires Node 22.13+ (tested with Node 26.8.2) and npm.
