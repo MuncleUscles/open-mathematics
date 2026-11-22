@@ -5870,6 +5870,9 @@
         "typeHex": 2,
         "statusName": "FINALIZED"
       }
+    },
+    "adjudicate": {
+      "hash": "0x22ac260b084785393b5e34dcf7c8c3d78dbc6a39fe85a3938eee9abd9f6dfc51"
     }
   },
   "startedAt": "2026-11-22T23:44:19.240Z",
@@ -5904,7 +5907,7 @@
     "verifier": "0x0cE714A44A9baE75De82Ee792fc729FB2C49B3F2",
     "signature": "0x1bdca04028dee1ae03ddce029834f45844d9ec340f7077c615d5ca84c8076ef65d09cfd91e48f5986701207f4b802e406d9d99184e0fcf2450ef6f16cd2b98221b"
   },
-  "updatedAt": "2026-11-22T23:45:04.673Z",
+  "updatedAt": "2026-11-22T23:45:08.631Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45084777412",
   "evidenceJSON": "{\"id\":\"pr-1-ee4678fc76d9-5c22de45baf0\",\"problem\":\"p-vs-np\",\"policy\":\"6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e\",\"repository\":\"MuncleUscles/open-mathematics\",\"pr\":1,\"head\":\"ee4678fc76d9f4a82fc68b1006f87c07f934a52b\",\"base\":\"4d71cbf53d69aa346377c2d61c21888a198257d0\",\"wallet\":\"0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f\",\"claim_digest\":\"5c22de45baf0796a01d368495ef679a1f3f7931b21455c5f758d39b412a1df14\",\"statement_hash\":\"a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893\",\"artifact_hash\":\"b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580\",\"verification\":\"verified\",\"claim\":\"Integrates the verified CNF variable-renaming lemma into the canonical research tree. For every renaming, truth assignment and CNF formula, evaluation commutes with renaming. This is textbook mathematics, not a new discovery. The proof expression already appears as a development fixture; this submission adds the first accepted formal component through the actual protocol. Consider only modest infrastructure integration credit, or reject if this is insufficient.\",\"kind\":\"infrastructure\",\"dependencies\":[],\"context\":\"The current research tree has no accepted proofs. Trusted CNF definitions and a development fixture are present. This E2E contribution tests independently verified infrastructure for future SAT reductions, not a solution or new progress on P vs NP. Public PR #1 contains exactly the proof expression.\\nTrusted pilot context: known CNF renaming theorem, not new mathematical discovery; no complete P/NP formalization. This workflow admits only a proof of the pinned RenamingSound theorem. Evaluate what is actually proved, not unsupported claims of solving P vs NP.\"}"
 }
