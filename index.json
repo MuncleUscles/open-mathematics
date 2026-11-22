@@ -1,1 +1,17 @@
-{"mode":"live-github-studio","entries":[]}
+{
+  "mode": "live-github-studio",
+  "entries": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "pr": 1,
+      "head": "ee4678fc76d9f4a82fc68b1006f87c07f934a52b",
+      "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
+      "title": "Integrates the verified CNF variable-renaming lemma into the canonical research tree. For every renaming, truth assignment and CNF formula, evaluation",
+      "status": "verified",
+      "points": "0",
+      "report": "reports/pr-1-ee4678fc76d9-5c22de45baf0.json",
+      "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45084777412",
+      "updatedAt": "2026-11-22T23:44:21.237Z"
+    }
+  ]
+}
