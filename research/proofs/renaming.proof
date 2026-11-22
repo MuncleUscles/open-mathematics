@@ -1,0 +1,4 @@
+by
+  intro r a f
+  simp [evalCNF, renameCNF, evalClause, renameClause, evalLiteral, List.all_map, List.any_map, Function.comp_def]
+  rfl
