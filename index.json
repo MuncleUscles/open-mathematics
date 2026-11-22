@@ -2,6 +2,18 @@
   "mode": "live-github-studio",
   "entries": [
     {
+      "id": "pr-2-ae390bee15b1-28fd3ab1cf7f",
+      "pr": 2,
+      "head": "ae390bee15b1dbc1e2602c772dc8ab2010bb8f38",
+      "wallet": "0x5Dc2d4c78A18f86de0FeE5C9D74d0777BE0a7778",
+      "title": "Controlled smoke test of the isolated Lean verifier with an intentionally incomplete CNF renaming proof.",
+      "status": "invalid",
+      "points": "0",
+      "report": "reports/pr-2-ae390bee15b1-28fd3ab1cf7f.json",
+      "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45084975362",
+      "updatedAt": "2026-11-22T23:48:36.575Z"
+    },
+    {
       "id": "pr-1-ee4678fc76d9-5c22de45baf0",
       "pr": 1,
       "head": "ee4678fc76d9f4a82fc68b1006f87c07f934a52b",
