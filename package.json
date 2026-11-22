@@ -1,0 +1,6 @@
+{
+  "name":"open-mathematics","version":"0.1.0","private":true,"type":"module",
+  "scripts":{"dev":"node src/server.mjs","build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs","studio:demo":"node scripts/studio-demo.mjs","verify:lean":"python3 scripts/verify_lean.py"},
+  "dependencies":{"viem":"2.45.1","genlayer-js":"0.18.9"},
+  "devDependencies":{"esbuild":"0.27.2"},"engines":{"node":">=22.13"}
+}

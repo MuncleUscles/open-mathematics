@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "toolchain": "leanprover/lean4:v4.19.0",
+  "mathlib": null,
+  "theorem": "candidate : RenamingSound",
+  "allowed_axioms": [
+    "propext",
+    "Quot.sound"
+  ],
+  "files": {
+    "Trusted.lean": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+    "check.py": "fd16ff3c4bba8d99d733aba00d2d2256335247a7cea311e97689ef6cfbfb4899"
+  }
+}

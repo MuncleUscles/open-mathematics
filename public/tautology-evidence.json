@@ -1,0 +1,11 @@
+{
+  "result": "pass",
+  "mode": "trusted-fixture",
+  "statement": "True",
+  "statement_hash": "3cbc87c7681f34db4617feaa2c8801931bc5e42d8d0f560e756dd4cd92885f18",
+  "artifact_hash": "b82cebbd86ca93c9eea8b80ece4d4f7c0660255c7f043e8e99bcd0224d14a4b6",
+  "toolchain": "leanprover/lean4:v4.19.0",
+  "axioms": [],
+  "sorry": false,
+  "log": "'candidate' does not depend on any axioms\n"
+}
