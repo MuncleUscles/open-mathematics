@@ -34,7 +34,7 @@ const verifier=clientFor(process.env.VERIFIER_SIGNING_KEY),executor=clientFor(pr
 if(createAccount(process.env.VERIFIER_SIGNING_KEY).address.toLowerCase()!==deployment.verifier.toLowerCase()||createAccount(process.env.EXECUTOR_SIGNING_KEY).address.toLowerCase()!==deployment.executor.toLowerCase())throw Error('Wrong enrolled operator');
 async function tx(stage,client,method,args){
  if(!report.transactions[stage]){const hash=await client.writeContract({address:deployment.contract,functionName:method,args,leaderOnly:false});report.transactions[stage]={hash};await save();}
- const t=report.transactions[stage];if(!t.receipt){t.receipt=await finalized(client,t.hash,{address:deployment.contract,method,id,independent:method==='adjudicate'});await save();}return t.hash;
+ const t=report.transactions[stage];if(!t.receipt){t.receipt=await finalized(client,t.hash,{address:deployment.contract,method,id,args,independent:method==='adjudicate'});await save();}return t.hash;
 }
 async function check(name,conclusion,title,summary,externalId){return gh.request('/check-runs',{method:'POST',body:{name,head_sha:claim.head,status:'completed',conclusion,external_id:externalId,output:{title,summary:summary.slice(0,60000)}}});}
 try{
