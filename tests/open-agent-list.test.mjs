@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {listOpenContributions,readOpenContributionStatus} from '../scripts/open-agent.mjs';
+import {listOpenContributions,readOpenContributionStatus,isUnknownContribution} from '../scripts/open-agent.mjs';
 import {openMigrationHash} from '../src/open-research.mjs';
 
 const contract='0x'+'1'.repeat(40),problem={descriptor:{protocol:{commit:'a'.repeat(40)}},deployment:{problem:'p-vs-np',repository:'owner/problem',branch:'research',chainId:61999,contract}};
@@ -63,5 +63,30 @@ test('status prefers the current ledger and authenticates a predecessor archive 
  await assert.rejects(readOpenContributionStatus({index:{entries:[{...archived,id:'pr-wrong'}]},number:7,problem:successor,native:async()=>old}),/scope mismatch/);
  for(const change of [{contract:'0x'+'f'.repeat(40)},{repository:'foreign/problem'},{chainId:1}]){
   assert.equal(await readOpenContributionStatus({index:{entries:[{...archived,...change}]},number:7,problem:successor,native:async()=>assert.fail('Foreign archives cannot trigger native reads')}),null);
+ }
+});
+
+const absent=()=>Object.assign(Error('RPC execution failed'),{cause:{data:{receipt:{execution_result:'ERROR',result:'AXVua25vd24gY29udHJpYnV0aW9u'}}}});
+test('status explains a pre-registration failure without inventing a native verdict or points',async()=>{
+ const entry={id:'pr-18',pr:18,contract,chainId:61999,repository:problem.deployment.repository,head:'a'.repeat(40),report:'reports/pr-18.json',status:'invalid'};
+ const report={...entry,error:'Kernel rejected serialized proof',updatedAt:'2026-11-23T20:00:00Z'};
+ const result=await readOpenContributionStatus({index:{entries:[entry]},number:18,problem,native:async()=>{throw absent();},readReport:async file=>{assert.equal(file,entry.report);return report;}});
+ assert.equal(result.native,null);assert.equal(result.nativeState,'not-registered-at-read');assert.equal(result.worker.error,report.error);
+ assert.equal(Object.hasOwn(result,'points'),false);assert.match(result.next,/not a native merit decision/);assert.match(result.next,/transaction may still be pending/);
+ for(const status of ['verifying','registration-pending','submitted','credited']){
+  const pending=await readOpenContributionStatus({index:{entries:[entry]},number:18,problem,native:async()=>{throw absent();},readReport:async()=>({...report,status})});
+  assert.equal(pending.native,null);assert.equal(pending.worker.status,status);assert.equal(Object.hasOwn(pending,'points'),false);
+ }
+ for(const patch of [{id:'different'},{pr:19},{repository:'foreign/repo'},{contract:'0x'+'2'.repeat(40)},{chainId:1},{head:'b'.repeat(40)},{status:'invented'}])
+  await assert.rejects(readOpenContributionStatus({index:{entries:[entry]},number:18,problem,native:async()=>{throw absent();},readReport:async()=>({...report,...patch})}),/scope/);
+ await assert.rejects(readOpenContributionStatus({index:{entries:[{...entry,report:'reports/other.json'}]},number:18,problem,native:async()=>{throw absent();},readReport:async()=>assert.fail('wrong report must not load')}),/report path/);
+});
+
+test('status never turns rate limits, generic failures or forged error text into an absent native record',async()=>{
+ assert.equal(isUnknownContribution(absent()),true);
+ for(const error of [Error('unknown contribution'),Object.assign(Error('rate limit'),{code:429}),Object.assign(Error('execution failed'),{data:{receipt:{execution_result:'SUCCESS',result:'AXVua25vd24gY29udHJpYnV0aW9u'}}})]){
+  assert.equal(isUnknownContribution(error),false);
+  const entry={id:'pr-1',pr:1,contract,chainId:61999,repository:problem.deployment.repository};
+  await assert.rejects(readOpenContributionStatus({index:{entries:[entry]},number:1,problem,native:async()=>{throw error;},readReport:async()=>assert.fail('RPC failure cannot authorize archive fallback')}),e=>e===error);
  }
 });

@@ -2,15 +2,17 @@
 // Trusted helper: contributor files are data, and signatures remain local.
 import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
 import {randomBytes,createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
-import {fileURLToPath,pathToFileURL} from 'node:url';import {recoverMessageAddress,isAddress} from 'viem';
+import {fileURLToPath} from 'node:url';import {recoverMessageAddress,isAddress} from 'viem';
 import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes,readOpenRecordInheritance} from '../src/open-research.mjs';
 import {digest,message} from '../src/security.mjs';import {GitHub} from '../src/github.mjs';
 import {fetchGitHubIdentity} from '../src/github-identity.mjs';
 import {readEvidenceFile} from '../github/evidence-file.mjs';
-import {clientFor,read,finalized} from '../github/runtime.mjs';
+import {clientFor,read,finalized,retry} from '../github/runtime.mjs';
+import {normalize} from '../src/studio.mjs';
 import {loadLocalSigner,publicEnvelope} from './problem-agent.mjs';import {contributorPath} from './agent.mjs';
 import {createStudioClient} from '../src/studio-client.mjs';
 import {resolveOpenDependencies,writeOpenDependencyManifest,openVerifierFailure} from '../github/open-verify.mjs';
+import {resolveContributorGitHubToken,createLocalWallet,localWalletAddress} from './contributor-local.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function claimFor(problem,{pr,head,base,recordPath,recordBytes,wallet,now=Date.now()}){
  const d=problem.deployment,claim={version:4,domain:d.origin,chainId:d.chainId,problem:d.problem,repository:d.repository,pr,head,base,branch:d.branch,contract:d.contract,policy:problem.policyHash,submission_path:recordPath,submission_hash:sha256(recordBytes),wallet,nonce:randomBytes(16).toString('hex'),expires:now+540000,protocol_commit:problem.descriptor.protocol.commit};
@@ -61,15 +63,57 @@ export function currentOpenStatus(index,number,deployment){
  if(!index||!Array.isArray(index.entries))throw Error('Malformed evidence index');
  return index.entries.find(e=>e?.pr===number&&typeof e.contract==='string'&&e.contract.toLowerCase()===deployment.contract.toLowerCase()&&e.chainId===deployment.chainId&&e.repository===deployment.repository);
 }
-export async function readOpenContributionStatus({index,number,problem,native}){
+export function createOpenNativeReader(problem,{createClient=clientFor}={}){
+ let client,ready;
+ const initialize=async()=>{
+  client=createClient();
+  if(Number(await client.getChainId())!==problem.deployment.chainId)throw Error('Wrong chain');
+  await requireOpenConfiguration(problem,(method,args)=>read(client,problem.deployment.contract,method,args));
+ };
+ return async(method,args)=>{
+  await (ready??=initialize());
+  const result=await retry(async()=>{
+   try{return {value:await client.readContract({address:problem.deployment.contract,functionName:method,args,transactionHashVariant:'latest-final'})};}
+   catch(error){if(isUnknownContribution(error))return {absent:error};throw error;}
+  });
+  // Absence is a completed view result; repeated reads waste the shared RPC quota.
+  if(result.absent)throw result.absent;
+  return normalize(result.value);
+ };
+}
+export function isUnknownContribution(error){
+ for(let depth=0;error&&typeof error==='object'&&depth<8;depth++,error=error.cause){
+  const receipt=error.data?.receipt;
+  // Exact GenVM UserError result, not a substring of an arbitrary RPC failure.
+  if(receipt?.execution_result==='ERROR'&&receipt.result==='AXVua25vd24gY29udHJpYnV0aW9u')return true;
+ }
+ return false;
+}
+export async function readOpenContributionStatus({index,number,problem,native,readReport}){
  const d=problem.deployment;
  let entry=currentOpenStatus(index,number,d);
  if(!entry&&d.predecessor)entry=currentOpenStatus(index,number,{...d,contract:d.predecessor.address});
  if(!entry)return null;
  if(typeof entry.id!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$/.test(entry.id))throw Error('Indexed contribution ID required');
- const record=await native('get',[entry.id]),inheritance=await readOpenRecordInheritance(record,entry.id,problem,id=>native('get_inheritance',[id]));
+ let record;
+ try{record=await native('get',[entry.id]);}
+ catch(error){
+  if(!isUnknownContribution(error)||!readReport)throw error;
+  const file=`reports/${entry.id}.json`;
+  if(entry.report!==file)throw Error('Indexed report path differs from contribution identity');
+  const report=await readReport(file);
+  if(!report||report.id!==entry.id||report.pr!==number||report.repository!==entry.repository||report.chainId!==entry.chainId||
+     report.contract?.toLowerCase()!==entry.contract.toLowerCase()||report.head!==entry.head||
+     !['verifying','registration-pending','invalid','rejected','submitted','provisional','challenged','approved','credited','expired'].includes(report.status))
+   throw Error('Worker report differs from indexed contribution scope');
+  return {archived:entry,worker:{status:report.status,error:report.error??report.registrationRejection?.reason??null,updatedAt:report.updatedAt},
+   report:`https://github.com/${d.repository}/blob/evidence/${file}`,run:entry.run,
+   native:null,nativeState:'not-registered-at-read',contract:d.contract,sourceContract:entry.contract,
+   next:'The finalized contract read found no registered contribution at this time. The worker report explains processing or verification failures; it is not a native merit decision and does not establish points. A transaction may still be pending. Inspect Actions or ask the operator to resume the original comment; do not repost it for a new judgment.'};
+ }
+ const inheritance=await readOpenRecordInheritance(record,entry.id,problem,id=>native('get_inheritance',[id]));
  if(Number(record.evidence.pr)!==number||record.evidence.contract.toLowerCase()!==entry.contract.toLowerCase())throw Error('Indexed outcome differs from native contribution identity');
- return {archived:entry,native:record,contract:d.contract,sourceContract:record.evidence.contract,inheritance,next:'Native state is authoritative. Archived evidence keeps its original contract; failed consensus is preserved, not rerolled.'};
+ return {archived:entry,native:record,contract:d.contract,sourceContract:record.evidence.contract,inheritance,next:'Native state is authoritative. Archived evidence may lag an active worker. needsResume means unfinished work, not a request to restart a running Actions job; check the linked run first. Historical evidence keeps its original contract; failed consensus is preserved, not rerolled.'};
 }
 export async function listOpenContributions({native,problem,offset=0,limit=20}){
  if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>50)throw Error('Usage: list [OFFSET >= 0] [LIMIT 1..50]; defaults: 0 20');
@@ -94,12 +138,19 @@ export async function run(argv=process.argv.slice(2)){
   const args=[...argv],flag=(name,fallback)=>{const i=args.indexOf(name);if(i<0)return fallback;const v=args[i+1];if(!v||v.startsWith('--'))throw Error(name+' needs a path');args.splice(i,2);if(args.includes(name))throw Error('Repeated '+name);return v;};
   const directory=flag('--problem',process.env.OPEN_MATH_PROBLEM_DIR),worktree=fs.realpathSync(flag('--worktree',process.cwd()));
   const [command,...rest]=args,out=x=>console.log(JSON.stringify(x,null,2)),workFile=file=>contributorPath(worktree,file);
-  if(!command||command==='help'){out({usage:'node /trusted/protocol/scripts/open-agent.mjs --problem /trusted/problem [--worktree /contribution] COMMAND',commands:{inspect:'Read the open objective, evidence rules and deployment.',list:'list [OFFSET] [LIMIT] — discover native contribution IDs, scope and points; defaults: 0 20, maximum 50 per page.',init:'init SLUG PUBLIC_WALLET [formal|research-note] — create a v2 Lean/Mathlib example or note; replace it with your research.',format:'format RECORD_OR_BUNDLE — normalize JSON before obtaining its hash or signing.',check:'check RECORD [--lean] — format only by default; --lean runs isolated pinned proof verification.',show:'show CONTRIBUTION_ID — exact native record, bundle and fully qualified theorem reference for reuse.',prepare:'prepare PR RECORD PUBLIC_WALLET — export the exact message for an external wallet.',sign:'sign PR RECORD — use CONTRIBUTOR_KEY_FILE and output only the public claim.',envelope:'envelope PREPARED_FILE SIGNATURE_FILE — validate an external signature.',status:'status PR — read archive plus finalized native state.',challenge:'challenge ID FILE [--impact] [--send] — preview or send substantive evidence.'},guide:'docs/FULL-LEAN.md in this trusted protocol checkout',keys:'Keep private keys outside repositories. Never send them to the platform.'});return;}
+  if(!command||command==='help'){out({usage:'node /trusted/protocol/scripts/open-agent.mjs --problem /trusted/problem [--worktree /contribution] COMMAND',commands:{wallet:'wallet create|address ABSOLUTE_KEY_FILE — local owner-only key setup; prints only the public address.',inspect:'Read the open objective, evidence rules and deployment.',list:'list [OFFSET] [LIMIT] — discover native contribution IDs, scope and points; defaults: 0 20, maximum 50 per page.',init:'init SLUG PUBLIC_WALLET [formal|research-note] — create a v2 Lean/Mathlib example or note; replace it with your research.',format:'format RECORD_OR_BUNDLE — normalize JSON before obtaining its hash or signing.',check:'check RECORD [--lean] — format only by default; --lean runs isolated pinned proof verification.',show:'show CONTRIBUTION_ID — exact native record, bundle and fully qualified theorem reference for reuse.',prepare:'prepare PR RECORD PUBLIC_WALLET — export the exact message for an external wallet.',sign:'sign PR RECORD — use CONTRIBUTOR_KEY_FILE and output only the public claim.',envelope:'envelope PREPARED_FILE SIGNATURE_FILE — validate an external signature.',status:'status PR — read archive plus finalized native state.',challenge:'challenge ID FILE [--impact] [--send] — preview or send substantive evidence.'},guide:'docs/FULL-LEAN.md in this trusted protocol checkout',keys:'Keep private keys outside repositories. Never send them to the platform.'});return;}
   if(command==='format'){const f=workFile(rest[0]),maximum=rest[0]?.startsWith('research/artifacts/')?32768:16000,bytes=readProblemFile(worktree,rest[0],maximum),text=new TextDecoder('utf-8',{fatal:true}).decode(bytes),normalized=JSON.stringify(JSON.parse(text),null,2)+'\n';if(Buffer.byteLength(normalized)>maximum)throw Error(`Formatted JSON exceeds ${maximum} UTF-8 bytes`);fs.writeFileSync(f,normalized);out({formatted:rest[0]});return;}
+  if(command==='wallet'){
+   if(rest.length!==2||!['create','address'].includes(rest[0]))throw Error('Usage: wallet create|address /absolute/private/key-file');
+   // The caller may launch from HOME, which is not itself a repository.
+   // walletPath also checks every destination ancestor for an actual .git.
+   const roots=[toolRoot,...(directory?[fs.realpathSync(directory)]:[])];
+   out((rest[0]==='create'?createLocalWallet:localWalletAddress)(rest[1],{roots}));return;
+  }
   if(!directory)throw Error('Set OPEN_MATH_PROBLEM_DIR to the trusted main-branch configuration checkout.');
   const problem=loadOpenProblem(directory),d=problem.deployment;verifyOpenCheckout(problem,toolRoot);
-  const gh=new GitHub({repository:d.repository,token:process.env.GITHUB_TOKEN}),reader=clientFor(),native=(m,a)=>read(reader,d.contract,m,a);
-  if(await reader.getChainId()!==d.chainId)throw Error('Wrong chain');await requireOpenConfiguration(problem,native);
+  const gh=new GitHub({repository:d.repository}),native=createOpenNativeReader(problem);
+  if(['prepare','sign','status'].includes(command))gh.token=resolveContributorGitHubToken();
   function decode(bytes,wallet){const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));return decodeOpenSubmission(bytes,{wallet:wallet||parsed.attribution?.wallet,problem});}
   if(command==='inspect')out({admission:'open',objective:problem.policy.objective,admissionLimits:(await native('get_problem',[])).admission_limits,contract:d.contract,policy:problem.policyHash,protocolCommit:problem.descriptor.protocol.commit,toolchain:problem.policy.toolchain,allowedAxioms:problem.policy.allowed_axioms,evidence:['formal: contributor-defined statement and definitions, checked by isolated Lean; see docs/FULL-LEAN.md for pinned Mathlib and v2 source bundles','research-note: reviewed arguments; no formal-proof badge'],rewards:'Nontransferable native initial and later-impact points; no guaranteed award.',next:'Run list to discover earlier work; choose a question, then init SLUG PUBLIC_WALLET. No curator or task enrollment exists.'});
   else if(command==='list'){
@@ -114,6 +165,7 @@ export async function run(argv=process.argv.slice(2)){
    out({record,artifact:s.evidence.artifact_path,...(kind==='formal'&&problem.policy.version===6?{example:'The starter is a standard textbook identity, not a novel result or a claim to points.'}:{}),next:'Replace all guidance with your work; disclose prior art and limits. Known mathematics needs formalization/integration provenance and actual sources. Run format, then check; add --lean for isolated proof verification.'});
   }else if(command==='check'){
    const s=decode(readProblemFile(worktree,rest[0],16000)),artifactBytes=readProblemFile(worktree,s.evidence.artifact_path,s.evidence.kind==='formal'?32768:12000),artifactText=validateOpenArtifactBytes(artifactBytes,s.evidence.kind);
+   if(s.dependencies.length)gh.token=resolveContributorGitHubToken();
    const resolved=await resolveOpenDependencies({problem,submission:s,artifactText,github:gh,readRecord:id=>native('get',[id]),readInheritance:id=>native('get_inheritance',[id])});
    if(s.evidence.kind==='research-note'){out({record:'valid',evidence:'research-note',formalVerification:false,next:'GenLayer still needs to review whether the argument is supported and useful.'});return;}
    const temp=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-local-'));
@@ -126,6 +178,7 @@ export async function run(argv=process.argv.slice(2)){
   }else if(command==='show'){
    const r=await native('get',[rest[0]]),inheritance=await readOpenRecordInheritance(r,rest[0],problem,id=>native('get_inheritance',[id])),reuse=formalReuseReference(r.evidence);out({record:r,inheritance,namespace:reuse?.namespace??null,reuse,next:'Only credited formal artifacts can be imported. Use the exact fully qualified reference; put its ID and bundle_hash in the bundle, and the same ID with actual use and importance in the record.'});
   }else if(command==='prepare'||command==='sign'){
+   await native('get_config',[]);
    const number=Number(rest[0]),recordPath=rest[1],account=command==='sign'?loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]):null,wallet=account?.address||rest[2];
    if(!Number.isSafeInteger(number)||number<1||!isAddress(wallet||''))throw Error('PR number, record path and public wallet required');
    const {pr,recordBytes}=await prepareOpenContribution({problem,github:gh,number,recordPath,wallet});
@@ -138,7 +191,7 @@ export async function run(argv=process.argv.slice(2)){
    if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Wrong signature');process.stdout.write(publicEnvelope(claim,signature));
   }else if(command==='status'){
    const number=Number(rest[0]);if(!Number.isSafeInteger(number)||number<1)throw Error('PR number required');
-   const index=await readEvidenceFile(gh,'index.json'),status=await readOpenContributionStatus({index:index?.data??{entries:[]},number,problem,native});
+   const index=await readEvidenceFile(gh,'index.json'),status=await readOpenContributionStatus({index:index?.data??{entries:[]},number,problem,native,readReport:async file=>(await readEvidenceFile(gh,file))?.data});
    if(!status){out({pr:number,status:'No indexed outcome',next:'Check Actions or ask the operator to resume the original signed comment. Do not edit or repost it.'});return;}
    out(status);
   }else if(command==='challenge'){
@@ -149,4 +202,4 @@ export async function run(argv=process.argv.slice(2)){
   }else throw Error('Unknown command; run help');
  }catch(error){console.error(JSON.stringify({error:error.message,...(sent?{transaction:sent,next:'Inspect this transaction before retrying; it may already be broadcast.'}:{})}));process.exitCode=1;}
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await run();
+if(process.argv[1]&&fileURLToPath(import.meta.url)===fs.realpathSync(process.argv[1]))await run();
