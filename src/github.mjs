@@ -40,7 +40,7 @@ export class GitHub {
 }
 // The caller supplies a chain adapter, never a user-provided verdict. The chain
 // adapter must verify successful FINALIZED execution and the exact transaction.
-export async function executeDecision({id,chain,github,journal}){
+export async function executeDecision({id,chain,github,journal,evidenceCheck='open-mathematics/lean'}){
   const d=await chain.finalizedDecision(id);
   if(d.authority!=='genlayer-finalized'||d.leaderOnly!==false||!d.validatorAgreement||d.mode!=='live'||!d.executionSucceeded)throw Error('Finalized independent GenLayer judgment required');
   if(d.repository!==github.repository||d.id!==id)throw Error('Decision identity mismatch');
@@ -50,7 +50,7 @@ export async function executeDecision({id,chain,github,journal}){
   if(pr.head.sha!==d.head||(!pr.merged&&pr.base.sha!==d.base)||pr.base.ref!==d.branch)throw Error('Stale head or base: reverify and readjudicate');
   if(!pr.merged&&await github.branchHead(d.branch)!==d.base)throw Error('Canonical branch advanced: rebase, reverify and sign again');
   const policy=await github.protection(d.branch);
-  if(policy.enforce_admins?.enabled!==true||!policy.required_status_checks?.strict||!policy.required_status_checks.checks?.some(c=>c.context==='open-mathematics/finalized'&&c.app_id===d.appId)||!policy.required_status_checks.checks?.some(c=>c.context==='open-mathematics/lean'&&c.app_id===d.verifierAppId))throw Error('Protected branch and app-bound checks required');
+  if(policy.enforce_admins?.enabled!==true||!policy.required_status_checks?.strict||!policy.required_status_checks.checks?.some(c=>c.context==='open-mathematics/finalized'&&c.app_id===d.appId)||!policy.required_status_checks.checks?.some(c=>c.context===evidenceCheck&&c.app_id===d.verifierAppId))throw Error('Protected branch and app-bound checks required');
   // checkPublisher owns only this contract's check and must bind its external_id
   // to the receipt hash. It cannot publish the independent verifier's check.
   await chain.publishFinalCheck(d);

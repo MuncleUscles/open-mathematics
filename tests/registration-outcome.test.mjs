@@ -77,6 +77,31 @@ test('a newly broadcast duplicate is journaled as terminal and a replay only rea
   assert.deepEqual(run.calls.slice(6),['receipt']);
 });
 
+test('v5 identity, quota and duplicate rejections retain their safe reason without rebroadcasting',async()=>{
+  for(const reason of [
+    'statement or artifact already reserved credited or historical',
+    'signed claim already registered',
+    'verified normal GitHub account and valid creation time required',
+    'GitHub account below minimum age at original signed claim',
+    'one active contribution per GitHub account; finish or expire the existing claim',
+    'three registrations per GitHub account in rolling 24 hours',
+    'content has unresolved adjudication; same-content resubmission is fenced',
+    'previously rejected content cannot receive a fresh adjudication',
+    'same content already has an active or settled claim',
+  ]){
+    const report={transactions:{}};
+    const run=fixture(failedReceipt({
+      consensus_data:{leader_receipt:[{execution_result:'ERROR',result:{status:'rollback',payload:'UserError: '+reason},genvm_result:hidden}]},
+    }),report,[],{sendOnce:true});
+    const expected={status:'rejected',registrationRejection:{hash,reason}};
+    assert.deepEqual(await run.recover(),expected);
+    assert.deepEqual(run.calls,['history','save','write','save','receipt','save']);
+    assert.deepEqual(await run.recover(),expected);
+    assert.deepEqual(run.calls.slice(6),['receipt']);
+    assert(!JSON.stringify(run.saved).includes(hidden));
+  }
+});
+
 test('indeterminate consensus and a receipt that does not bind the saved registration remain pending',async()=>{
   for(const changes of [
     {statusName:'UNDETERMINED'}, {statusName:'CANCELED'}, {statusName:'LEADER_TIMEOUT'},
@@ -101,9 +126,11 @@ test('an unresolved intent stays pending when the exact history match is still a
 });
 
 test('an unrecognized native error payload is kept private and yields a generic terminal registration error',async()=>{
-  const run=fixture(failedReceipt({
-    consensus_data:{leader_receipt:[{execution_result:'ERROR',result:{status:'contract_error',payload:hidden}}]},
-  }));
-  assert.deepEqual(await run.recover(),{status:'rejected',registrationRejection:{hash,reason:'The finalized registration transaction failed execution.'}});
-  assert(!JSON.stringify(run.saved).includes(hidden));
+  for(const payload of [hidden,'GitHub account below minimum age at original signed claim: '+hidden]){
+    const run=fixture(failedReceipt({
+      consensus_data:{leader_receipt:[{execution_result:'ERROR',result:{status:'contract_error',payload}}]},
+    }));
+    assert.deepEqual(await run.recover(),{status:'rejected',registrationRejection:{hash,reason:'The finalized registration transaction failed execution.'}});
+    assert(!JSON.stringify(run.saved).includes(hidden));
+  }
 });
