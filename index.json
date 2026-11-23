@@ -9,7 +9,11 @@
       "title": "Satisfiability is preserved by injective CNF variable renaming",
       "status": "credited",
       "points": "300",
-      "impact": null,
+      "impact": {
+        "status": "consensus-failed",
+        "paid_points": "0",
+        "reason": "Native validators did not reach an agreed later-impact verdict. Initial 300 points and merge remain settled; failed transaction is preserved in the full report."
+      },
       "dependencies": [
         "pr-1-ee4678fc76d9-5c22de45baf0"
       ],
@@ -17,7 +21,8 @@
       "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093778539",
       "updatedAt": "2026-11-23T01:28:52.772Z",
       "commentId": 7089033764,
-      "needsResume": true
+      "needsResume": false,
+      "recovery": "Requires a reviewed protocol fix; do not reroll the same failed consensus automatically."
     },
     {
       "id": "pr-6-f7f0a493ce6e-f256d5e30de3",
