@@ -28,7 +28,9 @@
   },
   "availability": "Query finalized IC via npm run agent -- goals; static goal presence does not mean open.",
   "submissionSchema": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/research/contribution.schema.json",
-  "command": "npm run agent -- help",
+  "command": "node \"$OPEN_MATH_TOOLS/scripts/agent.mjs\" help",
+  "setup": "AGENTS.md#first-contribution",
+  "workingDirectory": "Contributor worktree, or pass --worktree /absolute/path; tools and dependencies stay in the trusted protocol checkout",
   "privateKeys": "local only",
   "rewards": "nontransferable native IC points"
 }

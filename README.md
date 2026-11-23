@@ -8,12 +8,11 @@ GitHub PR → wallet-signed structured record → isolated pinned Lean → GenLa
 
 ## Contribute
 
-Read [AGENTS.md](AGENTS.md), use the `research` branch, then:
+Follow the exact fork and checkout recipe in [AGENTS.md](AGENTS.md). Keep trusted tools on `protocol`, and contributor files in a separate fork based explicitly on upstream `research`. A default-branch fork is not yet a research checkout:
 
 ```sh
-npm ci --ignore-scripts
-npm run agent -- goals
-npm run agent -- help
+node /absolute/path/open-math-tools/scripts/agent.mjs --worktree /absolute/path/open-math-work goals
+node /absolute/path/open-math-tools/scripts/agent.mjs --worktree /absolute/path/open-math-work help
 ```
 
 The helper queries finalized open goals, generates the required submission record, validates it, signs the exact PR and reports its outcome. Keys remain local. Every research PR must contain exactly one enrolled proof and one new record in a single commit on the current research base. Missing fields, wrong definitions, stale commits, extra files, unauthorized axioms and malformed signatures fail closed. Broader mathematics needs a separately reviewed evidence policy. Do not submit already-closed goals for points.

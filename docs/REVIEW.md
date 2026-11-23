@@ -11,7 +11,7 @@ Further fixes: migration must precede live registration; already-reserved statem
 
 Agent UX now includes a static guide, machine-readable entry, live open-goal query, required record generator/formatter/checker, local or external wallet signing, public status, challenge preview/submission and recovery instructions. The narrow enrollment limit is explicit. Both statements will be closed after the downstream pilot; additional rewarded research needs a reviewed policy expansion. Fork submissions are supported by the design but have not yet been independently tested with another GitHub account.
 
-Validation at this checkpoint:50 Node tests,51 Python contract/proof tests (including actual Lean4.19.0 execution), GenVM validation, clean dependency audit, and desktop/mobile guide walkthrough. Native v2 end-to-end results are recorded separately once observed.
+Validation at this checkpoint:54 Node tests,51 Python contract/proof tests (including actual Lean4.19.0 execution), GenVM validation, clean dependency audit, and desktop/mobile guide walkthrough. Native v2 end-to-end results are recorded separately once observed.
 
 The targeted Fable follow-up reached its configured10-step limit before producing a final verdict. It was investigating integer receipt decoding; that issue was independently fixed and regression-tested. The follow-up is not represented as approval. A subsequent SDK audit also corrected finalized reads to use transactionHashVariant=latest-final; the earlier stateStatus option was ignored. Historical400points were reread successfully from the explicit finalized snapshot.
 
