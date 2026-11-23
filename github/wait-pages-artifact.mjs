@@ -8,18 +8,30 @@ const positive=value=>typeof value==='number'?Number.isSafeInteger(value)&&value
 const need=(ok,message)=>{if(!ok)throw Error('Pages artifact visibility: '+message);};
 const pause=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 const ATTEMPTS=12,INTERVAL=5000;
+const shape=value=>value===null?'null':Array.isArray(value)?'array':typeof value;
+// Only shapes and numeric counts are diagnostic: never include response bodies
+// or artifact fields, which can contain URLs and other untrusted strings.
+const listingSummary=page=>`response=${shape(page)}, total_count=${Number.isSafeInteger(page?.total_count)?page.total_count:shape(page?.total_count)}, artifacts=${Array.isArray(page?.artifacts)?`array(${page.artifacts.length})`:shape(page?.artifacts)}`;
 
 export async function waitPagesArtifact({github,artifactId,runId,repositoryId,headSha,now=Date.now,sleep=pause}){
  need(positive(artifactId)&&positive(runId)&&positive(repositoryId)&&typeof headSha==='string'&&/^[a-f0-9]{40}$/.test(headSha),
   'exact uploaded artifact, workflow, repository and head identifiers required');
  const expectedId=Number(artifactId),expectedRun=Number(runId),expectedRepository=Number(repositoryId);
- let visible=false;
+ let visible=false,lastListing='';
  for(let attempt=0;attempt<ATTEMPTS;attempt++){
   // REST listing requires actions:read. Do not follow download URLs or use an
   // artifact from another run. HTTP/auth/rate-limit failures stop immediately.
   const page=await github.request(`/actions/runs/${expectedRun}/artifacts?name=github-pages&per_page=100`,{maxResponseBytes:262144});
-  need(Number.isSafeInteger(page?.total_count)&&page.total_count>=0&&page.total_count<=100&&
-   Array.isArray(page.artifacts)&&page.artifacts.length===page.total_count,'complete bounded artifact listing required');
+  lastListing=listingSummary(page);
+  need(shape(page)==='object'&&Number.isSafeInteger(page.total_count)&&page.total_count>=0&&page.total_count<=100&&
+   Array.isArray(page.artifacts)&&page.artifacts.length<=100,`bounded artifact listing required (${lastListing})`);
+  if(page.artifacts.length!==page.total_count){
+   // A bounded but incomplete listing is not visibility evidence. Retry within
+   // the same deadline and require two new complete observations afterward.
+   visible=false;
+   if(attempt+1<ATTEMPTS)await sleep(INTERVAL);
+   continue;
+  }
   const matches=page.artifacts.filter(artifact=>artifact?.name==='github-pages'||artifact?.id===expectedId);
   need(matches.length<=1,'ambiguous or conflicting Pages artifacts');
   if(matches.length){
@@ -36,7 +48,7 @@ export async function waitPagesArtifact({github,artifactId,runId,repositoryId,he
   }else visible=false;
   if(attempt+1<ATTEMPTS)await sleep(INTERVAL);
  }
- throw Error('Pages artifact visibility: exact uploaded artifact did not become stably visible; deployment was not attempted');
+ throw Error(`Pages artifact visibility: exact uploaded artifact did not become stably visible; deployment was not attempted (${lastListing})`);
 }
 
 export async function run(environment=process.env){
