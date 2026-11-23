@@ -1,0 +1,38 @@
+{
+  "id": "pr-6-f7f0a493ce6e-f256d5e30de3",
+  "mode": "live-github-studio",
+  "contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+  "chainId": 61999,
+  "repository": "MuncleUscles/open-mathematics",
+  "pr": 6,
+  "head": "f7f0a493ce6e9fadfd3d1527d6bfe9107956b0c2",
+  "base": "bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7",
+  "claim": {
+    "claim": {
+      "version": 2,
+      "domain": "https://muncleuscles.github.io",
+      "chainId": 61999,
+      "problem": "p-vs-np",
+      "repository": "MuncleUscles/open-mathematics",
+      "pr": 6,
+      "head": "f7f0a493ce6e9fadfd3d1527d6bfe9107956b0c2",
+      "base": "bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7",
+      "branch": "research",
+      "contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+      "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+      "submission_path": "research/submissions/verifier-incomplete-proof-test.json",
+      "submission_hash": "c40d8be62a66922698cc1b9a57ebd476c9201448f8f9da6a5d8ea46993e4d524",
+      "wallet": "0xE325C3DC47C08100806f7c19559EA8D3aA0325cF",
+      "nonce": "3df3da371cfcfee4389f94e7273eb3a9",
+      "expires": 1795397043865
+    },
+    "signature": "0x65a31857e2d865f1219511047a6273bf63b3c5b7bb57267b22d194540151785e075f486496c823e8e0850c7e151401aaefd67629447fbc75c7ff4ca833b48e291b"
+  },
+  "commentId": 7089000882,
+  "transactions": {},
+  "startedAt": "2026-11-23T01:16:25.994Z",
+  "status": "invalid",
+  "error": "Proof verifier rejected: file:///home/runner/work/open-mathematics/open-mathematics/github/verify-pr.mjs:44\n if(run.status!==0)throw Error('Isolated verifier rejected: '+run.stderr);\n                         ^\n\nError: Isolated verifier rejected: Traceback (most recent call last):\n  File \"/home/runner/work/open-mathematics/open-mathematics/scripts/verify_lean.py\", line 45, in <module>\n    if result.returncode or 'sorry' in log or 'warning:' in log or 'error:' in log:raise ValueError('Lean rejected: '+log[:2000])\n                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: Lean rejected: Lean (version 4.19.0, x86_64-unknown-linux-gnu, commit 6caaee842e94, Release)\n/input/Check.lean:24:35: error: unsolved goals\nr s : Nat → Nat\nh : ∀ (n : Nat), s (r n) = n\nf : CNF\n⊢ Satisfiable (renameCNF r f) ↔ Satisfiable f\n'candidate' depends on axioms: [sorryAx]\nOPEN_MATH_PROOF_USE:none\n\n\n    at file:///home/runner/work/open-mathematics/open-mathematics/github/verify-pr.mjs:44:26\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n\nNode.js v22.22.0\n",
+  "updatedAt": "2026-11-23T01:16:30.646Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093536890"
+}
