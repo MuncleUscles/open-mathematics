@@ -65,7 +65,7 @@ ${checkouts}      - name: Select a valid signed claim
         env:
           GITHUB_TOKEN: \${{ github.token }}
       - name: Build pinned isolated Lean
-        if: steps.claim.outputs.comment_id != ''
+        if: steps.claim.outputs.comment_id != '' && steps.claim.outputs.needs_lean != 'false'
         run: bash ${buildScript}
       - name: Verify and implement GenLayer's final decision
         if: steps.claim.outputs.comment_id != ''
@@ -109,6 +109,7 @@ on:
     branches: [main]
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 concurrency:
@@ -134,9 +135,16 @@ ${checkouts}      - name: Build dashboard with a dated finalized-native snapshot
         run: node scripts/build-open-site.mjs ../problem ../site --snapshot
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+        id: upload
         with:
           path: site
           retention-days: 1
+      - name: Wait for this run's exact uploaded artifact
+        timeout-minutes: 5
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
+          PAGES_ARTIFACT_ID: \${{ steps.upload.outputs.artifact_id }}
+        run: node github/wait-pages-artifact.mjs
       - name: Publish problem dashboard
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

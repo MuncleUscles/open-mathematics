@@ -5,6 +5,7 @@ import {createClient} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
 import {loadOpenProblem, verifyOpenCheckout} from '../src/open-research.mjs';
 import {collectOpenSnapshot} from '../src/open-snapshot.mjs';
+import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 
 export async function writeOpenSnapshot({problem, destination, read, now}) {
   const pending = destination + '.pending';
@@ -28,7 +29,7 @@ async function main() {
   if (!directory || !destination || extra.length) throw Error('Usage: capture-open-ledger.mjs TRUSTED_PROBLEM OUTPUT_JSON');
   const problem = loadOpenProblem(directory), root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   verifyOpenCheckout(problem, root);
-  const client = createClient({chain: studionet});
+  const client = withStudioBatchPacing(createClient({chain: studionet}));
   let chainChecked = false;
   const snapshot = await writeOpenSnapshot({problem, destination, read: async (functionName, args) => {
     if (!chainChecked) {
