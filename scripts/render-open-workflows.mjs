@@ -79,6 +79,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_run:
+    workflows: [Open research adjudication]
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
   pages: write
@@ -88,7 +92,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -98,7 +106,8 @@ jobs:
       name: github-pages
       url: \${{ steps.deployment.outputs.page_url }}
     steps:
-${checkouts}      - run: node scripts/build-open-site.mjs ../problem ../site
+${checkouts}      - name: Build dashboard with a dated finalized-native snapshot
+        run: node scripts/build-open-site.mjs ../problem ../site --snapshot
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
         with:
