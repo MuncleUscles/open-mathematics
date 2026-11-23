@@ -1,0 +1,39 @@
+{
+  "id": "pr-8-0fee4ace7180-bd78592931d5",
+  "mode": "live-github-studio",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chainId": 61999,
+  "repository": "MuncleUscles/open-mathematics",
+  "pr": 8,
+  "head": "0fee4ace7180bd69029de5b86195b6fcc5c3ba8a",
+  "base": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+  "claim": {
+    "claim": {
+      "version": 2,
+      "domain": "https://muncleuscles.github.io",
+      "chainId": 61999,
+      "problem": "p-vs-np",
+      "repository": "MuncleUscles/open-mathematics",
+      "pr": 8,
+      "head": "0fee4ace7180bd69029de5b86195b6fcc5c3ba8a",
+      "base": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+      "branch": "research",
+      "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+      "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+      "submission_path": "research/submissions/verifier-extra-file-test.json",
+      "submission_hash": "8c5eab0c20d7673f10541271e3ebb63f0ba3f7c28de9da62c9dc0f7631f38ce9",
+      "wallet": "0xebAb8480E0167a0d5cc56feF7C30961d77497e15",
+      "nonce": "14eb3722f876abfb03cd70da2d9cca24",
+      "expires": 1795400996399
+    },
+    "signature": "0x80689a6c5b72fb50571b45fe61232a3732a256fe22e216b30ee987253e1e855f7bc95982cb6a3b943bbff580957e505a64c5cb4ce8d61b67e9282b22446d487c1b"
+  },
+  "commentId": 7089867618,
+  "transactions": {},
+  "startedAt": "2026-11-23T02:22:10.130Z",
+  "status": "invalid",
+  "blockedConsensus": false,
+  "error": "Proof verifier rejected: file:///home/runner/work/open-mathematics/open-mathematics/src/security.mjs:53\n if(changed.length!==2||!proofPath||!changed.includes(claim.submission_path)||old.has(claim.submission_path))throw Error('Change exactly one enrolled proof and add one new submission record');\n                                                                                                                   ^\n\nError: Change exactly one enrolled proof and add one new submission record\n    at enrolledSubmissionBlobs (file:///home/runner/work/open-mathematics/open-mathematics/src/security.mjs:53:116)\n    at file:///home/runner/work/open-mathematics/open-mathematics/github/verify-pr.mjs:18:15\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n\nNode.js v22.22.0\n",
+  "updatedAt": "2026-11-23T02:22:11.814Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45099700682"
+}
