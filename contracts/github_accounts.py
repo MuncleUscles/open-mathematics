@@ -67,6 +67,7 @@ class GitHubAccounts(gl.Contract):
     config: str
     source: Address
     predecessor: str
+    predecessor_config: str
     accounts: TreeMap[str, str]
     account_order: DynArray[str]
     account_wallets: TreeMap[str, bool]
@@ -91,6 +92,7 @@ class GitHubAccounts(gl.Contract):
         require(isinstance(original, dict) and original.get("version") == 5 and original.get("problem") == c["problem"] and
                 original.get("repository") == c["repository"] and original.get("policy") == c["policy"] and original.get("branch") == "research" and
                 source_hash(original) == c["source_config_hash"], "source configuration commitment mismatch")
+        self.predecessor_config = json.dumps(original.get("predecessor", {}), sort_keys=True)
         self.predecessor = original.get("predecessor", {}).get("address", "")
         require(self.predecessor == "" or address(self.predecessor), "invalid predecessor reference")
 
@@ -103,9 +105,26 @@ class GitHubAccounts(gl.Contract):
         require(isinstance(r, dict) and isinstance(r.get("evidence"), dict), "source contribution required")
         e = r["evidence"]
         c = json.loads(self.config)
-        require(e.get("id") == key and e.get("problem") == c["problem"] and e.get("repository") == c["repository"] and e.get("policy") == c["policy"] and
-                e.get("branch") == "research" and address(e.get("contract")) and
-                e["contract"].lower() in [str(self.source).lower(), self.predecessor.lower()], "source contribution scope mismatch")
+        require(e.get("id") == key and e.get("problem") == c["problem"] and e.get("repository") == c["repository"] and
+                e.get("branch") == "research" and address(e.get("contract")), "source contribution scope mismatch")
+        p = json.loads(self.predecessor_config)
+        if e["contract"].lower() == str(self.source).lower():
+            require(e.get("policy") == c["policy"], "source contribution policy mismatch")
+        elif p.get("version") == 2:
+            entries = [item for item in p.get("records", []) if item.get("id") == key]
+            require(len(entries) == 1 and entries[0].get("origin_contract", "").lower() == e["contract"].lower() and entries[0].get("origin_policy") == e.get("policy"), "reviewed source origin required")
+            entry = entries[0]
+            inherited = self._source().get_inheritance(key)
+            require(isinstance(inherited, dict) and set(inherited) == {"inherited", "version", "predecessor", "snapshot_hash", "source_config_hash", "source_code_hash", "source_policy", "original_record_hash", "record_hash", "origin_chain"} and inherited.get("inherited") is True and inherited.get("version") == 2 and inherited.get("predecessor", "").lower() == self.predecessor.lower() and all(inherited.get(k) == p.get(k) for k in ["snapshot_hash", "source_config_hash", "source_code_hash", "source_policy"]) and inherited.get("record_hash") == source_hash(r) and inherited.get("original_record_hash") == entry.get("record_hash"), "authenticated source inheritance required")
+            chain = inherited.get("origin_chain")
+            require(isinstance(chain, list) and 1 <= len(chain) <= 4, "bounded source origin chain required")
+            seen = set()
+            for hop in chain:
+                require(isinstance(hop, dict) and set(hop) == {"contract", "policy", "snapshot_hash", "record_hash", "original_record_hash"} and address(hop.get("contract")) and hop["contract"].lower() not in seen and all(match(hop.get(k), r"[a-f0-9]{64}") for k in ["policy", "snapshot_hash", "record_hash", "original_record_hash"]), "invalid source origin chain")
+                seen.add(hop["contract"].lower())
+            require(chain[0]["contract"].lower() == self.predecessor.lower() and chain[0]["policy"] == p["source_policy"] and chain[0]["snapshot_hash"] == p["snapshot_hash"] and chain[0]["record_hash"] == entry["record_hash"] and chain[0]["original_record_hash"] == entry["record_hash"] and chain[-1]["contract"].lower() == e["contract"].lower() and chain[-1]["policy"] == e["policy"], "source chain does not reach original evidence")
+        else:
+            require(e.get("policy") == c["policy"] and e["contract"].lower() == self.predecessor.lower(), "source contribution scope mismatch")
         require(type(e.get("github_author_id")) is int and 0 < e["github_author_id"] < 2 ** 256 and e.get("github_account_type") == "User" and address(e.get("wallet")),
                 "source GitHub author and wallet required")
         require(match(r.get("digest"), r"[a-f0-9]{64}") and r.get("status") in ["submitted", "provisional", "challenged", "approved", "credited", "rejected", "expired"] and

@@ -1,0 +1,19 @@
+name: Full Lean and Mathlib verification
+on:
+  pull_request:
+    paths: ['lean/full_lean/**', 'scripts/verify_full_lean.py', 'scripts/verify_open.py', 'src/full-lean.mjs', 'github/FullLean.Dockerfile', 'github/build-full-lean.sh', 'tests/test_full_lean.py', '.github/workflows/full-lean.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build the trusted pinned Lean and Mathlib image
+        run: bash github/build-full-lean.sh
+      - name: Verify real proofs and adversarial inputs in isolation
+        run: RUN_FULL_LEAN_DOCKER_TESTS=1 python3 -B -m unittest discover -s tests -p test_full_lean.py -v

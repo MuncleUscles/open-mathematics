@@ -2,6 +2,7 @@
 // Trusted operator tool. Preview by default; retain broadcast intent on failure.
 import fs from 'node:fs';import path from 'node:path';import {execFileSync} from 'node:child_process';import {pathToFileURL} from 'node:url';
 import {isAddress} from 'viem';
+import {validateNativeDeploymentReceipt} from '../src/deployment-receipt.mjs';
 import {createStudioClient,studioEnvelopeFailure} from '../src/studio-client.mjs';
 import {read,finalized,saveJSON} from '../github/runtime.mjs';
 import {parseProblemJSON,sha256,stableJSON,validateOpenConstructor,assertOpenConfiguration} from '../src/open-research.mjs';
@@ -39,7 +40,7 @@ export async function run(argv=process.argv.slice(2)){
   journal.status='broadcast';saveJSON(selection,journal);
  }
  const receipt=await finalized(client,journal.hash);
- if(receipt.hash?.toLowerCase()!==journal.hash.toLowerCase()||receipt.from_address?.toLowerCase()!==account.address.toLowerCase())throw Error('Deployment receipt binding mismatch');
+ validateNativeDeploymentReceipt(receipt,{hash:journal.hash,sender:account.address,codeHash:intent.codeHash,config});
  journal.contract=receipt.data?.contract_address||receipt.to_address;
  if(!isAddress(journal.contract)||/^0x0{40}$/i.test(journal.contract))throw Error('Finalized contract address missing');
  assertOpenConfiguration(await read(client,journal.contract,'get_config',[]),config);

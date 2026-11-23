@@ -157,7 +157,7 @@ function verifierRun(problem,candidate){
   const file=path.join(dir,'claim.json');
   fs.writeFileSync(file,JSON.stringify(candidate.envelope),{mode:0o600});
   const run=spawnSync(process.execPath,['github/open-verify.mjs',file],{
-   cwd:PROTOCOL_ROOT,encoding:'utf8',timeout:120000,maxBuffer:250000,
+   cwd:PROTOCOL_ROOT,encoding:'utf8',timeout:problem.policy.version===6?1260000:120000,maxBuffer:250000,
    env:{PATH:process.env.PATH,GITHUB_REF:process.env.GITHUB_REF,GITHUB_REPOSITORY:problem.deployment.repository,
     GITHUB_TOKEN:process.env.GITHUB_TOKEN,VERIFIER_SIGNING_KEY:process.env.VERIFIER_SIGNING_KEY,
     OPEN_MATH_PROBLEM_DIR:problem.root,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE,

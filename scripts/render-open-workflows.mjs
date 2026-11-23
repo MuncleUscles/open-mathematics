@@ -3,6 +3,8 @@ import fs from 'node:fs';import path from 'node:path';import {isCommit} from '..
 const [directory,protocolCommit]=process.argv.slice(2);if(!directory||!isCommit(protocolCommit))throw Error('Usage: render-open-workflows.mjs PROBLEM_DIR PROTOCOL_SHA');
 const descriptor=JSON.parse(fs.readFileSync(path.join(directory,'.open-math/open.json'),'utf8'));
 if(descriptor.schemaVersion!==5||descriptor.protocol.repository!=='MuncleUscles/open-mathematics'||descriptor.protocol.commit!==protocolCommit)throw Error('Workflow pin must equal the reviewed open descriptor');
+const policy=JSON.parse(fs.readFileSync(path.join(directory,descriptor.policy.path),'utf8'));
+const buildScript=policy.version===6?'github/build-full-lean.sh':'github/build-verifier.sh';
 const checkouts=`      - name: Read this exact reviewed problem configuration
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -50,7 +52,7 @@ jobs:
       group: research-executor
       cancel-in-progress: false
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 50
     defaults:
       run:
         working-directory: protocol
@@ -64,7 +66,7 @@ ${checkouts}      - name: Select a valid signed claim
           GITHUB_TOKEN: \${{ github.token }}
       - name: Build pinned isolated Lean
         if: steps.claim.outputs.comment_id != ''
-        run: bash github/build-verifier.sh
+        run: bash ${buildScript}
       - name: Verify and implement GenLayer's final decision
         if: steps.claim.outputs.comment_id != ''
         run: node github/open-worker.mjs
@@ -72,6 +74,28 @@ ${checkouts}      - name: Select a valid signed claim
           CLAIM_COMMENT_ID: \${{ steps.claim.outputs.comment_id }}
           GITHUB_TOKEN: \${{ github.token }}
           VERIFIER_SIGNING_KEY: \${{ secrets.VERIFIER_SIGNING_KEY }}
+          EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
+  accounts:
+    needs: process
+    if: >-
+      always() && !cancelled() && needs.process.result != 'skipped' &&
+      github.ref == 'refs/heads/main'
+    environment: protocol
+    concurrency:
+      group: research-executor
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: protocol
+    env:
+      OPEN_MATH_PROBLEM_DIR: \${{ github.workspace }}/problem
+    steps:
+${checkouts}      - name: Reconcile native GitHub identity and points
+        run: node github/sync-accounts.mjs ../problem
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
           EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
 `;
 const pages=`name: Open research dashboard

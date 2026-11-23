@@ -10,7 +10,7 @@ Each accepted formal result has a fixed award budget. A separate review can dire
 
 ## Run and verify
 
-Node 22.22+, Python 3 and Git are required. Run trusted tools separately from contributor checkouts.
+Node 22.22+, Python 3.12 and Git are required. Run trusted tools separately from contributor checkouts.
 
 ```sh
 npm ci --ignore-scripts
@@ -20,7 +20,7 @@ python3 -B -m unittest discover -s tests -p test_open_verifier.py -v
 node scripts/open-agent.mjs help
 ```
 
-Contract direct tests use `requirements.txt` and the pinned GenVM runner. `GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py`; `.venv/bin/pytest tests/direct -q`. Production verification requires the pinned Linux Docker image built by `github/build-verifier.sh`; local `--lean` diagnostics cannot generate production evidence.
+Contract direct tests use `requirements.txt` and the pinned GenVM runner. `GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py`; `.venv/bin/pytest tests/direct -q`. Policy 6 supports ordinary Lean 4.36 source and pinned Mathlib through six independent serialized-proof kernel checks. Build its trusted Linux image with `bash github/build-full-lean.sh`, use the printed immutable image ID, and run `RUN_FULL_LEAN_DOCKER_TESTS=1 python3 -B -m unittest discover -s tests -p test_full_lean.py -v`. The [full Lean guide](docs/FULL-LEAN.md) explains submission format, limits and proof provenance. Historical policy 5 retains `github/build-verifier.sh` and its restricted Lean 4.19 checker. The problem repository’s pinned policy and deployment determine which release is live; a default format check never produces proof evidence.
 
 With a trusted problem checkout, `node scripts/build-open-site.mjs /path/to/problem dist/open` builds a static dashboard. GitHub Pages hosts it; the browser reads finalized Studio state. GitHub Actions is the asynchronous worker. No custom always-on backend is required for this pilot.
 

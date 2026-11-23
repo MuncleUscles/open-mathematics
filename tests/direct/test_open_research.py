@@ -1070,3 +1070,17 @@ def test_exact_captured_live_predecessor_is_supported(direct_vm, direct_deploy):
     for balance in snapshot["balances"]:
         assert child.get_points(balance["wallet"]) == balance["value"]
     assert child.get_points(snapshot["balances"][0]["wallet"])["total_awarded"] == "400"
+
+
+def test_complete_mathlib_semantics_fit_without_truncation(open_protocol, direct_vm, direct_alice, direct_owner):
+    # Kernel validity is the trusted verifier's boundary; this checks storage
+    # bounds and exact preservation of its full semantic statement.
+    direct_vm.sender = direct_alice
+    text = "theorem : " + "T" * 32758
+    data = evidence(direct_vm, direct_owner, formal_statement=text)
+    assert len(text.encode()) == 32768
+    for oversized in [text + "T", "é" * 16385]:
+        with direct_vm.expect_revert("submitted statement"):
+            open_protocol.register(json.dumps({**data, "formal_statement": oversized}, ensure_ascii=False))
+    open_protocol.register(json.dumps(data))
+    assert open_protocol.get(data["id"])["evidence"]["formal_statement"] == text

@@ -74,7 +74,7 @@ def deploy(vm, direct_deploy, state, **changes):
         state["calls"].append((method, args))
         values = {"get_config": lambda: state["config"], "get": lambda: state["records"][args[0]],
                   "get_impact": lambda: state["impacts"][args[0]], "get_points": lambda: global_points(state),
-                  "count_contributions": lambda: len(state["records"])}
+                  "count_contributions": lambda: len(state["records"]), "get_inheritance": lambda: state["inheritances"][args[0]]}
         assert method in values, "companion never calls source writes"
         return b"\x00" + calldata.encode(copy.deepcopy(values[method]()))
     vm._gl_call_hook = hook
@@ -336,3 +336,59 @@ def test_actual_four_record_source_is_exactly_800(direct_vm, direct_deploy):
         assert c.get_state()["complete"]
     finally:
         LEDGER, PREDECESSOR, POLICY = previous
+
+
+def policy_source_state():
+    state = source_state()
+    original = state['config']['policy']; state['config']['policy'] = 'b' * 64
+    p = {'version': 2, 'address': PREDECESSOR, 'snapshot_hash': '1' * 64, 'source_config_hash': '2' * 64,
+         'source_code_hash': '3' * 64, 'source_policy': original, 'records': [], 'credited_order': ['a','d'], 'semantic_fences': []}
+    state['config']['predecessor'] = p; state['inheritances'] = {}
+    for key, r in state['records'].items():
+        r['evidence']['contract'] = '0x' + '5' * 40
+        h = digest(r)
+        p['records'].append({'id': key, 'record_hash': h, 'impact_hash': digest(state['impacts'][key]),
+          'inheritance_hash': '4' * 64, 'origin_contract': r['evidence']['contract'], 'origin_policy': original})
+        state['inheritances'][key] = {'inherited': True, 'version': 2, 'predecessor': PREDECESSOR,
+          **{field: p[field] for field in ['snapshot_hash','source_config_hash','source_code_hash','source_policy']},
+          'original_record_hash': h, 'record_hash': h, 'origin_chain': [
+            {'contract': PREDECESSOR, 'policy': original, 'snapshot_hash': p['snapshot_hash'], 'record_hash': h, 'original_record_hash': h},
+            {'contract': r['evidence']['contract'], 'policy': original, 'snapshot_hash': '4'*64, 'record_hash': h, 'original_record_hash': h}]}
+    return state
+
+
+def test_new_policy_companion_reindexes_authenticated_ancestor_points_once(direct_vm, direct_deploy):
+    state = policy_source_state(); c = deploy(direct_vm, direct_deploy, state, policy='b' * 64)
+    for key in state['records']: sync(c, state, key)
+    for key in state['records']: sync(c, state, key)
+    assert c.get_state()['complete'] is True
+    assert c.get_account('2372232')['points'] == '800'
+    assert c.get_account('2372232')['contribution_count'] == 4
+
+
+@pytest.mark.parametrize('change', [
+    lambda s: s['inheritances']['a'].update(record_hash='f' * 64),
+    lambda s: s['inheritances']['a'].update(source_policy='f' * 64),
+    lambda s: s['inheritances']['a']['origin_chain'][-1].update(contract='0x' + 'f' * 40),
+    lambda s: s['records']['a']['evidence'].update(policy='f' * 64),
+    lambda s: s['config']['predecessor']['records'][0].update(origin_policy='f' * 64),
+])
+def test_policy_companion_rejects_substituted_historical_origin(direct_vm, direct_deploy, change):
+    state = policy_source_state(); change(state)
+    c = deploy(direct_vm, direct_deploy, state, policy='b' * 64)
+    with direct_vm.expect_revert(): sync(c, state, 'a')
+    assert c.count_accounts() == 0
+
+
+def test_new_policy_impact_still_pays_original_inherited_github_account(direct_vm, direct_deploy):
+    state = policy_source_state()
+    r = record('new', author=99, wallet='0x'+'c'*40); r['evidence']['policy'] = 'b'*64
+    state['records']['new'] = r; state['impacts']['new'] = impact(r)
+    add_dependency(state, 'new', 'a', True)
+    c = deploy(direct_vm, direct_deploy, state, policy='b'*64)
+    sync(c, state, 'new')
+    for key in ['a','b','c','d']: sync(c, state, key)
+    assert c.get_account('99')['points'] == '374'
+    assert c.get_account('2372232')['points'] == '826'
+    assert c.get_account('2372232')['impact_points'] == '26'
+    assert c.get_state()['complete'] is True

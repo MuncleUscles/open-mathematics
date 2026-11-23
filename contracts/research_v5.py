@@ -185,6 +185,9 @@ class Research(gl.Contract):
     def _inherit_predecessor(self, config: dict):
         """Constructor-only, one-hop migration of the bounded pilot history."""
         predecessor = config["predecessor"]
+        if isinstance(predecessor, dict) and predecessor.get("version") == 2:
+            self._inherit_policy_predecessor(config)
+            return
         if not isinstance(predecessor, dict) or set(predecessor) != {"address", "snapshot_hash"} or not wallet(predecessor["address"]) or not digest(predecessor["snapshot_hash"]) or Address(predecessor["address"]) == gl.message.contract_address:
             fail("exact nonself predecessor address and snapshot hash required")
         if any(ledger["address"].lower() == predecessor["address"].lower() for ledger in config["legacy_ledgers"]):
@@ -220,15 +223,133 @@ class Research(gl.Contract):
             if canonical_digest(self.get_points(balance["wallet"])) != canonical_digest(balance["value"]):
                 fail("predecessor accounting does not match reconstructed records")
 
-    def _inherit_record(self, r: dict, impact: dict, predecessor: dict):
+    def _inherit_policy_predecessor(self, config: dict):
+        """Bounded reviewed policy cutover; old evidence and decisions are immutable."""
+        p = config["predecessor"]
+        fields = {"version", "address", "snapshot_hash", "source_policy", "source_config_hash", "source_code_hash", "records", "credited_order", "semantic_fences"}
+        if set(p) != fields or type(p["version"]) is not int or p["version"] != 2 or not wallet(p["address"]) or Address(p["address"]) == gl.message.contract_address or any(not digest(p[k]) for k in ["snapshot_hash", "source_policy", "source_config_hash", "source_code_hash"]):
+            fail("exact policy predecessor commitment required")
+        if any(ledger["address"].lower() == p["address"].lower() for ledger in config["legacy_ledgers"]):
+            fail("predecessor cannot also be a separate historical ledger")
+        manifest = p["records"]
+        if not isinstance(manifest, list) or not 1 <= len(manifest) <= 16:
+            fail("bounded reviewed predecessor manifest required")
+        ids = []
+        for item in manifest:
+            if not isinstance(item, dict) or set(item) != {"id", "record_hash", "impact_hash", "inheritance_hash", "origin_contract", "origin_policy"} or not matches(item["id"], r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}") or item["id"] in ids or not wallet(item["origin_contract"]) or any(not digest(item[k]) for k in ["record_hash", "impact_hash", "inheritance_hash", "origin_policy"]):
+                fail("exact reviewed predecessor record required")
+            ids.append(item["id"])
+        source = gl.get_contract_at(Address(p["address"])).view(state=StorageType.LATEST_FINAL)
+        original = source.get_config()
+        if not isinstance(original, dict) or migration_digest(original) != p["source_config_hash"] or original.get("policy") != p["source_policy"] or config["policy"] == p["source_policy"]:
+            fail("predecessor source configuration commitment mismatch")
+        if isinstance(original.get("predecessor"), dict) and original["predecessor"].get("version") == 2:
+            fail("later policy migrations require cumulative semantic fence support")
+        # Source bytecode hash is pinned for operator verification; the native
+        # API authenticates address/config/state, not a bytecode hash view.
+        expected = {k: v for k, v in config.items() if k not in ["predecessor", "policy"]}
+        actual = {k: v for k, v in original.items() if k not in ["predecessor", "policy"]}
+        if canonical_digest(actual) != canonical_digest(expected):
+            fail("policy cutover must preserve source roles and research configuration")
+        count = source.count_contributions()
+        page = source.list_contributions(0, 16)
+        if type(count) is not int or count != len(ids) or not isinstance(page, dict) or set(page) != {"items", "total", "next_offset"} or page["items"] != ids or type(page["total"]) is not int or page["total"] != count or page["next_offset"] is not None:
+            fail("complete reviewed predecessor order required")
+        records = [source.get(key) for key in ids]
+        impacts = [source.get_impact(key) for key in ids]
+        inheritances = [source.get_inheritance(key) for key in ids]
+        chains = []
+        for r, impact, inherited, item in zip(records, impacts, inheritances, manifest):
+            if not isinstance(r, dict) or not isinstance(r.get("evidence"), dict) or r["evidence"].get("id") != item["id"] or migration_digest(r) != item["record_hash"] or migration_digest(impact) != item["impact_hash"] or migration_digest(inherited) != item["inheritance_hash"]:
+                fail("reviewed predecessor record commitment mismatch")
+            e = r["evidence"]
+            if e.get("contract", "").lower() != item["origin_contract"].lower() or e.get("policy") != item["origin_policy"] or not wallet(e.get("wallet")):
+                fail("reviewed predecessor origin mismatch")
+            chains.append(self._predecessor_origin(r, inherited, original, p))
+        wallets = sorted(set(r["evidence"]["wallet"].lower() for r in records))
+        balances = [{"wallet": recipient, "value": source.get_points(recipient)} for recipient in wallets]
+        snapshot = {"config": original, "records": records, "impacts": impacts, "inheritances": inheritances, "balances": balances}
+        if utf8_size(json.dumps(snapshot, ensure_ascii=False)) > 2097152 or migration_digest(snapshot) != p["snapshot_hash"] or source.count_contributions() != count:
+            fail("policy predecessor snapshot commitment mismatch")
+        credited = [r["evidence"]["id"] for r in records if r.get("status") == "credited"]
+        if not isinstance(p["credited_order"], list) or len(p["credited_order"]) != len(credited) or len(set(p["credited_order"])) != len(credited) or set(p["credited_order"]) != set(credited):
+            fail("explicit complete credited order required")
+        # No source view exposes arbitrary private content ceilings. Only these
+        # unchallenged terminal states have an unambiguous reconstruction.
+        for r, impact, chain in zip(records, impacts, chains):
+            if r.get("status") not in ["credited", "rejected", "expired"]:
+                fail("policy cutover requires terminal reviewed pilot states")
+            self._inherit_record(r, impact, p, r["evidence"]["policy"], r["evidence"]["contract"], True)
+            self.inherited_records[r["evidence"]["id"]] = json.dumps({"version": 2, "predecessor": p["address"], "snapshot_hash": p["snapshot_hash"],
+                "source_config_hash": p["source_config_hash"], "source_code_hash": p["source_code_hash"], "source_policy": p["source_policy"],
+                "original_record_hash": migration_digest(r), "origin_chain": chain}, sort_keys=True)
+        formal_ids = [r["evidence"]["id"] for r in records if r["evidence"]["evidence_kind"] == "formal"]
+        aliases = p["semantic_fences"]
+        if not isinstance(aliases, list) or len(aliases) != len(formal_ids):
+            fail("one reviewed semantic fence per formal source record required")
+        alias_ids, alias_hashes = set(), set()
+        for alias in aliases:
+            if not isinstance(alias, dict) or set(alias) != {"id", "statement_hash"} or alias.get("id") not in formal_ids or alias["id"] in alias_ids or not digest(alias.get("statement_hash")) or alias["statement_hash"] in alias_hashes:
+                fail("unique reviewed semantic fences required")
+            alias_ids.add(alias["id"])
+            alias_hashes.add(alias["statement_hash"])
+            r = self._load(alias["id"])
+            old_key, new_key = "statement:" + r["evidence"]["statement_hash"], "statement:" + alias["statement_hash"]
+            if new_key in self.merit_content and json.loads(self.merit_content[new_key])["owner"] != alias["id"]:
+                fail("semantic source identities overlap")
+            self.merit_content[new_key] = self.merit_content[old_key]
+            if r["status"] == "credited":
+                self.fingerprints[alias["statement_hash"]] = alias["id"]
+        for key in p["credited_order"]:
+            self.credited_order.append(key)
+        for balance in balances:
+            if canonical_digest(self.get_points(balance["wallet"])) != canonical_digest(balance["value"]):
+                fail("predecessor accounting does not match reconstructed records")
+
+    def _predecessor_origin(self, r: dict, inherited: dict, original: dict, p: dict) -> list:
+        e = r["evidence"]
+        current_hash = migration_digest(r)
+        chain = [{"contract": p["address"], "policy": p["source_policy"], "snapshot_hash": p["snapshot_hash"],
+                  "record_hash": current_hash, "original_record_hash": current_hash}]
+        if Address(e["contract"]) == Address(p["address"]):
+            if inherited != {"inherited": False} or e["policy"] != p["source_policy"]:
+                fail("invalid direct predecessor origin")
+            return chain
+        previous = original.get("predecessor")
+        if not isinstance(previous, dict) or not isinstance(inherited, dict) or inherited.get("inherited") is not True or inherited.get("predecessor", "").lower() != previous.get("address", "").lower() or inherited.get("snapshot_hash") != previous.get("snapshot_hash") or inherited.get("record_hash") != current_hash or not digest(inherited.get("original_record_hash")):
+            fail("authenticated source inheritance required")
+        if previous.get("version") == 2:
+            if set(inherited) != {"inherited", "version", "predecessor", "snapshot_hash", "source_config_hash", "source_code_hash", "source_policy", "original_record_hash", "record_hash", "origin_chain"} or inherited.get("version") != 2 or any(inherited.get(k) != previous.get(k) for k in ["source_config_hash", "source_code_hash", "source_policy"]):
+                fail("authenticated source lineage required")
+            older = inherited.get("origin_chain")
+            if not isinstance(older, list) or not 1 <= len(older) <= 3 or older[0].get("contract", "").lower() != previous["address"].lower() or older[0].get("snapshot_hash") != previous["snapshot_hash"] or older[0].get("record_hash") != inherited["original_record_hash"]:
+                fail("bounded source lineage required")
+            chain += older
+        else:
+            if set(inherited) != {"inherited", "predecessor", "snapshot_hash", "original_record_hash", "record_hash"} or e["policy"] != p["source_policy"] or e["contract"].lower() != previous["address"].lower():
+                fail("authenticated legacy source origin required")
+            chain.append({"contract": previous["address"], "policy": e["policy"], "snapshot_hash": previous["snapshot_hash"],
+                          "record_hash": inherited["original_record_hash"], "original_record_hash": inherited["original_record_hash"]})
+        seen = set()
+        for hop in chain:
+            if not isinstance(hop, dict) or set(hop) != {"contract", "policy", "snapshot_hash", "record_hash", "original_record_hash"} or not wallet(hop["contract"]) or hop["contract"].lower() in seen or any(not digest(hop[k]) for k in ["policy", "snapshot_hash", "record_hash", "original_record_hash"]):
+                fail("invalid origin chain")
+            seen.add(hop["contract"].lower())
+        if chain[-1]["contract"].lower() != e["contract"].lower() or chain[-1]["policy"] != e["policy"]:
+            fail("origin chain does not reach original evidence")
+        return chain
+
+    def _inherit_record(self, r: dict, impact: dict, predecessor: dict, source_policy: str = "", origin_contract: str = "", policy_cutover: bool = False):
         base = {"evidence", "digest", "status", "round", "challenges", "challenge_reviews", "verdict", "deadline", "credited_points", "adjudication_started_round", "adjudication_finished_round"}
         credited_fields = {"award_budget", "initial_paid", "impact_reserve", "reserve_returned", "reserve_settled", "merge_commit"}
         status = r.get("status")
-        if status not in ["credited", "rejected", "submitted"] or set(r) != base | (credited_fields if status == "credited" else set()) or type(r["round"]) is not int or r["round"] != 0 or r["challenges"] != [] or r["challenge_reviews"] != [] or type(r["adjudication_started_round"]) is not int or r["adjudication_started_round"] != 0 or not digest(r["digest"]) or type(r["deadline"]) is not int:
+        allowed = ["credited", "rejected", "expired"] if policy_cutover else ["credited", "rejected", "submitted"]
+        extra = {"expiration_reason"} if status == "expired" else set()
+        if status not in allowed or set(r) != base | extra | (credited_fields if status == "credited" else set()) or type(r["round"]) is not int or r["round"] != 0 or r["challenges"] != [] or r["challenge_reviews"] != [] or type(r["adjudication_started_round"]) is not int or r["adjudication_started_round"] != 0 or not digest(r["digest"]) or type(r["deadline"]) is not int:
             fail("unsupported predecessor record history")
         e = r["evidence"]
         key = e["id"]
-        if not matches(key, r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}") or key in self.records or e.get("problem") != self.problem or e.get("repository") != self.repository or e.get("branch") != self.branch or e.get("policy") != self.policy or not wallet(e.get("contract")) or Address(e["contract"]) != Address(predecessor["address"]) or type(e.get("github_author_id")) is not int or e["github_author_id"] < 1:
+        if not matches(key, r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}") or key in self.records or e.get("problem") != self.problem or e.get("repository") != self.repository or e.get("branch") != self.branch or e.get("policy") != (source_policy or self.policy) or not wallet(e.get("contract")) or Address(e["contract"]) != Address(origin_contract or predecessor["address"]) or type(e.get("github_author_id")) is not int or e["github_author_id"] < 1:
             fail("predecessor evidence scope mismatch")
         if any(not digest(e.get(field)) for field in ["claim_digest", "statement_hash", "proposition_hash", "artifact_hash", "bundle_hash"]) or e["claim_digest"] in self.claims or not isinstance(e.get("proof"), str) or hashlib.sha256(e["proof"].encode("utf-8")).hexdigest() != e["bundle_hash"] or e.get("evidence_kind") not in ["formal", "research-note"]:
             fail("invalid predecessor content commitments")
@@ -236,7 +357,9 @@ class Research(gl.Contract):
             fail("overlapping predecessor content history is unsupported")
         if not isinstance(impact, dict) or impact.get("downstream") != key:
             fail("predecessor impact identity mismatch")
-        pending = status == "submitted"
+        pending = status in ["submitted", "expired"]
+        if status == "expired" and (not isinstance(r.get("expiration_reason"), str) or not 20 <= len(r["expiration_reason"]) <= 2000):
+            fail("explicit expired unresolved source evidence required")
         if type(r["adjudication_finished_round"]) is not int or r["adjudication_finished_round"] != (-1 if pending else 0):
             fail("unsupported predecessor adjudication fence")
         verdict = r["verdict"]
@@ -263,20 +386,21 @@ class Research(gl.Contract):
                 self.impacts[key] = json.dumps(impact, sort_keys=True)
                 self.impact_artifacts[e["artifact_hash"]] = key
             recipient = Address(e["wallet"])
-            self.points[recipient] = u256(budget)
-            self.initial_points[recipient] = u256(budget)
-            self.returned_points[recipient] = u256(reserve)
-            self.total_points = u256(budget)
-            self.total_initial_points = u256(budget)
-            self.total_returned_points = u256(reserve)
-            self.total_award_budgets = u256(budget)
+            self.points[recipient] = u256(int(self.points.get(recipient, u256(0))) + budget)
+            self.initial_points[recipient] = u256(int(self.initial_points.get(recipient, u256(0))) + budget)
+            self.returned_points[recipient] = u256(int(self.returned_points.get(recipient, u256(0))) + reserve)
+            self.total_points = u256(int(self.total_points) + budget)
+            self.total_initial_points = u256(int(self.total_initial_points) + budget)
+            self.total_returned_points = u256(int(self.total_returned_points) + reserve)
+            self.total_award_budgets = u256(int(self.total_award_budgets) + budget)
             if note:
-                self.note_points[recipient] = u256(budget)
-                self.total_note_points = u256(budget)
+                self.note_points[recipient] = u256(int(self.note_points.get(recipient, u256(0))) + budget)
+                self.total_note_points = u256(int(self.total_note_points) + budget)
             self.fingerprints[e["statement_hash"]] = key
             self.artifacts[e["artifact_hash"]] = key
             self.bundles[e["bundle_hash"]] = key
-            self.credited_order.append(key)
+            if not policy_cutover:
+                self.credited_order.append(key)
         else:
             if impact != {"downstream": key, "status": "not-requested"} or r["credited_points"] != "0":
                 fail("uncredited predecessor cannot have impact or points")
@@ -284,7 +408,7 @@ class Research(gl.Contract):
                 if verdict.get("award") != "0":
                     fail("rejected predecessor cannot have an award")
                 self.rejected_bundles[e["bundle_hash"]] = True
-            else:
+            elif status == "submitted":
                 author = str(e["github_author_id"])
                 if self.author_active.get(author, ""):
                     fail("predecessor has multiple active claims for one author")
@@ -427,7 +551,7 @@ class Research(gl.Contract):
         if not isinstance(e["proof"], str) or not 3 <= utf8_size(e["proof"]) <= 32768 or hashlib.sha256(e["proof"].encode("utf-8")).hexdigest() != e["bundle_hash"]:
             fail("exact bounded submitted artifact bytes required")
         if e["evidence_kind"] == "formal":
-            if e["verification"] != "verified" or e["kind"] == "research-note" or not isinstance(e["formal_statement"], str) or e["formal_statement"] != e["formal_statement"].strip() or not 1 <= utf8_size(e["formal_statement"]) <= 4000 or not matches(e["artifact_path"], r"research/artifacts/[a-z0-9][a-z0-9-]{0,63}\.json"):
+            if e["verification"] != "verified" or e["kind"] == "research-note" or not isinstance(e["formal_statement"], str) or e["formal_statement"] != e["formal_statement"].strip() or not 1 <= utf8_size(e["formal_statement"]) <= 32768 or not matches(e["artifact_path"], r"research/artifacts/[a-z0-9][a-z0-9-]{0,63}\.json"):
                 fail("verified submitted statement evidence required")
         elif e["evidence_kind"] == "research-note":
             if e["verification"] != "not-formal" or e["formal_statement"] != "" or utf8_size(e["proof"]) > 12000 or e["verified_dependencies"] != [] or not matches(e["artifact_path"], r"research/notes/[a-z0-9][a-z0-9-]{0,63}\.md"):

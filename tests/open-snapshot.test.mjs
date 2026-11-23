@@ -153,7 +153,8 @@ test('browser fallback preserves the last successful live view and clearly selec
 test('generated Pages refresh captures only trusted main after its own adjudication workflow', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-pages-'));
   try {
-    fs.mkdirSync(path.join(dir, '.open-math')); fs.writeFileSync(path.join(dir, '.open-math/open.json'), JSON.stringify({schemaVersion: 5, protocol: {repository: 'MuncleUscles/open-mathematics', commit: commit('6')}}));
+    fs.mkdirSync(path.join(dir, '.open-math')); fs.writeFileSync(path.join(dir, '.open-math/open.json'), JSON.stringify({schemaVersion: 5, policy:{path:'.open-math/open-policy.json'}, protocol: {repository: 'MuncleUscles/open-mathematics', commit: commit('6')}}));
+    fs.writeFileSync(path.join(dir,'.open-math/open-policy.json'),JSON.stringify({version:6}));
     execFileSync(process.execPath, ['scripts/render-open-workflows.mjs', dir, commit('6')]);
     const pages = fs.readFileSync(path.join(dir, '.github/workflows/pages.yml'), 'utf8');
     assert.match(pages, /workflow_run:\n    workflows: \[Open research adjudication\]\n    types: \[completed\]\n    branches: \[main\]/);
@@ -161,6 +162,29 @@ test('generated Pages refresh captures only trusted main after its own adjudicat
     assert.match(pages, /github\.event\.workflow_run\.head_repository\.full_name == github\.repository/);
     assert.match(pages, /ref: \$\{\{ github\.sha \}\}/);
     assert.doesNotMatch(pages, /workflow_run\.head_sha|download-artifact|pull_request_target/);
+    const research=fs.readFileSync(path.join(dir,'.github/workflows/research.yml'),'utf8');
+    assert.match(research,/run: bash github\/build-full-lean.sh/);
+    assert.match(research,/  accounts:\n    needs: process/);
+    assert.match(research,/run: node github\/sync-accounts\.mjs \.\.\/problem\n/);
     assert.match(pages, /build-open-site\.mjs \.\.\/problem \.\.\/site --snapshot/);
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('policy successor snapshots authenticate multi-era origins and retain the same totals', async()=>{
+ const r=record('pr-0'), originalHash=openMigrationHash(r), ancestor=address('9');r.evidence.contract=ancestor;
+ const recordHash=openMigrationHash(r);
+ const predecessor={version:2,address:address('1'),snapshot_hash:hash('a'),source_policy:hash('5'),source_config_hash:hash('b'),source_code_hash:hash('c'),
+  records:[{id:'pr-0',record_hash:recordHash,impact_hash:openMigrationHash(impact('pr-0')),inheritance_hash:hash('d'),origin_contract:ancestor,origin_policy:hash('5')}],credited_order:['pr-0'],semantic_fences:[{id:'pr-0',statement_hash:hash('e')}]};
+ const successor={...problem,policyHash:hash('f'),deployment:{...problem.deployment,contract:address('f'),predecessor}};
+ const h={inherited:true,version:2,predecessor:predecessor.address,...Object.fromEntries(['snapshot_hash','source_policy','source_config_hash','source_code_hash'].map(k=>[k,predecessor[k]])),original_record_hash:recordHash,record_hash:recordHash,origin_chain:[
+  {contract:predecessor.address,policy:hash('5'),snapshot_hash:hash('a'),record_hash:recordHash,original_record_hash:recordHash},
+  {contract:ancestor,policy:hash('5'),snapshot_hash:hash('9'),record_hash:originalHash,original_record_hash:originalHash}]};
+ const provider=native(1,method=>method==='get_config'?{...structuredClone(config),policy:hash('f'),predecessor}:method==='get'?r:method==='get_inheritance'?h:undefined);
+ const snapshot=await collectOpenSnapshot({problem:successor,read:provider.read});
+ assert.equal(snapshot.points.total_awarded,points.total_awarded);
+ assert.equal(snapshot.records[0].evidence.policy,hash('5'));
+ assert.equal(validateOpenSnapshot(snapshot,successor),snapshot);
+ for(const mutate of [s=>s.inheritances[0].origin_chain.pop(),s=>s.inheritances[0].origin_chain[0].policy=hash('f'),s=>s.inheritances[0].source_config_hash=hash('f'),s=>s.inheritances[0].original_record_hash=hash('f'),s=>s.records[0].evidence.policy=hash('f'),s=>s.records[0].evidence.contract=address('1')]){
+  const changed=structuredClone(snapshot);mutate(changed);assert.throws(()=>validateOpenSnapshot(changed,successor),/Open ledger snapshot/);
+ }
 });
