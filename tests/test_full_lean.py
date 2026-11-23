@@ -341,6 +341,17 @@ class FullLeanDockerTests(unittest.TestCase):
         self.assertTrue(result['production_verified']); self.assertEqual(result['full_kernel']['checker_set'], verifier.CHECKERS)
         self.assertEqual(result['formal_statement'], 'theorem : True')
 
+    def test_historical_resolution_proof_without_dependencies(self):
+        raw = (ROOT/'tests/fixtures/full-lean/d-legacy.json').read_bytes()
+        self.assertEqual(sha(raw), 'bc52b6a034af09e8b5797a352ab6d0b65cb82f60c2022229fcb45ed36fa255c7')
+        result = self.run_bundle(raw)
+        self.assertTrue(result['production_verified'])
+        self.assertEqual(result['full_kernel']['checker_set'], verifier.CHECKERS)
+        self.assertEqual(result['proof_body_uses'], [])
+        self.assertEqual(result['verified_dependencies'], [])
+        self.assertEqual(result['legacy_adapters'], {})
+        self.assertIn('SELF.checkRefutation', result['formal_statement'])
+
     def test_mathlib_ring_starter(self):
         source = 'namespace Contribution\ntheorem result (x y : Int) : (x + y)^2 = x^2 + 2*x*y + y^2 := by ring\nend Contribution'
         result = self.run_bundle(bundle(source, imports=['Mathlib.Data.Int.Basic', 'Mathlib.Tactic.Ring']))

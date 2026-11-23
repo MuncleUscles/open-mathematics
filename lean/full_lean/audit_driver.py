@@ -28,7 +28,9 @@ def run(plan):
         require(qualified(name) in candidate.constants, 'Candidate export missing primitive or axiom')
     trusted, _, axioms = audit(candidate, baseline, plan['theorem'], ALLOWED_AXIOMS, list(dependencies.values()))
     statement, statement_hash, definition_hash, canonical = semantics(candidate, plan['theorem'], trusted)
-    references = proof_references(candidate, plan['theorem'], trusted)
+    # No declared dependency can receive reuse credit. Avoid reducing an entire
+    # large proof just to intersect its references with an empty target set.
+    references = proof_references(candidate, plan['theorem'], trusted) if plan['direct'] else set()
     used = [item['id'] for item in plan['direct'] if qualified(item['theorem']) in references]
     return {'formal_statement': statement, 'statement_hash': statement_hash, 'definition_closure_hash': definition_hash,
             'canonical_semantics': canonical, 'axioms': axioms, 'proof_body_uses': used,
