@@ -1,0 +1,45 @@
+{
+  "status": "pass",
+  "scope": "reviewed local statement, proof and boundary checks only; not isolated CI, adjudication or enrollment",
+  "reviewed_repository_commit": "eecacad0cb9ba8034040d9b7a9c92543dcbadcc0",
+  "toolchain": "Lean (version 4.19.0, arm64-apple-darwin23.6.0, commit 6caaee842e94, Release)",
+  "kernel_trust": 0,
+  "max_heartbeats": 100000,
+  "assembled_source_sha256": "9a188c20190af4ba6fa1629c0127514b813654ed4e39271c5da84ade7d722485",
+  "assembled_source_bytes": 3620,
+  "reference_exit_code": 0,
+  "axioms": [
+    "propext",
+    "Quot.sound"
+  ],
+  "log": "'candidate' depends on axioms: [propext, Quot.sound]\n",
+  "checks": [
+    "exact candidate : DisjointSAT",
+    "empty CNF satisfiable",
+    "empty clause unsatisfiable",
+    "opposite unit clauses individually satisfiable",
+    "their concatenation unsatisfiable",
+    "same-sign overlap satisfiable and not variable-disjoint"
+  ],
+  "current_goal_rejection": "enrolled goal and dependency required",
+  "current_syntax_rejection": "unsupported proof syntax",
+  "files": {
+    "Trusted.lean": {
+      "sha256": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+      "bytes": 818
+    },
+    "ProposedStatement.lean": {
+      "sha256": "443dcc8a8e121910cf6783953b811fa2331686f9066c90c913c67cceb0489083",
+      "bytes": 1287
+    },
+    "candidate.proof": {
+      "sha256": "a272dc74160b5ddc82cce907030a9c9f49dfe6827c01d3933b6e9618070edcc3",
+      "bytes": 1321
+    },
+    "BoundaryChecks.lean": {
+      "sha256": "93ea885db54d7341e1e1b9ffb5a2d0c1aac4ac3809dedede795d01ccdcb32ac2",
+      "bytes": 914
+    }
+  },
+  "active_policy_sha256": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965"
+}
