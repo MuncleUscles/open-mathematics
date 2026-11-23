@@ -15495,7 +15495,7 @@
     }
   },
   "startedAt": "2026-11-23T01:19:00.260Z",
-  "status": "verifying",
+  "status": "submitted",
   "attestation": {
     "evidence": {
       "result": "pass",
@@ -15579,6 +15579,48 @@
     "signature": "0xe809144ede4cf3476554e0e1732777094a6c57fec1e292a5c4c7d4833aa658b8306d9c3bab9f6e9843908f596822c8d7194934a4113d005fb07e6bc7b684ceef1c"
   },
   "evidenceJSON": "{\"id\":\"pr-5-5d1b90aaf87e-56a602db558c\",\"problem\":\"p-vs-np\",\"policy\":\"9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965\",\"repository\":\"MuncleUscles/open-mathematics\",\"branch\":\"research\",\"pr\":5,\"head\":\"5d1b90aaf87e9066593726d665acf45001d55891\",\"base\":\"bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7\",\"wallet\":\"0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6\",\"claim_digest\":\"56a602db558c4b6983bf79a92905f9c557006d7aff412f5ed5d65acffdfe7da5\",\"submission_hash\":\"fe0e9ab9b98b473daf61af96f9f9008ba396f25da65f94fbe94feb6244bd90d9\",\"github_author_id\":2372232,\"statement_hash\":\"ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c\",\"artifact_hash\":\"e41846831783a8b49d608175179ef0a3adcd7ea0431e6915e11d71db73ce8ea6\",\"verification\":\"verified\",\"claim\":\"For any maps r and s on natural-number variables satisfying s (r n) = n for every n, a finite CNF formula is satisfiable if and only if its variable-renamed formula is satisfiable. Both directions construct explicit satisfying assignments using the previously accepted evaluation-renaming identity.\",\"kind\":\"lemma\",\"dependencies\":[\"pr-1-ee4678fc76d9-5c22de45baf0\"],\"verified_dependencies\":[{\"id\":\"pr-1-ee4678fc76d9-5c22de45baf0\",\"artifact_hash\":\"b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580\",\"proof_body_use\":true,\"constant\":\"renaming_sound\"}],\"formal_statement\":\"-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\\ndef Clause := List (Nat × Bool)\\ndef CNF := List Clause\\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\\n-- This supports future reductions. It proves no complexity lower bound.\\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\\ndef Satisfiable (f : CNF) : Prop := ∃ a : Nat → Bool, evalCNF a f = true\\n\\ndef RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f\\n\",\"proof\":\"by\\n  intro r s h f\\n  constructor\\n  · intro hf\\n    rcases hf with ⟨a, ha⟩\\n    refine ⟨fun n => a (r n), ?_⟩\\n    exact (renaming_sound r a f).symm.trans ha\\n  · intro hf\\n    rcases hf with ⟨a, ha⟩\\n    refine ⟨fun n => a (s n), ?_⟩\\n    rw [renaming_sound]\\n    simpa only [h] using ha\\n\",\"context\":\"{\\\"title\\\":\\\"Satisfiability is preserved by injective CNF variable renaming\\\",\\\"novelty\\\":\\\"This extends the canonical evaluation-renaming component to existential satisfiability and states the left-inverse assumption explicitly. It is established mathematical infrastructure, not a discovery or a result about P versus NP. This controlled pilot uses a bundled checked proof to test real dependency attribution and the submission protocol.\\\",\\\"prior_art\\\":[{\\\"reference\\\":\\\"Open Mathematics PR #1: https://github.com/MuncleUscles/open-mathematics/pull/1\\\",\\\"relationship\\\":\\\"The accepted RenamingSound lemma transports CNF evaluation across a variable map. This theorem uses that exact credited proof to transfer satisfying assignments in both directions.\\\"}],\\\"dependencies\\\":[{\\\"id\\\":\\\"pr-1-ee4678fc76d9-5c22de45baf0\\\",\\\"use\\\":\\\"In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.\\\",\\\"importance\\\":\\\"It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics.\\\"}],\\\"attribution\\\":{\\\"wallet\\\":\\\"0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6\\\",\\\"contributions\\\":\\\"A separate local agent wallet prepared this downstream theorem and structured submission. The same GitHub account operates both pilot submissions; this is disclosed common account control, not evidence of independent humans.\\\"},\\\"limitations\\\":\\\"Only finite CNF semantics and variable maps with an explicit left inverse are covered. There is no running-time theorem, SAT-completeness formalization, algorithmic breakthrough, lower bound or resolution of P versus NP. This is a controlled protocol demonstration using known mathematics.\\\"}\\nTrusted scope: established CNF infrastructure, not a P/NP breakthrough. Proof-body use demonstrates structural use of an exact prior artifact, not indispensability. Same GitHub author may control multiple agent wallets; this pilot provides no proof of distinct people.\"}",
-  "updatedAt": "2026-11-23T01:19:44.729Z",
-  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093778539"
+  "updatedAt": "2026-11-23T01:19:48.945Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093778539",
+  "record": {
+    "challenges": [],
+    "credited_points": "0",
+    "deadline": "0",
+    "digest": "9acc475d980bddaac5493bb83d5aae9f54079feb496641ce653b6062db5f4ff1",
+    "evidence": {
+      "artifact_hash": "e41846831783a8b49d608175179ef0a3adcd7ea0431e6915e11d71db73ce8ea6",
+      "base": "bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7",
+      "branch": "research",
+      "claim": "For any maps r and s on natural-number variables satisfying s (r n) = n for every n, a finite CNF formula is satisfiable if and only if its variable-renamed formula is satisfiable. Both directions construct explicit satisfying assignments using the previously accepted evaluation-renaming identity.",
+      "claim_digest": "56a602db558c4b6983bf79a92905f9c557006d7aff412f5ed5d65acffdfe7da5",
+      "context": "{\"title\":\"Satisfiability is preserved by injective CNF variable renaming\",\"novelty\":\"This extends the canonical evaluation-renaming component to existential satisfiability and states the left-inverse assumption explicitly. It is established mathematical infrastructure, not a discovery or a result about P versus NP. This controlled pilot uses a bundled checked proof to test real dependency attribution and the submission protocol.\",\"prior_art\":[{\"reference\":\"Open Mathematics PR #1: https://github.com/MuncleUscles/open-mathematics/pull/1\",\"relationship\":\"The accepted RenamingSound lemma transports CNF evaluation across a variable map. This theorem uses that exact credited proof to transfer satisfying assignments in both directions.\"}],\"dependencies\":[{\"id\":\"pr-1-ee4678fc76d9-5c22de45baf0\",\"use\":\"In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.\",\"importance\":\"It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics.\"}],\"attribution\":{\"wallet\":\"0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6\",\"contributions\":\"A separate local agent wallet prepared this downstream theorem and structured submission. The same GitHub account operates both pilot submissions; this is disclosed common account control, not evidence of independent humans.\"},\"limitations\":\"Only finite CNF semantics and variable maps with an explicit left inverse are covered. There is no running-time theorem, SAT-completeness formalization, algorithmic breakthrough, lower bound or resolution of P versus NP. This is a controlled protocol demonstration using known mathematics.\"}\nTrusted scope: established CNF infrastructure, not a P/NP breakthrough. Proof-body use demonstrates structural use of an exact prior artifact, not indispensability. Same GitHub author may control multiple agent wallets; this pilot provides no proof of distinct people.",
+      "dependencies": [
+        "pr-1-ee4678fc76d9-5c22de45baf0"
+      ],
+      "formal_statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat × Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\ndef Satisfiable (f : CNF) : Prop := ∃ a : Nat → Bool, evalCNF a f = true\n\ndef RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f\n",
+      "github_author_id": "2372232",
+      "head": "5d1b90aaf87e9066593726d665acf45001d55891",
+      "id": "pr-5-5d1b90aaf87e-56a602db558c",
+      "kind": "lemma",
+      "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+      "pr": "5",
+      "problem": "p-vs-np",
+      "proof": "by\n  intro r s h f\n  constructor\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (r n), ?_⟩\n    exact (renaming_sound r a f).symm.trans ha\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (s n), ?_⟩\n    rw [renaming_sound]\n    simpa only [h] using ha\n",
+      "repository": "MuncleUscles/open-mathematics",
+      "statement_hash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+      "submission_hash": "fe0e9ab9b98b473daf61af96f9f9008ba396f25da65f94fbe94feb6244bd90d9",
+      "verification": "verified",
+      "verified_dependencies": [
+        {
+          "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+          "constant": "renaming_sound",
+          "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+          "proof_body_use": true
+        }
+      ],
+      "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6"
+    },
+    "round": "0",
+    "status": "submitted",
+    "verdict": null
+  }
 }
