@@ -1,0 +1,12 @@
+by
+  intro r s h f
+  constructor
+  · intro hf
+    rcases hf with ⟨a, ha⟩
+    refine ⟨fun n => a (r n), ?_⟩
+    exact (renaming_sound r a f).symm.trans ha
+  · intro hf
+    rcases hf with ⟨a, ha⟩
+    refine ⟨fun n => a (s n), ?_⟩
+    rw [renaming_sound]
+    simpa only [h] using ha

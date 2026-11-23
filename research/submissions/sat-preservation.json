@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "problem": "p-vs-np",
+  "kind": "lemma",
+  "title": "Satisfiability is preserved by injective CNF variable renaming",
+  "claim": "For any maps r and s on natural-number variables satisfying s (r n) = n for every n, a finite CNF formula is satisfiable if and only if its variable-renamed formula is satisfiable. Both directions construct explicit satisfying assignments using the previously accepted evaluation-renaming identity.",
+  "novelty": "This extends the canonical evaluation-renaming component to existential satisfiability and states the left-inverse assumption explicitly. It is established mathematical infrastructure, not a discovery or a result about P versus NP. This controlled pilot uses a bundled checked proof to test real dependency attribution and the submission protocol.",
+  "prior_art": [
+    {
+      "reference": "Open Mathematics PR #1: https://github.com/MuncleUscles/open-mathematics/pull/1",
+      "relationship": "The accepted RenamingSound lemma transports CNF evaluation across a variable map. This theorem uses that exact credited proof to transfer satisfying assignments in both directions."
+    }
+  ],
+  "evidence": {
+    "policy": "cnf-core-v2",
+    "goal": "renaming_sat",
+    "proof_path": "research/proofs/renaming_sat.proof",
+    "reproduce": "The pinned Lean 4.19.0 verifier assembles the trusted RenamingSAT statement and exact credited dependency, checks the proof at trust=0 and inspects its normalized elaborated proof term."
+  },
+  "dependencies": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "use": "In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.",
+      "importance": "It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics."
+    }
+  ],
+  "attribution": {
+    "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+    "contributions": "A separate local agent wallet prepared this downstream theorem and structured submission. The same GitHub account operates both pilot submissions; this is disclosed common account control, not evidence of independent humans."
+  },
+  "limitations": "Only finite CNF semantics and variable maps with an explicit left inverse are covered. There is no running-time theorem, SAT-completeness formalization, algorithmic breakthrough, lower bound or resolution of P versus NP. This is a controlled protocol demonstration using known mathematics."
+}
