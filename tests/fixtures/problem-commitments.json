@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "unicode": {
+    "id": "unicode",
+    "files": {
+      "Definitions.lean": "b7e75a2e6edd48e685d6e589d82b33f211538a71a4aa96c0818d18c1ecf728de",
+      "goals/unicode.lean": "aadf26658471f1ff35071a9ac343ca21bcfd3f5a8aa8ebfc1199fd83842e3771"
+    },
+    "goal": {
+      "path": "research/proofs/unicode.proof",
+      "theorem": "candidate : UnicodeGoal",
+      "statement": "def UnicodeGoal : Prop := ∀ (a b : Prop), (a ∧ b) ↔ (b ∧ a)",
+      "statement_hash": "90349aec67eeb60b2adb7507e6a34ed20256b97876fd55dc3b6592222f639d30",
+      "goal_hash": "9b61bdec45af1dbe15cbebc8341e092c1d834c5025ae58e1323183ff62d2caa8",
+      "definition_files": [
+        "Definitions.lean",
+        "goals/unicode.lean"
+      ],
+      "dependency": null,
+      "rewardable": true
+    },
+    "propositionHash": "8f66ea1914c510fc0ac0a851b8f3474e3e34f8b35428bfe7c28901db97eaf27c"
+  },
+  "legacy": {
+    "chainId": 61999,
+    "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+    "policySHA256": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+    "statements": [
+      {
+        "id": "renaming",
+        "declaration": "RenamingSound",
+        "statement": "def RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f",
+        "legacyStatementHash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+        "propositionHash": "48e70a52545b5a518ad840270393552bd116ec76dbc7ea993eb1f4a4479c1669"
+      },
+      {
+        "id": "renaming_sat",
+        "declaration": "RenamingSAT",
+        "statement": "def RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f",
+        "legacyStatementHash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+        "propositionHash": "e5d84afec4b99875df6df5493100a245bb810c2bd9e4d2ae697aa2730ff01342"
+      }
+    ]
+  }
+}

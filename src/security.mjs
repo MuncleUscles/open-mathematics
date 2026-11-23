@@ -3,8 +3,8 @@ import {recoverMessageAddress, isAddress} from 'viem';
 export const canonical=x=>JSON.stringify(x,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 export const digest=x=>createHash('sha256').update(typeof x==='string'||x instanceof Uint8Array?x:canonical(x)).digest('hex');
 export const message=c=>`Open Mathematics PR claim v${c.version}\n${canonical(c)}`;
-export function validateClaim(c,{domain,chainId,contract,policy,branch,now=Date.now()}){
-  if(!c||!([1,2].includes(c.version))||c.domain!==domain||c.chainId!==chainId||c.problem!=='p-vs-np')throw Error('Wrong signing domain, chain or problem');
+export function validateClaim(c,{domain,chainId,contract,policy,branch,problem='p-vs-np',now=Date.now()}){
+  if(!c||!([1,2].includes(c.version))||c.domain!==domain||c.chainId!==chainId||c.problem!==problem)throw Error('Wrong signing domain, chain or problem');
   if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(c.repository)||!Number.isSafeInteger(c.pr)||c.pr<1||!/[0-9a-f]{40}/.test(c.head)||c.head.length!==40||!isAddress(c.wallet))throw Error('Malformed PR identity');
   if(contract||c.version===2){
     const fields=['version','domain','chainId','problem','repository','pr','head','base','branch','contract','policy','submission_path','submission_hash','wallet','nonce','expires'];
@@ -44,6 +44,7 @@ export function enrolledProofBlob({pr,tree,baseTree,head}){
 }
 
 export function enrolledSubmissionBlobs({claim,tree,baseTree,head,proofPaths}){
+ if(!Array.isArray(proofPaths)||proofPaths.includes(claim.submission_path)||proofPaths.some(p=>!/^research\/proofs\/[a-z0-9][a-z0-9_-]{0,63}\.proof$/.test(p)))throw Error('Disjoint enrolled proof and submission paths required');
  if(head.parents?.length!==1||head.parents[0].sha!==claim.base)throw Error('Use one submission commit directly on the signed canonical base');
  if(tree.truncated||baseTree.truncated||!Array.isArray(tree.tree)||!Array.isArray(baseTree.tree))throw Error('Complete immutable tree required');
  const old=new Map(baseTree.tree.filter(e=>e.type!=='tree').map(e=>[e.path,e]));

@@ -27,17 +27,17 @@ export function validateProvenance(p){
  if(p.discovery_basis.startsWith('REPLACE:')||p.sources.some(s=>[s.title,s.relationship,s.priority_evidence,...s.authors].some(v=>v.startsWith('REPLACE:'))))fail('replace provenance placeholders with actual evidence');
  return p;
 }
-export function validateSubmission(s,{wallet,goals}){
+export function validateSubmission(s,{wallet,goals,problem='p-vs-np',policyName='cnf-core-v2',directions=RESEARCH_DIRECTIONS}){
  object(s,['schema_version','problem','kind','title','claim','novelty','prior_art','research_direction','provenance','evidence','dependencies','attribution','limitations'],'root');
- if(s.schema_version!==2||s.problem!=='p-vs-np')fail('wrong schema or problem');
- if(!RESEARCH_DIRECTIONS.includes(s.research_direction))fail('invalid research direction');
+ if(s.schema_version!==2||s.problem!==problem)fail('wrong schema or problem');
+ if(!directions.includes(s.research_direction))fail('invalid research direction');
  validateProvenance(s.provenance);
  if(!['lemma','counterexample','algorithm','construction','failed-approach','infrastructure'].includes(s.kind))fail('unknown kind');
  for(const [field,min,max] of [['title',8,160],['claim',40,3000],['novelty',40,2000],['limitations',30,2000]])str(s[field],min,max,field);
  if(!Array.isArray(s.prior_art)||s.prior_art.length>8)fail('prior_art must list at most eight sources');
  for(const p of s.prior_art){object(p,['reference','relationship'],'prior art');str(p.reference,5,500,'reference');str(p.relationship,20,1000,'relationship');}
  object(s.evidence,['policy','goal','proof_path','reproduce'],'evidence');
- if(typeof s.evidence.goal!=='string'||!Object.hasOwn(goals,s.evidence.goal)||typeof s.evidence.proof_path!=='string')fail('invalid goal or proof path');const goal=goals[s.evidence.goal];if(!goal||s.evidence.policy!=='cnf-core-v2'||s.evidence.proof_path!==goal.path)fail('unenrolled evidence policy or statement');str(s.evidence.reproduce,20,1000,'reproduction');
+ if(typeof s.evidence.goal!=='string'||!Object.hasOwn(goals,s.evidence.goal)||typeof s.evidence.proof_path!=='string')fail('invalid goal or proof path');const goal=goals[s.evidence.goal];if(!goal||s.evidence.policy!==policyName||s.evidence.proof_path!==goal.path)fail('unenrolled evidence policy or statement');str(s.evidence.reproduce,20,1000,'reproduction');
  if(!Array.isArray(s.dependencies)||s.dependencies.length>8)fail('dependencies must list at most eight records');
  const ids=new Set();for(const d of s.dependencies){object(d,['id','use','importance'],'dependency');str(d.id,1,100,'dependency ID');str(d.use,30,1500,'actual mathematical use');str(d.importance,30,1500,'dependency importance');if(ids.has(d.id))fail('duplicate dependency');ids.add(d.id);}
  object(s.attribution,['wallet','contributions'],'attribution');
