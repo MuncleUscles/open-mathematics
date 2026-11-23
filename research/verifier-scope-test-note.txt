@@ -1,0 +1,1 @@
+Controlled verifier test. This intentionally out-of-scope text file contains no executable code or mathematical claim.

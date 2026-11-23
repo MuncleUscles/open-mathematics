@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "problem": "p-vs-np",
+  "kind": "infrastructure",
+  "title": "Controlled verifier rejection test with an extra text file",
+  "claim": "This test copies the accepted variable-renaming satisfiability proof and adds one out-of-scope text file. The expected result is rejection by the immutable tree check.",
+  "novelty": "This is a controlled repository verifier test. It contributes no new mathematics and requests zero points or credit.",
+  "prior_art": [
+    {
+      "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+      "relationship": "The test copies the accepted proof from this merged pull request with a trailing blank line."
+    }
+  ],
+  "research_direction": "shared",
+  "provenance": {
+    "mode": "integration",
+    "sources": [
+      {
+        "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+        "title": "Satisfiability is preserved by injective CNF variable renaming",
+        "authors": [
+          "MuncleUscles"
+        ],
+        "relationship": "This repository pull request is the source of the unchanged mathematical proof used by the fixture.",
+        "priority_evidence": "The source pull request merged into canonical research before this test fixture was prepared."
+      }
+    ],
+    "discovery_basis": ""
+  },
+  "evidence": {
+    "policy": "cnf-core-v2",
+    "goal": "renaming_sat",
+    "proof_path": "research/proofs/renaming_sat.proof",
+    "reproduce": "Compare the exact signed base and head trees. The head adds a plain-text note outside the permitted proof and submission paths."
+  },
+  "dependencies": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "use": "In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.",
+      "importance": "It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics."
+    }
+  ],
+  "attribution": {
+    "wallet": "0xebAb8480E0167a0d5cc56feF7C30961d77497e15",
+    "contributions": "The agent wallet signs this controlled fixture using the same GitHub account as the pilot. This fixture requests no credit."
+  },
+  "limitations": "Both pilot theorems already have accepted proofs. This fixture tests file scope only and does not address P versus NP."
+}
