@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "problem": "p-vs-np",
+  "kind": "lemma",
+  "title": "Controlled duplicate test of the accepted SAT renaming proof",
+  "claim": "For any natural-number variable renaming r with an explicit left inverse s, a finite CNF formula is satisfiable exactly when the renamed formula is satisfiable. This is the same statement and proof already accepted in pull request 5.",
+  "novelty": "This controlled test repeats an accepted proof with one extra blank line and a different test signer. It makes no new mathematical claim and requests zero points or credit.",
+  "prior_art": [
+    {
+      "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+      "relationship": "This merged pull request already supplies the exact theorem and proof repeated by the fixture."
+    }
+  ],
+  "research_direction": "shared",
+  "provenance": {
+    "mode": "integration",
+    "sources": [
+      {
+        "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+        "title": "Satisfiability is preserved by injective CNF variable renaming",
+        "authors": [
+          "MuncleUscles"
+        ],
+        "relationship": "The test repeats the accepted proof of this source with one trailing blank line and identical mathematical content.",
+        "priority_evidence": "The published pull request merged into canonical research before this controlled duplicate was prepared."
+      }
+    ],
+    "discovery_basis": ""
+  },
+  "evidence": {
+    "policy": "cnf-core-v2",
+    "goal": "renaming_sat",
+    "proof_path": "research/proofs/renaming_sat.proof",
+    "reproduce": "Run the pinned Lean verifier against the enrolled renaming_sat statement with the identical credited upstream renaming proof. The only proof edit is one trailing blank line."
+  },
+  "dependencies": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "use": "In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.",
+      "importance": "It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics."
+    }
+  ],
+  "attribution": {
+    "wallet": "0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8",
+    "contributions": "A dedicated test wallet signs this fixture under the same GitHub account that operates the pilot. The fixture adds no new research."
+  },
+  "limitations": "This duplicate covers the previously accepted finite CNF lemma only. It requests no credit and makes no claim about P versus NP."
+}
