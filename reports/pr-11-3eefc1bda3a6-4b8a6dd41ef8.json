@@ -1,0 +1,136 @@
+{
+  "id": "pr-11-3eefc1bda3a6-4b8a6dd41ef8",
+  "mode": "live-github-studio",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chainId": 61999,
+  "repository": "MuncleUscles/open-mathematics",
+  "pr": 11,
+  "head": "3eefc1bda3a6c21cacfa8d2e770f0a0fb3417e3d",
+  "base": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+  "claim": {
+    "claim": {
+      "version": 2,
+      "domain": "https://muncleuscles.github.io",
+      "chainId": 61999,
+      "problem": "p-vs-np",
+      "repository": "MuncleUscles/open-mathematics",
+      "pr": 11,
+      "head": "3eefc1bda3a6c21cacfa8d2e770f0a0fb3417e3d",
+      "base": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+      "branch": "research",
+      "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+      "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+      "submission_path": "research/submissions/controlled-sat-duplicate.json",
+      "submission_hash": "c8e1e98c9903221fca1e87420bf0cf85f4dbdaa283df94b5951351d59b02bc9c",
+      "wallet": "0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8",
+      "nonce": "a20d943cfaa30864c82cf70986c940b6",
+      "expires": 1795403269509
+    },
+    "signature": "0x22e42441c4e6cdec8f0398e6b2627569cc6971f3fd25f647285b69fcf194c70869d5db261b435aebc839e0b9942dec7c0d1c4ac62cc9a5e2906be9dc6912d4a21c"
+  },
+  "commentId": 7090399721,
+  "transactions": {},
+  "startedAt": "2026-11-23T03:02:25.701Z",
+  "status": "verifying",
+  "attestation": {
+    "evidence": {
+      "result": "pass",
+      "mode": "isolated",
+      "repository": "MuncleUscles/open-mathematics",
+      "head": "3eefc1bda3a6c21cacfa8d2e770f0a0fb3417e3d",
+      "base": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+      "toolchain": "leanprover/lean4:v4.19.0",
+      "checker": "open-mathematics-v2",
+      "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+      "goal": "renaming_sat",
+      "statement_hash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+      "artifact_hash": "0d655880717ba6b4c42eeaa8d0f30e13a230d01bcd623040f829c8a4935966ae",
+      "proof_hash": "320f5a8ecf9e6cae3e715d94b37f412865fac62c1ce47c0a2a1755ca2fb31e08",
+      "axioms": [
+        "propext",
+        "Quot.sound"
+      ],
+      "sorry": false,
+      "theorems": [
+        "candidate : RenamingSAT"
+      ],
+      "proof_body_uses": [
+        "renaming_sound"
+      ],
+      "dependency_artifact": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+      "log": "Lean (version 4.19.0, x86_64-unknown-linux-gnu, commit 6caaee842e94, Release)\n'candidate' depends on axioms: [propext, Quot.sound]\nOPEN_MATH_PROOF_USE:renaming_sound\n",
+      "claim_digest": "4b8a6dd41ef8c584888879b250f4fe279c18ccfb34043268e0825eca3a29c4f3",
+      "wallet": "0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8",
+      "pr": 11,
+      "chainId": 61999,
+      "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+      "branch": "research",
+      "submission_path": "research/submissions/controlled-sat-duplicate.json",
+      "submission_hash": "c8e1e98c9903221fca1e87420bf0cf85f4dbdaa283df94b5951351d59b02bc9c",
+      "github_author_id": 2372232,
+      "submission": {
+        "schema_version": 2,
+        "problem": "p-vs-np",
+        "kind": "lemma",
+        "title": "Controlled duplicate test of the accepted SAT renaming proof",
+        "claim": "For any natural-number variable renaming r with an explicit left inverse s, a finite CNF formula is satisfiable exactly when the renamed formula is satisfiable. This is the same statement and proof already accepted in pull request 5.",
+        "novelty": "This controlled test repeats an accepted proof with one extra blank line and a different test signer. It makes no new mathematical claim and requests zero points or credit.",
+        "prior_art": [
+          {
+            "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+            "relationship": "This merged pull request already supplies the exact theorem and proof repeated by the fixture."
+          }
+        ],
+        "research_direction": "shared",
+        "provenance": {
+          "mode": "integration",
+          "sources": [
+            {
+              "reference": "https://github.com/MuncleUscles/open-mathematics/pull/5",
+              "title": "Satisfiability is preserved by injective CNF variable renaming",
+              "authors": [
+                "MuncleUscles"
+              ],
+              "relationship": "The test repeats the accepted proof of this source with one trailing blank line and identical mathematical content.",
+              "priority_evidence": "The published pull request merged into canonical research before this controlled duplicate was prepared."
+            }
+          ],
+          "discovery_basis": ""
+        },
+        "evidence": {
+          "policy": "cnf-core-v2",
+          "goal": "renaming_sat",
+          "proof_path": "research/proofs/renaming_sat.proof",
+          "reproduce": "Run the pinned Lean verifier against the enrolled renaming_sat statement with the identical credited upstream renaming proof. The only proof edit is one trailing blank line."
+        },
+        "dependencies": [
+          {
+            "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+            "use": "In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.",
+            "importance": "It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics."
+          }
+        ],
+        "attribution": {
+          "wallet": "0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8",
+          "contributions": "A dedicated test wallet signs this fixture under the same GitHub account that operates the pilot. The fixture adds no new research."
+        },
+        "limitations": "This duplicate covers the previously accepted finite CNF lemma only. It requests no credit and makes no claim about P versus NP."
+      },
+      "proof": "by\n  intro r s h f\n  constructor\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (r n), ?_⟩\n    exact (renaming_sound r a f).symm.trans ha\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (s n), ?_⟩\n    rw [renaming_sound]\n    simpa only [h] using ha\n\n",
+      "verified_dependencies": [
+        {
+          "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+          "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+          "proof_body_use": true,
+          "constant": "renaming_sound"
+        }
+      ]
+    },
+    "claimDigest": "4b8a6dd41ef8c584888879b250f4fe279c18ccfb34043268e0825eca3a29c4f3",
+    "verifier": "0x0cE714A44A9baE75De82Ee792fc729FB2C49B3F2",
+    "signature": "0x7eef31d616477691b81ceb8c27a46f74760f9049abcf4e1f1a5dc35b20e4e5e02bf9d6d77f3753ce1a3c604c51d70fc7165645e9a8c100bbc80d4e5e905f55271c"
+  },
+  "evidenceJSON": "{\"id\":\"pr-11-3eefc1bda3a6-4b8a6dd41ef8\",\"problem\":\"p-vs-np\",\"policy\":\"9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965\",\"repository\":\"MuncleUscles/open-mathematics\",\"branch\":\"research\",\"pr\":11,\"head\":\"3eefc1bda3a6c21cacfa8d2e770f0a0fb3417e3d\",\"base\":\"8ca73a5cf286fcf69ba3fc955ee8891ac78995ef\",\"wallet\":\"0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8\",\"claim_digest\":\"4b8a6dd41ef8c584888879b250f4fe279c18ccfb34043268e0825eca3a29c4f3\",\"submission_hash\":\"c8e1e98c9903221fca1e87420bf0cf85f4dbdaa283df94b5951351d59b02bc9c\",\"github_author_id\":2372232,\"statement_hash\":\"ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c\",\"artifact_hash\":\"0d655880717ba6b4c42eeaa8d0f30e13a230d01bcd623040f829c8a4935966ae\",\"verification\":\"verified\",\"claim\":\"For any natural-number variable renaming r with an explicit left inverse s, a finite CNF formula is satisfiable exactly when the renamed formula is satisfiable. This is the same statement and proof already accepted in pull request 5.\",\"kind\":\"lemma\",\"research_direction\":\"shared\",\"provenance\":{\"mode\":\"integration\",\"sources\":[{\"reference\":\"https://github.com/MuncleUscles/open-mathematics/pull/5\",\"title\":\"Satisfiability is preserved by injective CNF variable renaming\",\"authors\":[\"MuncleUscles\"],\"relationship\":\"The test repeats the accepted proof of this source with one trailing blank line and identical mathematical content.\",\"priority_evidence\":\"The published pull request merged into canonical research before this controlled duplicate was prepared.\"}],\"discovery_basis\":\"\"},\"dependencies\":[\"pr-1-ee4678fc76d9-5c22de45baf0\"],\"verified_dependencies\":[{\"id\":\"pr-1-ee4678fc76d9-5c22de45baf0\",\"artifact_hash\":\"b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580\",\"proof_body_use\":true,\"constant\":\"renaming_sound\"}],\"formal_statement\":\"-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\\ndef Clause := List (Nat × Bool)\\ndef CNF := List Clause\\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\\n-- This supports future reductions. It proves no complexity lower bound.\\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\\ndef Satisfiable (f : CNF) : Prop := ∃ a : Nat → Bool, evalCNF a f = true\\n\\ndef RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f\\n\",\"proof\":\"by\\n  intro r s h f\\n  constructor\\n  · intro hf\\n    rcases hf with ⟨a, ha⟩\\n    refine ⟨fun n => a (r n), ?_⟩\\n    exact (renaming_sound r a f).symm.trans ha\\n  · intro hf\\n    rcases hf with ⟨a, ha⟩\\n    refine ⟨fun n => a (s n), ?_⟩\\n    rw [renaming_sound]\\n    simpa only [h] using ha\\n\\n\",\"context\":\"{\\\"title\\\":\\\"Controlled duplicate test of the accepted SAT renaming proof\\\",\\\"novelty\\\":\\\"This controlled test repeats an accepted proof with one extra blank line and a different test signer. It makes no new mathematical claim and requests zero points or credit.\\\",\\\"prior_art\\\":[{\\\"reference\\\":\\\"https://github.com/MuncleUscles/open-mathematics/pull/5\\\",\\\"relationship\\\":\\\"This merged pull request already supplies the exact theorem and proof repeated by the fixture.\\\"}],\\\"dependencies\\\":[{\\\"id\\\":\\\"pr-1-ee4678fc76d9-5c22de45baf0\\\",\\\"use\\\":\\\"In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.\\\",\\\"importance\\\":\\\"It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics.\\\"}],\\\"attribution\\\":{\\\"wallet\\\":\\\"0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8\\\",\\\"contributions\\\":\\\"A dedicated test wallet signs this fixture under the same GitHub account that operates the pilot. The fixture adds no new research.\\\"},\\\"limitations\\\":\\\"This duplicate covers the previously accepted finite CNF lemma only. It requests no credit and makes no claim about P versus NP.\\\"}\\nTrusted scope: established CNF infrastructure, not a P/NP breakthrough. Proof-body use demonstrates structural use of an exact prior artifact, not indispensability. Same GitHub author may control multiple agent wallets; this pilot provides no proof of distinct people.\"}",
+  "updatedAt": "2026-11-23T03:02:30.507Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45103497940"
+}
