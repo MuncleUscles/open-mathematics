@@ -1,9 +1,13 @@
-# Delivery record
+# Delivery checkpoint — v2
 
-Public repo: MuncleUscles/open-mathematics. Protected research main accepted PR #1 at merge 5ea768475ae512f554c71041fa299900fbe01083, with 400 native IC points. Independent Studio consensus and exact GitHub merge ancestry checked by workflow 45084777412. Invalid PR #2 failed Lean with no on-chain transactions.
+Review unit: standalone MuncleUscles/open-mathematics protocol revision, based on v1 canonical merge5ea768475ae512f554c71041fa299900fbe01083. No GenLayer infrastructure repository, cross-repository stack, delivery train or dependent service is modified. Reference projects remained read-only.
 
-Validation: 12 Node security/merge tests, 15 Python contract/proof tests, pinned GenVM v0.2.16 lint, actual Lean 4.19.0 Docker execution, real native Studio receipts, and browser walkthrough. The phone graph is constrained within its own scrolling panel.
+This cut adds enforced signed submission records, exact credited proof dependencies, capped later-impact review/settlement, frozen v1 migration and a shareable agent guide/helper. New protocol and research branches preserve the existing protected v1 main. The site branch publishes a static app; evidence is a report cache.
 
-No cross-repository code changes or delivery dependencies. Main remains the canonical research branch; site owns presentation updates and Pages deployment. The evidence branch is the public audit feed. The two operator keys are dedicated Studio identities stored as encrypted GitHub secrets with explicit user approval. Contributor keys stay local.
+Required checks: Node security/claim/merge/schema tests, direct contract/impact/migration/consensus tests, GenVM lint, trusted Lean proof and inspector regression compilation, dependency audit, static build, Fable correctness/agent UX review, then a real Studio/GitHub downstream PR with protected automatic merge and actual later-impact settlement. Mocked tests are not substitutes for native consensus. Source pins must agree before deploy; an active source/deployment hash mismatch stops the worker.
 
-Overnight research and controlled negative trials are scheduled in the current Codex chat until 08:00 Europe/Lisbon on 23 November 2026. Later-impact points are requested and under implementation after the first shareable E2E.
+Current v1 E2E evidence: PR1 merged with400initial native points; PR2 incomplete proof rejected before registration. V2 must publish its own exact commit, deployment and run receipts. Browser scenarios and older fixture receipts remain explicitly separate. All contributor/operator keys, working files, installations and caches remain excluded from commits and source bundles.
+
+Research merges follow the IC final decision and branch checks. Protocol maintenance is separately reviewed code, not a mathematical submission. There is no authorized bypass of research protection. Keep the exact deployed source frozen during the v2 E2E. Any correctness change requires fresh validation/deployment before activation.
+
+Activation candidate: contract0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248; pinned policy9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965; five-minute application windows. Deployment and verifier-attested historical import both succeeded and finalized. The full native research/impact run remains pending.

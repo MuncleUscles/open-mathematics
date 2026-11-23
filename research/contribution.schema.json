@@ -1,1 +1,198 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Research contribution","type":"object","required":["id","problem","kind","wallet","repository","pr","head","claim","prior_art","dependencies","limitations"],"properties":{"id":{"type":"string"},"problem":{"const":"p-vs-np"},"kind":{"enum":["lemma","counterexample","algorithm","construction","failed-approach","infrastructure"]},"wallet":{"type":"string","pattern":"^0x[0-9a-fA-F]{40}$"},"repository":{"type":"string"},"pr":{"type":"integer","minimum":1},"head":{"type":"string","pattern":"^[0-9a-f]{40}$"},"claim":{"type":"string","maxLength":4000},"prior_art":{"type":"array","items":{"type":"string"}},"dependencies":{"type":"array","maxItems":8,"uniqueItems":true,"items":{"type":"string"}},"relations":{"type":"array","items":{"type":"object","required":["target","type","justification"],"properties":{"target":{"type":"string"},"type":{"enum":["proves","strengthens","generalizes","depends-on","contradicts","disproves","uses-technique","replaces","duplicates"]},"justification":{"type":"string"}}}},"limitations":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "problem",
+    "kind",
+    "title",
+    "claim",
+    "novelty",
+    "prior_art",
+    "evidence",
+    "dependencies",
+    "attribution",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "problem": {
+      "const": "p-vs-np"
+    },
+    "kind": {
+      "enum": [
+        "lemma",
+        "counterexample",
+        "algorithm",
+        "construction",
+        "failed-approach",
+        "infrastructure"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 3000
+    },
+    "novelty": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 2000
+    },
+    "prior_art": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reference",
+          "relationship"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "goal",
+        "proof_path",
+        "reproduce"
+      ],
+      "properties": {
+        "policy": {
+          "const": "cnf-core-v2"
+        },
+        "goal": {
+          "enum": [
+            "renaming",
+            "renaming_sat"
+          ]
+        },
+        "proof_path": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 160
+        },
+        "reproduce": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "goal": {
+                "const": "renaming"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_path": {
+                "const": "research/proofs/renaming.proof"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "goal": {
+                "const": "renaming_sat"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_path": {
+                "const": "research/proofs/renaming_sat.proof"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "use",
+          "importance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "use": {
+            "type": "string",
+            "minLength": 30,
+            "maxLength": 1500
+          },
+          "importance": {
+            "type": "string",
+            "minLength": 30,
+            "maxLength": 1500
+          }
+        }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wallet",
+        "contributions"
+      ],
+      "properties": {
+        "wallet": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$",
+          "not": {
+            "pattern": "^0x0{40}$"
+          }
+        },
+        "contributions": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1500
+        }
+      }
+    },
+    "limitations": {
+      "type": "string",
+      "minLength": 30,
+      "maxLength": 2000
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Open Mathematics mandatory submission record"
+}

@@ -1,14 +1,33 @@
 {
-  "version": 1,
+  "version": 2,
+  "name": "cnf-core-v2",
   "toolchain": "leanprover/lean4:v4.19.0",
   "mathlib": null,
-  "theorem": "candidate : RenamingSound",
   "allowed_axioms": [
     "propext",
     "Quot.sound"
   ],
   "files": {
     "Trusted.lean": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
-    "check.py": "fd16ff3c4bba8d99d733aba00d2d2256335247a7cea311e97689ef6cfbfb4899"
+    "Downstream.lean": "5dc742b9a6e4d1ca85e3f698ee872d745aa1331e1ec38cde9a50423df35b3e12",
+    "Inspect.lean": "d297dc3ca874eea7bb6a89a28cbf9d03b2f2eabba8ab678d59ce9bb0be5624e6",
+    "check.py": "f7c52034030a667ae55f6ff7fdb77507d356797e61522d18ef95aa1ce7a54abc",
+    "legacy_check.py": "fd16ff3c4bba8d99d733aba00d2d2256335247a7cea311e97689ef6cfbfb4899"
+  },
+  "goals": {
+    "renaming": {
+      "path": "research/proofs/renaming.proof",
+      "theorem": "candidate : RenamingSound",
+      "statement_hash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+      "statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat \u00d7 Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat \u2192 Bool) (l : Nat \u00d7 Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat \u2192 Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat \u2192 Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat \u2192 Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat \u2192 Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := \u2200 (r : Nat \u2192 Nat) (a : Nat \u2192 Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\n",
+      "dependency": null
+    },
+    "renaming_sat": {
+      "path": "research/proofs/renaming_sat.proof",
+      "theorem": "candidate : RenamingSAT",
+      "statement_hash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+      "statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat \u00d7 Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat \u2192 Bool) (l : Nat \u00d7 Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat \u2192 Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat \u2192 Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat \u2192 Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat \u2192 Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := \u2200 (r : Nat \u2192 Nat) (a : Nat \u2192 Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\ndef Satisfiable (f : CNF) : Prop := \u2203 a : Nat \u2192 Bool, evalCNF a f = true\n\ndef RenamingSAT : Prop := \u2200 (r s : Nat \u2192 Nat), (\u2200 n, s (r n) = n) \u2192 \u2200 f, Satisfiable (renameCNF r f) \u2194 Satisfiable f\n",
+      "dependency": "renaming_sound"
+    }
   }
 }

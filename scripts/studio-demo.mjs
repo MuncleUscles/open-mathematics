@@ -20,7 +20,7 @@ try{
 if(await client.getChainId()!==studionet.id)throw Error('Wrong Studio chain');
 const code=fs.readFileSync('contracts/research.py','utf8');report.codeHash=digest(code);
 const policy=digest(fs.readFileSync('lean/policy.json','utf8'));
-const deploy=await client.deployContract({code,args:[account.address,account.address,'p-vs-np',policy,10],leaderOnly:false});
+const deploy=await client.deployContract({code,args:[account.address,account.address,'p-vs-np',policy,10,false],leaderOnly:false});
 const receipt=await wait('deploy',deploy);const address=receipt.data?.contract_address||receipt.to_address;if(!/^0x[\da-f]{40}$/i.test(address))throw Error('No deployed address');report.contract=address;save();
 const write=async(stage,fn,args)=>wait(stage,await client.writeContract({address,functionName:fn,args,leaderOnly:false}));
 const lean=JSON.parse(fs.readFileSync('public/lean-evidence.json','utf8'));
@@ -31,16 +31,16 @@ for(const [id,claim,statement] of [
   const claimEnvelope={version:1,domain:'https://open-mathematics.demo',chainId:61999,problem:'p-vs-np',repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),wallet:account.address,nonce:randomBytes(16).toString('hex'),expires:Date.now()+300000};
   const signature=await account.signMessage({message:message(claimEnvelope)});
   report.claims??={};report.claims[id]={claim:claimEnvelope,signature};
-  const e={id,problem:'p-vs-np',policy,repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),base:'b'.repeat(40),wallet:account.address,claim_digest:digest(claimEnvelope),statement_hash:statement,artifact_hash:id==='demo-renaming'?lean.artifact_hash:tautology.artifact_hash,verification:'verified',claim,context:'Bounded integration demonstration. P vs NP remains open; no complete P/NP formalization is present. No prior renaming theorem in this demo component.',dependencies:[],kind:'lemma'};
+  const e={id,problem:'p-vs-np',policy,repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),base:'b'.repeat(40),wallet:account.address,claim_digest:digest(claimEnvelope),statement_hash:statement,artifact_hash:id==='demo-renaming'?lean.artifact_hash:tautology.artifact_hash,verification:'verified',claim,context:'Bounded integration demonstration. P vs NP remains open; no complete P/NP formalization is present. No prior renaming theorem in this demo component.',dependencies:[],kind:'lemma',submission_hash:digest('explicit fixture submission'),github_author_id:1,verified_dependencies:[],proof:'by\n  simp [evalCNF]',formal_statement:id==='demo-renaming'?'For all renamings, assignments and formulas: CNF evaluation commutes with variable renaming.':'The proposition True; no mathematical content about P vs NP.'};
   await write(id+'-register','register',[JSON.stringify(e)]);
-  await write(id+'-adjudicate','adjudicate',[id]);
+  await write(id+'-adjudicate','adjudicate',[id,0]);
   const judgment=report.transactions[id+'-adjudicate'].receipt;
   if(!judgment.consensus_data?.validators?.some(v=>v.mode==='validator'&&v.vote==='agree'))throw Error('No independent validator agreement');
   await new Promise(r=>setTimeout(r,11000));
-  await write(id+'-finalize','finalize',[id]);
-  let record=normalize(await client.readContract({address,functionName:'get',args:[id],stateStatus:'finalized'}));
+  await write(id+'-finalize','finalize',[id,0]);
+  let record=normalize(await client.readContract({address,functionName:'get',args:[id],transactionHashVariant:'latest-final'}));
   if(record.status==='approved')await write(id+'-simulated-merge','confirm_merge',[id,e.head,'c'.repeat(40)]);
-  report.records[id]=normalize(await client.readContract({address,functionName:'get',args:[id],stateStatus:'finalized'}));save();
+  report.records[id]=normalize(await client.readContract({address,functionName:'get',args:[id],transactionHashVariant:'latest-final'}));save();
 }
-report.points=normalize(await client.readContract({address,functionName:'get_points',args:[account.address],stateStatus:'finalized'}));if(report.records['demo-renaming']?.status!=='credited'||report.records['demo-tautology']?.status!=='rejected')throw Error('Expected demonstration outcomes were not reached; inspect actual contract judgment');report.completedAt=new Date().toISOString();report.status='complete';save();console.log('Studio demonstration complete',address);
+report.points=normalize(await client.readContract({address,functionName:'get_points',args:[account.address],transactionHashVariant:'latest-final'}));if(report.records['demo-renaming']?.status!=='credited'||report.records['demo-tautology']?.status!=='rejected')throw Error('Expected demonstration outcomes were not reached; inspect actual contract judgment');report.completedAt=new Date().toISOString();report.status='complete';save();console.log('Studio demonstration complete',address);
 }catch(e){report.status='incomplete';report.error=e.message;save();console.error(e.message);process.exitCode=1;}
