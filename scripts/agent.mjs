@@ -5,7 +5,8 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';i
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {privateKeyToAccount} from 'viem/accounts';import {recoverMessageAddress,isAddress} from 'viem';
 import {GitHub} from '../src/github.mjs';import {decodeSubmission,validateProvenance} from '../src/submission.mjs';
-import {digest,message,validateClaim,enrolledSubmissionBlobs} from '../src/security.mjs';import {clientFor,read,finalized} from '../github/runtime.mjs';
+import {digest,message,validateClaim,enrolledSubmissionBlobs} from '../src/security.mjs';import {clientFor as studioClientFor,read,finalized} from '../github/runtime.mjs';
+import {rpcRateLimit} from '../src/rpc-errors.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function contributorPath(worktree,file){
  if(typeof file!=='string'||!file||path.isAbsolute(file)||file.split(/[\\/]/).includes('..'))throw Error('Use a relative path inside the contributor worktree');
@@ -15,7 +16,8 @@ export function contributorPath(worktree,file){
  if(!inside(fs.realpathSync(ancestor)))throw Error('Symlink escapes contributor worktree');
  return target;
 }
-export async function run(argv=process.argv.slice(2)){
+export async function run(argv=process.argv.slice(2),{clientFor=studioClientFor}={}){
+let nativeTransaction;
 try{
  const flags=[...argv];let worktree=process.cwd();
  const at=flags.indexOf('--worktree');if(at!==-1){if(!flags[at+1]||flags[at+1].startsWith('--'))throw Error('--worktree requires a directory');worktree=flags[at+1];flags.splice(at,2);if(flags.includes('--worktree'))throw Error('Only one --worktree is allowed');}
@@ -25,6 +27,17 @@ const deployment=JSON.parse(fs.readFileSync(trusted('public/deployment.json'),'u
 const gh=new GitHub({repository:deployment.repository,token:process.env.GITHUB_TOKEN});
 const [command,...args]=flags;
 const out=x=>console.log(JSON.stringify(x,null,2));
+async function sendNative(sender,method,args){
+ const address=deployment.contract;
+ nativeTransaction={contract:address,chainId:deployment.chainId,method,wallet:sender.account.address};
+ const hash=await sender.writeContract({address,functionName:method,args,leaderOnly:false});
+ if(typeof hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(hash))throw Error('Studio did not return a valid native transaction hash');
+ nativeTransaction.hash=hash;
+ console.error(JSON.stringify({event:'native-transaction',status:'broadcast',...nativeTransaction}));
+ await finalized(sender,hash,{address,method,args});
+ nativeTransaction.finalized=true;
+ return hash;
+}
 const blob=async sha=>{const b=await gh.request(`/git/blobs/${sha}`);if(b.sha!==sha||b.encoding!=='base64'||b.size>12000)throw Error('Invalid proof blob');return Buffer.from(b.content,'base64');};
 async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,'list_contributions',[]),records=await Promise.all(ids.map(id=>read(c,deployment.contract,'get',[id])));return Object.entries(policy.goals).map(([id,g])=>({id,...g,status:records.some(r=>['approved','credited'].includes(r.status)&&r.evidence.statement_hash===g.statement_hash)?'closed':'open',creditedDependency:records.find(r=>r.status==='credited'&&r.evidence.statement_hash===policy.goals.renaming.statement_hash)?.evidence.id||null}));}
  if(!command||command==='help'){
@@ -79,7 +92,7 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
   const state=await read(c,deployment.contract,impact?'get_impact':'get',[id]);
   if(state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||state.round>=2)throw Error('Challenge window closed or budget exhausted');
   if(!args.includes('--send'))out({contract:deployment.contract,method,args:[id,evidence],deadline:state.deadline,next:'Review the evidence, then repeat with --send and a local CONTRIBUTOR_KEY_FILE. No transaction sent.'});
-  else{if(!process.env.CONTRIBUTOR_KEY_FILE)throw Error('Local wallet signer required');const sender=clientFor(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim());const hash=await sender.writeContract({address:deployment.contract,functionName:method,args:[id,evidence],leaderOnly:false});await finalized(sender,hash,{address:deployment.contract,method,args:[id,evidence]});out({status:'challenge recorded',hash,next:'Settlement is blocked. The queue will request a fresh review; native consensus appeals are separate.'});}
+  else{if(!process.env.CONTRIBUTOR_KEY_FILE)throw Error('Local wallet signer required');const sender=clientFor(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim());const hash=await sendNative(sender,method,[id,evidence]);out({status:'challenge recorded',hash,next:'Settlement is blocked. The queue will request a fresh review; native consensus appeals are separate.'});}
  }else if(command==='affiliation'||command==='case-report'||command==='case-challenge'||command==='case-withdraw'){
   if(deployment.protocolVersion!==3)throw Error('This deployment does not yet expose native sides/provenance');
   let method,callArgs;
@@ -112,7 +125,7 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
   else{
    if(!process.env.CONTRIBUTOR_KEY_FILE)throw Error('Local wallet signer required');
    const sender=clientFor(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()),wallet=sender.account.address;
-   const hash=await sender.writeContract({address:deployment.contract,functionName:method,args:callArgs,leaderOnly:false});await finalized(sender,hash,{address:deployment.contract,method,args:callArgs});
+   const hash=await sendNative(sender,method,callArgs);
    if(method==='report_case'){
     const ids=await read(sender,deployment.contract,'list_cases',[]),cases=await Promise.all(ids.map(id=>read(sender,deployment.contract,'get_case',[id])));
     const matches=cases.filter(c=>c.reporter.toLowerCase()===wallet.toLowerCase()&&c.kind===callArgs[0]&&c.target===callArgs[1]&&digest(c.payload)===digest(JSON.parse(callArgs[2])));
@@ -135,6 +148,24 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
    out(result);
   }
  }else throw Error('Unknown command; run help');
-}catch(e){console.error(JSON.stringify({error:e.message,next:'Run node scripts/agent.mjs help. No claim was posted and no private key was transmitted.'}));process.exitCode=1;}
+}catch(e){
+ const rateLimit=rpcRateLimit(e);
+ let failure;
+ if(!nativeTransaction){
+  failure={...(argv.includes('--send')?{status:'before-broadcast'}:{}),error:rateLimit?'Studio RPC rate limit reached.':e.message,next:rateLimit?'Run the command again after the limit resets.':'Correct the reported error or run node scripts/agent.mjs help.'};
+ }else{
+  const {finalized:confirmed,...details}=nativeTransaction;
+  if(confirmed)failure={status:'result-unavailable',error:'The native transaction finalized, but the follow-up result could not be loaded.',...details,next:'Inspect the finalized receipt and current contract state using the reported hash.'};
+  else if(details.hash)failure={status:'finality-unverified',error:'Successful finality could not be verified for the broadcast transaction.',...details,next:'Inspect the receipt and current contract state using the reported hash before retrying.'};
+  else failure={status:'broadcast-unknown',error:'Studio did not return a native transaction hash. The transaction may have been broadcast.',...details,next:'Inspect transaction history for this wallet and current contract state to determine the outcome before retrying.'};
+ }
+ if(rateLimit){
+  const {retryAfterSeconds,limit}=rateLimit;
+  failure.rateLimit={retryAfterSeconds,limit};
+  const wait=retryAfterSeconds===undefined?'Wait for the Studio rate-limit window to reset.':`Wait at least ${retryAfterSeconds} seconds for the Studio rate-limit window to reset.`;
+  failure.next=`${wait} ${failure.next}`;
+ }
+ console.error(JSON.stringify(failure));process.exitCode=1;
+}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await run();
