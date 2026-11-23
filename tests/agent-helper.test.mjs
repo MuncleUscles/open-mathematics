@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {abi} from 'genlayer-js';
+import {generatePrivateKey,privateKeyToAccount} from 'viem/accounts';
 import {contributorPath,toolRoot,run} from '../scripts/agent.mjs';
 import {digest} from '../src/security.mjs';
 const helper=path.join(toolRoot,'scripts/agent.mjs'),wallet='0x'+'1'.repeat(40);
@@ -47,4 +49,126 @@ test('prepare uses immutable remote blobs without a local PR commit or Git repos
  };
  await run(['--worktree',root,'prepare','7','research/submissions/example.json',wallet]);
  assert.equal(output.length,1);assert.equal(output[0].claim.submission_hash,digest(bytes));assert.equal(output[0].claim.head,head);assert.ok(output[0].expiresAt);assert.equal(fs.existsSync(path.join(root,'.git')),false);
+});
+
+function nativeSendFixture(t){
+ const root=temporary(t),keyFile=path.join(root,'test-signer.key'),key=generatePrivateKey();
+ fs.writeFileSync(keyFile,key+'\n',{mode:0o600});
+ const previousKeyFile=process.env.CONTRIBUTOR_KEY_FILE,previousLog=console.log,previousError=console.error,previousExit=process.exitCode;
+ const stdout=[],stderr=[];
+ t.after(()=>{
+  if(previousKeyFile===undefined)delete process.env.CONTRIBUTOR_KEY_FILE;else process.env.CONTRIBUTOR_KEY_FILE=previousKeyFile;
+  console.log=previousLog;console.error=previousError;process.exitCode=previousExit;
+ });
+ process.env.CONTRIBUTOR_KEY_FILE=keyFile;
+ console.log=x=>stdout.push(JSON.parse(x));console.error=x=>stderr.push(JSON.parse(x));
+ const deployment=JSON.parse(fs.readFileSync(path.join(toolRoot,'public/deployment.json')));
+ const hash='0x'+'a'.repeat(64),account=privateKeyToAccount(key);
+ const details={contract:deployment.contract,chainId:deployment.chainId,method:'set_affiliation',wallet:account.address};
+ const sender={account};
+ const invokeNative=(args,reader=sender)=>run(['--worktree',root,...args],{clientFor:suppliedKey=>suppliedKey?sender:reader});
+ const receipt=(method,args)=>({
+  hash,to_address:details.contract,statusName:'FINALIZED',leader_only:false,
+  data:{calldata:{raw:[...abi.calldata.encode({method,args})]}},
+  consensus_data:{leader_receipt:[{execution_result:'SUCCESS'}]},
+ });
+ return {root,key,hash,details,sender,stdout,stderr,invokeNative,receipt};
+}
+
+test('a submitted native transaction is reported before polling, with its hash retained on finality failure',async t=>{
+ const f=nativeSendFixture(t);
+ let broadcasts=0;
+ f.sender.writeContract=async call=>{
+  broadcasts++;
+  assert.deepEqual(call,{address:f.details.contract,functionName:'set_affiliation',args:['shared'],leaderOnly:false});
+  return f.hash;
+ };
+ f.sender.getTransaction=async args=>{
+  assert.deepEqual(args,{hash:f.hash});
+  assert.deepEqual(f.stderr,[{event:'native-transaction',status:'broadcast',...f.details,hash:f.hash}]);
+  assert.deepEqual(f.stdout,[]);
+  return {statusName:'LEADER_TIMEOUT'};
+ };
+ await f.invokeNative(['affiliation','shared','--send']);
+ assert.equal(broadcasts,1);assert.equal(process.exitCode,1);assert.deepEqual(f.stdout,[]);
+ assert.equal(f.stderr.length,2);
+ const {error,next,...transaction}=f.stderr[1];
+ assert.deepEqual(transaction,{status:'finality-unverified',...f.details,hash:f.hash});
+ assert.match(error,/finality could not be verified/);assert.match(next,/Inspect the receipt.*before retrying/);
+});
+
+test('a timed-out write reports an unknown broadcast outcome without repeating the call or exposing raw SDK errors',async t=>{
+ const f=nativeSendFixture(t);
+ let attempts=0;
+ f.sender.writeContract=async()=>{attempts++;throw Error('RPC timeout on fake sensitive input '+f.key);};
+ f.sender.getTransaction=async()=>assert.fail('Polling requires a valid transaction hash');
+ await f.invokeNative(['affiliation','shared','--send']);
+ assert.equal(attempts,1);assert.equal(process.exitCode,1);assert.deepEqual(f.stdout,[]);
+ assert.equal(f.stderr.length,1);
+ const {error,next,...transaction}=f.stderr[0];
+ assert.deepEqual(transaction,{status:'broadcast-unknown',...f.details});
+ assert.match(error,/may have been broadcast/);assert.match(next,/Inspect transaction history.*before retrying/);
+ assert(!JSON.stringify(f.stderr).includes(f.key));
+});
+
+test('a structured Studio rate limit preserves the cooldown for an uncertain broadcast',async t=>{
+ const f=nativeSendFixture(t);
+ let attempts=0;
+ f.sender.writeContract=async()=>{
+  attempts++;
+  throw Error('Native studio transport', {cause:{code:-32029, data:{retry_after_seconds:1020,limit:500,other:f.key}}});
+ };
+ await f.invokeNative(['affiliation','shared','--send']);
+ assert.equal(attempts,1);assert.equal(f.stderr.length,1);
+ const {status,rateLimit,next}=f.stderr[0];
+ assert.equal(status,'broadcast-unknown');
+ assert.deepEqual(rateLimit,{retryAfterSeconds:1020,limit:500});
+ assert.match(next,/^Wait at least 1020 seconds.*Inspect transaction history/);
+ assert(!JSON.stringify(f.stderr).includes(f.key));
+});
+
+test('an input error is reported before any native broadcast',async t=>{
+ const f=nativeSendFixture(t);
+ f.sender.writeContract=async()=>assert.fail('Invalid affiliation must not broadcast');
+ await f.invokeNative(['affiliation','invalid-side','--send']);
+ assert.equal(process.exitCode,1);assert.deepEqual(f.stdout,[]);
+ assert.equal(f.stderr.length,1);assert.equal(f.stderr[0].status,'before-broadcast');
+ assert.match(f.stderr[0].error,/Choose p-equals-np/);
+});
+
+test('successful native sends retain one finalized JSON result on stdout',async t=>{
+ const f=nativeSendFixture(t);
+ f.sender.writeContract=async()=>f.hash;
+ f.sender.getTransaction=async()=>f.receipt('set_affiliation',['shared']);
+ await f.invokeNative(['affiliation','shared','--send']);
+ assert.equal(f.stderr.length,1);assert.equal(f.stderr[0].status,'broadcast');
+ assert.equal(f.stdout.length,1);assert.equal(f.stdout[0].status,'finalized');assert.equal(f.stdout[0].hash,f.hash);
+});
+
+test('post-finality report lookup errors retain the finalized transaction identity',async t=>{
+ const f=nativeSendFixture(t);
+ const payload={
+  claim:'This explicitly inconclusive fixture tests the follow-up report lookup.',
+  component:'Documentary workflow',
+  sources:[{reference:'https://example.org/source',title:'Fixture source',authors:['Example Author'],relationship:'The fixture refers to this example publication for identification.',priority_evidence:'This example records no mathematical discovery.'}],
+ };
+ const reportFile=path.join(f.root,'case.json');
+ fs.writeFileSync(reportFile,JSON.stringify(payload));
+ const reader={readContract:async({functionName})=>{
+  if(functionName==='get_problem')return {id:'p-vs-np',status:'open'};
+  assert.equal(functionName,'get_case_capacity');return {available:4};
+ }};
+ f.sender.writeContract=async()=>f.hash;
+ f.sender.getTransaction=async()=>f.receipt('report_case',['external-solution','p-vs-np',JSON.stringify(payload)]);
+ f.sender.readContract=async({functionName})=>{
+  assert.equal(functionName,'list_cases');
+  throw {code:-32029, data:{retry_after_seconds:1020,limit:500}};
+ };
+ await f.invokeNative(['case-report','external-solution','p-vs-np',reportFile,'--send'],reader);
+ assert.equal(process.exitCode,1);assert.deepEqual(f.stdout,[]);
+ assert.equal(f.stderr.length,2);
+ const {error,next,rateLimit,...transaction}=f.stderr[1];
+ assert.deepEqual(transaction,{status:'result-unavailable',...f.details,method:'report_case',hash:f.hash});
+ assert.deepEqual(rateLimit,{retryAfterSeconds:1020,limit:500});
+ assert.match(error,/transaction finalized/);assert.match(next,/^Wait at least 1020 seconds.*Inspect the finalized receipt/);
 });

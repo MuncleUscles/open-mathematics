@@ -3,11 +3,27 @@ import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {createClient,createAccount} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
+import {rpcRateLimit,STUDIO_RATE_LIMIT_CODE} from '../src/rpc-errors.mjs';
 import {normalize,verifyReceipt} from '../src/studio.mjs';
 export const clean=x=>JSON.parse(JSON.stringify(normalize(x)),(k,v)=>['node_config','contract_state','execution_stats'].includes(k)?undefined:v);
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 export const clientFor=key=>createClient({chain:studionet,...(key?{account:createAccount(key)}:{})});
-export async function retry(fn){let e;for(let n=0;n<5;n++){try{return await fn();}catch(err){e=err;await sleep(1500*(n+1));}}throw e;}
+export async function retry(fn,{wait=sleep}={}){
+ for(let attempt=1;attempt<=5;attempt++){
+  try{return await fn();}
+  catch(error){
+   const limit=rpcRateLimit(error);
+   if(limit){
+    const {retryAfterSeconds,...data}=limit;
+    const guidance=retryAfterSeconds===undefined?'':` Retry after ${retryAfterSeconds} seconds.`;
+    if(retryAfterSeconds!==undefined)data.retry_after_seconds=retryAfterSeconds;
+    throw Object.assign(Error(`Studio RPC rate limit reached (${STUDIO_RATE_LIMIT_CODE}).${guidance}`),{code:STUDIO_RATE_LIMIT_CODE,data});
+   }
+   if(attempt===5)throw error;
+   await wait(1500*attempt);
+  }
+ }
+}
 export async function finalized(client,hash,expected){
  for(let n=0;n<240;n++){
   const r=await retry(()=>client.getTransaction({hash}));const status=r.status_name||r.statusName||r.status;

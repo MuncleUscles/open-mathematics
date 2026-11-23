@@ -46,6 +46,17 @@ test('incomplete active native reads show unavailable instead of zero activity',
  const container={innerHTML:''};await mountResearchCommunity({container,chainRead:async()=>{throw Error('network unavailable');}});
  assert.match(container.innerHTML,/could not be read completely/);assert.ok(!container.innerHTML.includes('side-counts'));
 });
+test('a temporary native outage clears the old problem badge and offers a fresh retry',async t=>{
+ const previousFetch=globalThis.fetch,previousDocument=globalThis.document;
+ t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
+ globalThis.fetch=async()=>({ok:true,json:async()=>({protocolVersion:3,contract:'0x123'})});
+ const badge={textContent:'OPEN'},button={};globalThis.document={querySelector:()=>badge};
+ const container={innerHTML:'',querySelector:()=>button};let calls=0;
+ await mountResearchCommunity({container,chainRead:async()=>{calls++;throw Error('unavailable');}});
+ assert.equal(badge.textContent,'STATUS UNAVAILABLE');assert.match(container.innerHTML,/Live data temporarily unavailable/);
+ assert.ok(!container.innerHTML.includes('are not active here'));assert.equal(typeof button.onclick,'function');
+ await button.onclick();assert.equal(calls,10);assert.ok(!container.innerHTML.includes('side-counts'));
+});
 test('complete native fixture renders source authors, correction history and under-review status',async t=>{
  const previousFetch=globalThis.fetch,previousDocument=globalThis.document;
  t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
