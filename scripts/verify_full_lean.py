@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / 'lean'))
 from problem_check import COMMIT, REPOSITORY, SLUG, require, sha, parse_policy, stable_json
 from open_check import bounded_file, MAX_BUNDLE
 from full_lean.bundle import TOOLCHAIN, MATHLIB_COMMIT, ALLOWED_AXIOMS, load_closure, assemble, theorem
+from full_lean.legacy_adapters import applied_adapters
 from full_lean.export import MAX_EXPORT, unique
 
 LEAN_COMMIT = '611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9'
@@ -262,6 +263,7 @@ def verify(args):
             'dependency_artifact_hashes': {key: artifacts[key]['artifact_hash'] for key in order},
             'dependency_theorems': {key: theorem(artifacts[key]) for key in order},
             'definition_closure_hash': definition_hash, 'full_kernel': full_kernel, 'log': '',
+            'legacy_adapters': applied_adapters([artifacts[key] for key in order] + [root]),
             'reuse_limit': 'Direct references after bounded beta/zeta/constructor-projection reduction; not necessity, novelty, independence or allocation.',
             'commit_binding': 'Trusted caller resolves immutable accepted records and exact Git commits; checker binds identifiers and bytes.'}
 

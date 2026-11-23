@@ -551,7 +551,7 @@ class Research(gl.Contract):
         if not isinstance(e["proof"], str) or not 3 <= utf8_size(e["proof"]) <= 32768 or hashlib.sha256(e["proof"].encode("utf-8")).hexdigest() != e["bundle_hash"]:
             fail("exact bounded submitted artifact bytes required")
         if e["evidence_kind"] == "formal":
-            if e["verification"] != "verified" or e["kind"] == "research-note" or not isinstance(e["formal_statement"], str) or e["formal_statement"] != e["formal_statement"].strip() or not 1 <= utf8_size(e["formal_statement"]) <= 4000 or not matches(e["artifact_path"], r"research/artifacts/[a-z0-9][a-z0-9-]{0,63}\.json"):
+            if e["verification"] != "verified" or e["kind"] == "research-note" or not isinstance(e["formal_statement"], str) or e["formal_statement"] != e["formal_statement"].strip() or not 1 <= utf8_size(e["formal_statement"]) <= 32768 or not matches(e["artifact_path"], r"research/artifacts/[a-z0-9][a-z0-9-]{0,63}\.json"):
                 fail("verified submitted statement evidence required")
         elif e["evidence_kind"] == "research-note":
             if e["verification"] != "not-formal" or e["formal_statement"] != "" or utf8_size(e["proof"]) > 12000 or e["verified_dependencies"] != [] or not matches(e["artifact_path"], r"research/notes/[a-z0-9][a-z0-9-]{0,63}\.md"):

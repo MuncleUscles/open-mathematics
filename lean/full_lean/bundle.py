@@ -8,6 +8,7 @@ from open_check import (MAX_BUNDLE, MAX_CLOSURE, MAX_DIRECT, MAX_IMPORTED, MAX_D
                         HASH, ID, bounded_file, namespace, declarations,
                         parse_bundle as legacy_bundle, validate_bundle_expressions)
 from problem_check import require, sha, parse_policy
+from full_lean.legacy_adapters import compilation_bundle
 
 MODULE = re.compile(r'Mathlib(?:\.[A-Za-z][A-Za-z0-9_]*)+')
 DECL = re.compile(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*')
@@ -104,7 +105,8 @@ def assemble(items):
     source = 'import Init\n' + ''.join('import ' + module + '\n' for module in imports)
     for item in items:
         if item['bundle']['version'] == 1:
-            source += '\n' + declarations(item)
+            compiled, _ = compilation_bundle(item)
+            source += '\nset_option autoImplicit false\n' + declarations({**item, 'bundle': compiled})
         else:
             prefix = namespace(item['bundle_hash'])
             source += '\nnamespace ' + prefix + '\n' + item['bundle']['source'] + '\nend ' + prefix + '\n'

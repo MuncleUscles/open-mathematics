@@ -165,7 +165,7 @@ test('generated Pages refresh captures only trusted main after its own adjudicat
     const research=fs.readFileSync(path.join(dir,'.github/workflows/research.yml'),'utf8');
     assert.match(research,/run: bash github\/build-full-lean.sh/);
     assert.match(research,/  accounts:\n    needs: process/);
-    assert.match(research,/run: node github\/sync-accounts.mjs/);
+    assert.match(research,/run: node github\/sync-accounts\.mjs \.\.\/problem\n/);
     assert.match(pages, /build-open-site\.mjs \.\.\/problem \.\.\/site --snapshot/);
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });

@@ -426,6 +426,7 @@ test('formal evidence must contain observed direct proof uses and an isolated re
  const {result}=fixtureData;
  const options={...fixtureData,direct:[{id:A,bundle_hash:hash('a'),artifact_hash:hash('a')}]};
  assert.equal(validateOpenResult(result,options),result);
+
  assert.throws(()=>validateOpenResult({...result,proof_body_uses:[]},options),/surviving Lean proof body/);
  assert.throws(()=>validateOpenResult({...result,verified_dependencies:[{...result.verified_dependencies[0],artifact_hash:hash('e')}]},options),/differs from its exact credited artifact/);
  assert.throws(()=>validateOpenResult({...result,production_verified:false,mode:'local-diagnostic'},options),/Isolated production/);
@@ -520,17 +521,64 @@ test('full Lean evidence binds source, semantic statement, pins and every kernel
  const artifactText=json(b),bundleHash=sha256(artifactText),canonical_semantics={type:['forall','Int',['Eq','Int',0,0]],definitions:[]};
  f.problem.policy={...f.problem.policy,version:6,toolchain:FULL_LEAN.toolchain,allowed_axioms:FULL_LEAN.axioms,mathlib:{repository:'leanprover-community/mathlib4',commit:FULL_LEAN.mathlibCommit},checker:FULL_LEAN.checker};
  f.problem.policyHash=sha256(json(f.problem.policy));f.claim.policy=f.problem.policyHash;
- const result={...f.result,policy:f.problem.policyHash,toolchain:FULL_LEAN.toolchain,bundle_hash:bundleHash,artifact_hash:bundleHash,proof_hash:sha256(b.source),theorem:`B_${bundleHash}.Contribution.result`,formal_statement:'forall (n : Int), Eq Int n n',canonical_semantics,statement_hash:sha256(canonical_semantics),proposition_hash:sha256('forall (n : Int), Eq Int n n'),full_kernel:{version:1,lean_commit:FULL_LEAN.leanCommit,mathlib_commit:FULL_LEAN.mathlibCommit,export_hash:hash('a'),baseline_hash:hash('b'),checker_set:['leanchecker','leanchecker-paranoid','lean4lean','nanoda','con-leche','con-ron']}};
+ const result={...f.result,policy:f.problem.policyHash,toolchain:FULL_LEAN.toolchain,bundle_hash:bundleHash,artifact_hash:bundleHash,proof_hash:sha256(b.source),theorem:`B_${bundleHash}.Contribution.result`,formal_statement:'forall (n : Int), Eq Int n n',canonical_semantics,statement_hash:sha256(canonical_semantics),proposition_hash:sha256('forall (n : Int), Eq Int n n'),legacy_adapters:{},full_kernel:{version:1,lean_commit:FULL_LEAN.leanCommit,mathlib_commit:FULL_LEAN.mathlibCommit,export_hash:hash('a'),baseline_hash:hash('b'),checker_set:['leanchecker','leanchecker-paranoid','lean4lean','nanoda','con-leche','con-ron']}};
  const options={...f,artifactText};
  assert.equal(validateOpenResult(result,options),result);
+ const large={...result,formal_statement:'theorem : '+'T'.repeat(32758)};large.proposition_hash=sha256(large.formal_statement);
+ assert.equal(validateOpenResult(large,options),large);
+ const oversized={...large,formal_statement:large.formal_statement+'T'};oversized.proposition_hash=sha256(oversized.formal_statement);
+ assert.throws(()=>validateOpenResult(oversized,options),/semantic statement/);
+
  for(const mutate of [
   r=>r.full_kernel.checker_set.pop(),r=>r.full_kernel.mathlib_commit=commit('0'),
   r=>r.full_kernel.baseline_hash='',r=>r.canonical_semantics.type=['True'],
   r=>r.formal_statement='False',r=>r.proof_hash=hash('c'),r=>r.theorem='True',
   r=>r.axioms=['sorryAx'],r=>r.production_verified=false,
+  r=>delete r.legacy_adapters,r=>r.legacy_adapters=null,r=>r.legacy_adapters[hash('f')]={version:1},
  ]){const changed=structuredClone(result);mutate(changed);assert.throws(()=>validateOpenResult(changed,options));}
  f.problem.policy.version=5;
  assert.throws(()=>validateOpenResult(result,options),/activated Mathlib policy/);
+});
+
+test('modern reports require exact reviewed adapters for root and transitive dependency bundles',async()=>{
+ const manifestBytes=fs.readFileSync(new URL('../lean/full_lean/legacy_adapters.json',import.meta.url));
+ const entry=JSON.parse(manifestBytes).adapters[0];
+ const disclosure={[entry.bundle_hash]:{version:1,original_proof_hash:entry.original_proof_hash,
+  compiled_proof_hash:entry.compiled_proof_hash,reason:entry.reason,manifest_hash:sha256(manifestBytes)}};
+ const historical=fs.readFileSync(new URL('fixtures/full-lean/c-legacy.json',import.meta.url),'utf8');
+ assert.equal(sha256(historical),entry.bundle_hash);
+ for(const rootAdapter of [true,false]){
+  const artifactText=rootAdapter?historical:json(formalBundle([{id:A,bundle_hash:hash('a')}]));
+  const bundle=JSON.parse(artifactText),f=await fixture({dependencies:bundle.dependencies});
+  f.problem.policy={...f.problem.policy,version:6,toolchain:FULL_LEAN.toolchain,allowed_axioms:FULL_LEAN.axioms};
+  f.problem.policyHash=sha256(json(f.problem.policy));f.claim.policy=f.problem.policyHash;
+  const canonical_semantics={type:['True'],definitions:[]},bundleHash=sha256(artifactText);
+  const result={...f.result,policy:f.problem.policyHash,toolchain:FULL_LEAN.toolchain,
+   bundle_hash:bundleHash,artifact_hash:bundleHash,proof_hash:sha256(bundle.proof),theorem:`B_${bundleHash}.result`,
+   formal_statement:'True',proposition_hash:sha256('True'),canonical_semantics,statement_hash:sha256(canonical_semantics),
+   legacy_adapters:structuredClone(disclosure),full_kernel:{version:1,lean_commit:FULL_LEAN.leanCommit,
+    mathlib_commit:FULL_LEAN.mathlibCommit,export_hash:hash('a'),baseline_hash:hash('b'),
+    checker_set:['leanchecker','leanchecker-paranoid','lean4lean','nanoda','con-leche','con-ron']}};
+  // The adapter can occur below a direct dependency, so validate the entire authenticated closure.
+  if(!rootAdapter){result.dependency_bundle_hashes[B]=entry.bundle_hash;result.dependency_artifact_hashes[B]=entry.bundle_hash;}
+  const options={...f,artifactText,closure:Object.entries(result.dependency_bundle_hashes).map(([id,hash])=>({id,bundle_hash:hash,artifact_hash:hash}))};
+  assert.equal(validateOpenResult(result,options),result);
+  for(const mutate of [
+   r=>delete r.legacy_adapters,r=>r.legacy_adapters={},
+   r=>r.legacy_adapters[entry.bundle_hash].original_proof_hash=hash('c'),
+   r=>r.legacy_adapters[entry.bundle_hash].compiled_proof_hash=hash('c'),
+   r=>r.legacy_adapters[entry.bundle_hash].manifest_hash=hash('c'),
+   r=>r.legacy_adapters[entry.bundle_hash].reason='Caller supplied reason',
+   r=>r.legacy_adapters[entry.bundle_hash].version=2,
+   r=>r.legacy_adapters[entry.bundle_hash].extra=true,
+   r=>r.legacy_adapters[hash('f')]=structuredClone(disclosure[entry.bundle_hash]),
+  ]){const changed=structuredClone(result);mutate(changed);assert.throws(()=>validateOpenResult(changed,options),/Legacy adapter disclosure/);}
+  if(!rootAdapter){
+   const changed=structuredClone(result);delete changed.dependency_bundle_hashes[B];delete changed.dependency_artifact_hashes[B];
+   assert.throws(()=>validateOpenResult(changed,{...options,closure:undefined}),/Legacy adapter disclosure/);
+   changed.legacy_adapters={};assert.equal(validateOpenResult(changed,{...options,closure:undefined}),changed);
+  }
+ }
 });
 
 test('full Lean bundle blocks path/config injection while allowing ordinary source syntax',()=>{

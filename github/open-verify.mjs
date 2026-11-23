@@ -34,6 +34,15 @@ const MAX_VERIFIER_OUTPUT=196608;
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const sameAddress=(left,right)=>typeof left==='string'&&typeof right==='string'&&left.toLowerCase()===right.toLowerCase();
 const ensure=(condition,reason)=>{if(!condition)throw Error(reason);};
+const LEGACY_ADAPTER_BYTES=fs.readFileSync(new URL('../lean/full_lean/legacy_adapters.json',import.meta.url));
+const LEGACY_ADAPTER_MANIFEST=parseProblemJSON(LEGACY_ADAPTER_BYTES);
+ensure(LEGACY_ADAPTER_MANIFEST.version===1&&Array.isArray(LEGACY_ADAPTER_MANIFEST.adapters)&&
+ new Set(LEGACY_ADAPTER_MANIFEST.adapters.map(entry=>entry.bundle_hash)).size===LEGACY_ADAPTER_MANIFEST.adapters.length,
+ 'Invalid trusted legacy adapter manifest');
+const LEGACY_ADAPTER_REPORTS=new Map(LEGACY_ADAPTER_MANIFEST.adapters.map(entry=>[entry.bundle_hash,{
+ version:1,original_proof_hash:entry.original_proof_hash,compiled_proof_hash:entry.compiled_proof_hash,
+ reason:entry.reason,manifest_hash:sha256(LEGACY_ADAPTER_BYTES),
+}]));
 
 export async function requireOpenNative(problem,client){
  const {deployment:d}=problem;
@@ -218,7 +227,7 @@ function validateFormalResult(result,{problem,claim,artifactText,submission,dire
  };
  for(const [key,value] of Object.entries(expected))ensure(result[key]===value,'Formal verifier result '+key+' mismatch');
  if(modern){
-  ensure(typeof result.formal_statement==='string'&&result.formal_statement===result.formal_statement.trim()&&Buffer.byteLength(result.formal_statement)>0&&Buffer.byteLength(result.formal_statement)<=4000&&result.proposition_hash===sha256(result.formal_statement),'Exact verified semantic statement required');
+  ensure(typeof result.formal_statement==='string'&&result.formal_statement===result.formal_statement.trim()&&Buffer.byteLength(result.formal_statement)>0&&Buffer.byteLength(result.formal_statement)<=32768&&result.proposition_hash===sha256(result.formal_statement),'Exact verified semantic statement required');
   ensure(object(result.canonical_semantics)&&Buffer.byteLength(stableJSON(result.canonical_semantics))<=32000&&result.statement_hash===sha256(result.canonical_semantics),'Serialized statement commitment mismatch');
   const k=result.full_kernel;
   ensure(object(k)&&k.version===1&&k.lean_commit===FULL_LEAN.leanCommit&&k.mathlib_commit===FULL_LEAN.mathlibCommit&&typeof k.export_hash==='string'&&HASH.test(k.export_hash)&&typeof k.baseline_hash==='string'&&HASH.test(k.baseline_hash),'Pinned serialized proof and library baseline required');
@@ -237,6 +246,12 @@ function validateFormalResult(result,{problem,claim,artifactText,submission,dire
   Object.entries(bundleHashes).every(([id,hash])=>ID.test(id)&&typeof hash==='string'&&HASH.test(hash)&&
    artifactHashes[id]===hash),
  'Bounded credited dependency commitments required');
+ if(modern){
+  const hashes=new Set([rawHash,...Object.values(bundleHashes)]);
+  const expectedAdapters=Object.fromEntries([...LEGACY_ADAPTER_REPORTS].filter(([hash])=>hashes.has(hash)));
+  ensure(object(result.legacy_adapters)&&stableJSON(result.legacy_adapters)===stableJSON(expectedAdapters),
+   'Legacy adapter disclosure differs from the exact reviewed root and dependency artifacts');
+ }
  if(closure){
   ensure(stableJSON(bundleHashes)===stableJSON(Object.fromEntries(closure.map(item=>[item.id,item.bundle_hash])))&&
    stableJSON(artifactHashes)===stableJSON(Object.fromEntries(closure.map(item=>[item.id,item.artifact_hash]))),

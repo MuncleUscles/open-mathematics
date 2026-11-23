@@ -93,7 +93,7 @@ ${checkouts}      - name: Select a valid signed claim
       OPEN_MATH_PROBLEM_DIR: \${{ github.workspace }}/problem
     steps:
 ${checkouts}      - name: Reconcile native GitHub identity and points
-        run: node github/sync-accounts.mjs
+        run: node github/sync-accounts.mjs ../problem
         env:
           GITHUB_TOKEN: \${{ github.token }}
           EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}

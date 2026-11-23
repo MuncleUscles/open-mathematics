@@ -13,6 +13,7 @@ sys.path[:0] = [str(ROOT / 'lean'), str(ROOT / 'scripts')]
 from problem_check import sha, stable_json
 from full_lean.bundle import parse_bundle, load_closure, assemble, theorem, ALLOWED_AXIOMS, MATHLIB_COMMIT
 from full_lean.export import Export, audit, semantics, qualified, proof_references, compare_baseline, display_name
+from full_lean.legacy_adapters import compilation_bundle, applied_adapters, MANIFEST_HASH
 import verify_full_lean as verifier
 
 
@@ -236,6 +237,72 @@ class FullLeanDataTests(unittest.TestCase):
             return semantics(data.export(), target, base.constants)
         left = construct('B_' + 'a'*64); right = construct('B_' + 'c'*64)
         self.assertEqual(left[0], right[0]); self.assertEqual(left[1], right[1])
+
+    def test_binder_elaboration_metadata_is_not_a_different_kernel_statement(self):
+        def construct(info):
+            data = Fixture(); ty, proof = data.base()
+            typ = data.expr('forallE', {'name': data.name('x'), 'type': ty, 'body': ty, 'binderInfo': info})
+            value = data.expr('lam', {'name': data.name('x'), 'type': ty, 'body': proof, 'binderInfo': info})
+            data.thm('libraryTheorem', typ, value)
+            return data.export()
+        implicit, explicit = construct('implicit'), construct('default')
+        compare_baseline(implicit, explicit)
+        self.assertEqual(implicit.constants[qualified('libraryTheorem')], explicit.constants[qualified('libraryTheorem')])
+        # This does not permit an actual change to the elaborated type/body.
+        explicit.constants[qualified('libraryTheorem')]['type'] = explicit.constants[qualified('True')]['type']
+        with self.assertRaisesRegex(ValueError, 'changed trusted declaration'): compare_baseline(implicit, explicit)
+
+    def test_canonical_statement_bound_preserves_large_semantics_without_truncation(self):
+        def construct(name_length, copies):
+            data = Fixture(); ty, proof = data.base(); base = data.export()
+            alias = 'B_' + 'a'*64 + '.' + 'x'*name_length
+            prop = data.expr('sort', 0)
+            data.rows.append({'def': {'name': data.name(alias), 'levelParams': [], 'type': prop,
+                'value': ty, 'hints': 'abbrev', 'safety': 'safe', 'all': []}})
+            alias_expr = data.const(alias); typ = alias_expr
+            for _ in range(copies):
+                typ = data.expr('forallE', {'name': data.name('x'), 'type': alias_expr, 'body': typ, 'binderInfo': 'default'})
+            target = 'B_' + 'a'*64 + '.result'; data.thm(target, typ, proof)
+            return semantics(data.export(), target, base.constants)
+        statement, _, _, canonical = construct(2500, 1)
+        self.assertGreater(len(statement.encode('utf-8')), 4000)
+        self.assertLessEqual(len(statement.encode('utf-8')), 32768)
+        self.assertTrue(statement.endswith(' := True'))
+        self.assertEqual(len(canonical['definitions'][0]['name'][-1]), 2500)
+        with self.assertRaisesRegex(ValueError, '32768-byte'):
+            construct(8000, 4)
+
+    def legacy_c(self):
+        raw = (ROOT / 'tests/fixtures/full-lean/c-legacy.json').read_bytes()
+        return {'bytes': raw, 'bundle_hash': sha(raw), 'bundle': parse_bundle(raw)}
+
+    def test_historical_port_is_bound_to_exact_bytes_and_changes_only_proof(self):
+        item = self.legacy_c(); before = copy.deepcopy(item)
+        compiled, report = compilation_bundle(item)
+        self.assertEqual(item, before)
+        self.assertEqual({k:v for k,v in compiled.items() if k != 'proof'},
+                         {k:v for k,v in item['bundle'].items() if k != 'proof'})
+        self.assertEqual(sha(compiled['proof'].encode()), report['compiled_proof_hash'])
+        self.assertEqual(sha(item['bundle']['proof'].encode()), report['original_proof_hash'])
+        self.assertEqual(report['manifest_hash'], MANIFEST_HASH)
+        self.assertEqual(set(applied_adapters([item])), {item['bundle_hash']})
+
+    def test_historical_port_rejects_claim_mutation_under_known_hash(self):
+        for field in ('statement', 'proof'):
+            item = self.legacy_c(); item['bundle'][field] += ' '
+            with self.assertRaisesRegex(ValueError, 'exact original bundle bytes'): compilation_bundle(item)
+
+    def test_unknown_or_modern_bundles_never_receive_historical_port(self):
+        item = self.legacy_c(); item['bytes'] += b'\n'; item['bundle_hash'] = sha(item['bytes'])
+        compiled, report = compilation_bundle(item)
+        self.assertIsNone(report); self.assertIs(compiled, item['bundle'])
+        item = self.legacy_c(); item['bundle'] = parse_bundle(bundle())
+        self.assertIsNone(compilation_bundle(item)[1])
+
+    def test_legacy_declarations_disable_auto_implicit(self):
+        raw = (ROOT/'tests/fixtures/full-lean/a-legacy.json').read_bytes()
+        source, _ = assemble([{'bytes':raw,'bundle_hash':sha(raw),'bundle':parse_bundle(raw)}])
+        self.assertIn(b'set_option autoImplicit false\nnamespace B_', source)
 
     def test_containers_have_no_network_secrets_or_host_write_mount(self):
         command = verifier.docker_command(Path('/tmp/test'), 'sha256:' + 'a'*64, 'test', ['leanchecker'], False)

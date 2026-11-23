@@ -14,7 +14,7 @@ from problem_check import require, stable_json, sha
 MAX_EXPORT = 256 * 1024 * 1024
 MAX_LINE = 8 * 1024 * 1024
 MAX_NODES = 2_000_000
-MAX_STATEMENT = 4000
+MAX_STATEMENT = 32768
 
 
 def encode(value):
@@ -125,8 +125,11 @@ class Export:
             elif kind in ('lam', 'forallE'):
                 exact(data, ['name', 'type', 'body', 'binderInfo']); self.name(data['name'])
                 require(data['binderInfo'] in ('default', 'implicit', 'strictImplicit', 'instImplicit'), 'Binder info required')
-                # Binder spelling is alpha-equivalent and never used for rendering.
-                node = (kind, self.expr(data['type']), self.expr(data['body']), data['binderInfo'])
+                # Names and BinderInfo affect elaboration, not kernel meaning.
+                # Lean's kernel is_equal uses expr_eq_fn<false>; shared imported
+                # terms can legitimately serialize default/implicit differently.
+                # The six kernels still receive the untouched original export.
+                node = (kind, self.expr(data['type']), self.expr(data['body']), 'default')
             elif kind == 'letE':
                 exact(data, ['name', 'type', 'value', 'body', 'nondep']); self.name(data['name'])
                 require(type(data['nondep']) is bool, 'Let flag required')
@@ -311,8 +314,8 @@ def semantics(env, theorem, trusted):
         result = digest(value); normalized_nodes[cache_key] = result; return result
 
     def emit(text):
-        budget[0] -= len(text)
-        require(budget[0] >= 0, 'Canonical theorem and definitions exceed 4000-character pilot limit')
+        budget[0] -= len(text.encode('utf-8'))
+        require(budget[0] >= 0, 'Canonical theorem and definitions exceed 32768-byte pilot limit')
         return text
 
     def render(key, params):
@@ -367,7 +370,7 @@ def semantics(env, theorem, trusted):
         descriptions.append(record)
     identity = {'version': 1, 'type': normalized(declaration['type'], declaration['levelParams']), 'definitions': descriptions,
                 'levelParams': list(range(len(declaration['levelParams'])))}
-    require(len(statement) <= MAX_STATEMENT, 'Canonical theorem and definitions exceed 4000-character pilot limit')
+    require(len(statement.encode('utf-8')) <= MAX_STATEMENT, 'Canonical theorem and definitions exceed 32768-byte pilot limit')
     return statement, sha(stable_json(identity).encode()), digest(descriptions), identity
 
 

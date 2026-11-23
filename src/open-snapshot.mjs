@@ -109,7 +109,7 @@ export function validateSnapshotRecord(record, impact, contributionId, problem, 
   need(['submitted', 'provisional', 'challenged', 'approved', 'credited', 'rejected', 'expired'].includes(record.status) && integer(record.credited_points) && hash(record.digest), 'invalid native record');
   need(['head', 'base', 'protocol_commit', 'worker_commit'].every(key => commit(e[key])) && e.protocol_commit === e.worker_commit, 'invalid original record source pins');
   need(address(e.wallet) && integer(e.pr) && Number.isSafeInteger(Number(e.pr)) && Number(e.pr) > 0, 'invalid contributor reference');
-  need(text(e.claim, 4000) && text(e.context, 12000) && text(e.research_direction, 160) && text(e.formal_statement, 4000), 'invalid display evidence');
+  need(text(e.claim, 4000) && text(e.context, 12000) && text(e.research_direction, 160) && text(e.formal_statement, 32768), 'invalid display evidence');
   need(e.evidence_kind === 'formal' && e.verification === 'verified' || e.evidence_kind === 'research-note' && e.verification === 'not-formal' && e.formal_statement === '', 'formal evidence label mismatch');
   need(Array.isArray(e.dependencies) && e.dependencies.length <= 8 && e.dependencies.every(id) && new Set(e.dependencies).size === e.dependencies.length, 'invalid dependencies');
   need(Array.isArray(e.verified_dependencies) && e.verified_dependencies.length <= 8 && e.verified_dependencies.every(use => object(use) && e.dependencies.includes(use.id) && use.proof_body_use === true && hash(use.artifact_hash)), 'invalid direct proof use');

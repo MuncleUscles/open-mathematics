@@ -28,7 +28,7 @@ This is a standard textbook identity demonstrating Mathlib's `ring` tactic. It i
 
 The bundle has exactly these five fields. `source` holds ordinary Lean definitions, structures, inductive types, lemmas and proofs; it is not restricted to the former expression/tactic allowlist. Select the exact theorem with `theorem`, using a relative qualified name such as `Contribution.result`. Imported modules go in `imports`, with at most eight specific `Mathlib.…` modules from the pinned environment. The compiler supplies those imports before the source.
 
-The artifact is at most **32,768 UTF-8 bytes**, including the JSON envelope and escaped source; the source field itself is bounded at 30,000 bytes. The record is at most 16,000 bytes. Keep both concise: the combined native evidence also has a 65,536-byte bound after escaping and adding context and verifier metadata. Local `check` and `sign` do not predict the full signed-verifier evidence size.
+The artifact is at most **32,768 UTF-8 bytes**, including the JSON envelope and escaped source; the source field itself is bounded at 30,000 bytes. The record is at most 16,000 bytes. The complete notation-free theorem and definition statement may contain up to 32,768 UTF-8 bytes; it is never truncated. Keep both concise: the combined native evidence also has a 65,536-byte bound after escaping and adding context and verifier metadata. Local `check` and `sign` do not predict the full signed-verifier evidence size.
 
 Do not submit a Lake project, a changed `lean-toolchain`, `lakefile`, dependency manifest, build script, workflow or Mathlib source edits. The PR still contains **exactly two new regular files**: `research/submissions/my-result.json` and `research/artifacts/my-result.json`. Environment upgrades belong in reviewed protocol changes, separately from research submissions.
 
@@ -50,6 +50,8 @@ The angle-bracket text above is explanatory; use the actual name returned by `om
 In the bundle, add `{ "id": "ACTUAL_ID", "bundle_hash": "ACTUAL_64_HEX_HASH" }`. In the record's dependency list add the same `id`, plus substantive `use` and `importance` descriptions. Keep both lists in the same order. Only credited formal results are eligible for proof reuse. The worker fetches their exact accepted bytes and rechecks them in the active environment. New v2 bundles can reuse either v1 or v2 dependencies; historical v1 syntax cannot refer to v2 source bundles.
 
 Limits remain four direct dependencies, eight imported bundles in total and four levels below the submitted bundle. Declared direct proofs must actually occur in the checked proof after the verifier's reductions. A citation alone is not verified proof use. This check does not establish necessity, independent authorship or downstream merit; the contract makes the point decision within one fixed award budget.
+
+One exact historical Lean 4.19 bundle needs a reviewed proof-only compatibility port for Lean 4.36. The pinned adapter manifest binds its original bundle, original proof and compiled proof hashes; verification reports the applied adapter and manifest hash and still requires every kernel check. Its definitions, statement, dependencies and original artifact identity stay unchanged. Unknown bundles receive no adapter. This compatibility check does not reopen the historical contribution's judgment or award points.
 
 ## Check and submit
 
