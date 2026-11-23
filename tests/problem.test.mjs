@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {privateKeyToAccount} from 'viem/accounts';import {recoverMessageAddress} from 'viem';
 import {sha256,statementFingerprint,propositionHash,goalCommitment,validateProblemPolicy,loadProblem,validateProblemClaim,requireNativeEnrollment,requireNativeConfiguration,readProblemFile,verifyProblemSource} from '../src/problem.mjs';
 import {claimFor,loadLocalSigner} from '../scripts/problem-agent.mjs';import {message} from '../src/security.mjs';
+import {compilePack} from '../scripts/compile-problem.mjs';
 const json=x=>JSON.stringify(x,null,2)+'\n',address=n=>'0x'+String(n).repeat(40),commit=n=>String(n).repeat(40);
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'om-problem-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -55,4 +56,11 @@ test('source commit must actually contain policy bytes and be canonical',async t
  assert.equal(await verifyProblemSource(problem,g,gh),true);
  const first=contents.values().next().value;first.content=Buffer.from('different bytes').toString('base64');await assert.rejects(verifyProblemSource(problem,g,gh),/does not contain/);
  await assert.rejects(verifyProblemSource(problem,g,{...gh,canonicalMerge:async()=>false}),/not canonical/);
+});
+test('deferred work does not consume an immutable native goal enrollment',t=>{
+ const {root,policy}=fixture(t),g=policy.goals.identity;
+ const source={id:'identity',declaration:g.theorem,statementPath:'lean/goals/identity.lean',statementSha256:policy.files['goals/identity.lean'],statementDisplay:g.statement,proofPath:g.path,dependencies:[],referenceProof:null,status:'proposed-open',rewardable:true};
+ const pack={schemaVersion:1,id:'test-pack',activation:'draft-unenrolled',problem:{id:'example'},toolchain:'leanprover/lean4:v4.19.0',allowedAxioms:['propext','Quot.sound'],definitions:{path:'lean/Definitions.lean',sha256:policy.files['Definitions.lean']},trustedFiles:Object.fromEntries(Object.entries(policy.files).map(([file,hash])=>['lean/'+file,hash])),goals:[source,{...source,id:'future',status:'deferred',rewardable:false}]};
+ fs.writeFileSync(path.join(root,'pack.json'),json(pack));assert.deepEqual(Object.keys(compilePack(root,'Owner/problem').policy.goals),['identity']);
+ pack.goals[1].rewardable=true;fs.writeFileSync(path.join(root,'pack.json'),json(pack));assert.throws(()=>compilePack(root,'Owner/problem'),/Deferred/);
 });

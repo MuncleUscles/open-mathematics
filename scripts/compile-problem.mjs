@@ -8,6 +8,9 @@ export function compilePack(directory,repository){
  for(const [file,hash]of Object.entries(manifest.trustedFiles))if(sha256(readProblemFile(directory,file))!==hash)throw Error('Pack content changed: '+file);
  const files={'Definitions.lean':manifest.definitions.sha256},goals={},copies=new Map([['Definitions.lean',readProblemFile(directory,manifest.definitions.path)]]);
  for(const source of manifest.goals){
+  // A deferred task is not enrolled as a permanent reference: that would burn
+  // its immutable id/proposition and prevent a later reward-eligible batch.
+  if(source.status==='deferred'){if(source.rewardable)throw Error('Deferred goal cannot be rewardable');continue;}
   const file=`goals/${source.id}.lean`,bytes=readProblemFile(directory,source.statementPath);
   if(sha256(bytes)!==source.statementSha256||bytes.toString('utf8').trim()!==source.statementDisplay)throw Error('Statement mismatch');
   if(source.dependencies.length)throw Error('Initial pack does not import credited proofs');
