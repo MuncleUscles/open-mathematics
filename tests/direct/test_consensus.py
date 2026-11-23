@@ -16,7 +16,7 @@ def test_impact_validator_rejects_foreign_recipient_and_disagreement(direct_vm,d
     assert direct_vm.run_validator() is True
     forged=dict(allocations=[dict(id='stranger',band=1,reason='Invented recipient is never an eligible prior contributor.')],reason='The leader cannot inject an unlisted recipient in its proposed award.',evidence_refs=['downstream'])
     with direct_vm.expect_revert('recipient'):direct_vm.run_validator(leader_result=forged)
-    review(direct_vm,[dict(id='upstream',band=2,reason='Independent evaluation found a different amount of actual impact.')])
+    review(direct_vm,[])
     assert direct_vm.run_validator() is False
 
 def test_only_executor_can_request_and_settle_consensus(direct_vm,direct_deploy,direct_alice,direct_bob):

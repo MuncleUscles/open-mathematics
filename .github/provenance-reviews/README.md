@@ -1,0 +1,11 @@
+# Documentary admission
+
+Only reviewed files on the trusted `protocol` branch admit an external-source case. Research PRs cannot change this directory. The collector retrieves exact public HTTPS snapshots with constrained egress; it does not infer priority, author identity or proof validity.
+
+For `case-<id>.json`, bind `case_id`, `contract`, `chain_id`, `payload_hash`, integer `round` and a substantive `review_basis`. List each declared source as `{reference, content_hash, quote, verified_authors:[{name,subject}]}`. Each quote must occur literally in the fetched text and each stable subject must actually identify the source author. Add explicit `priority_verified`, `authorship_verified`, and `priority_basis:[{kind,reference,excerpt}]`; valid kinds are publisher-record, independent-archive and independent-citation. A self-reported Git timestamp or URL alone is not sufficient. Priority excerpts must occur in the same pinned source snapshot.
+
+Authorship admissions also bind `identity_author_id`, `identity_source`, `identity_subject` and the exact native `identity_challenge`. The retrieved author-controlled publication must contain that challenge, and the verifier must establish its link to the actual source author. No field can select the payout wallet; the native claimant is the destination. Author bindings are immutable in this pilot; errors need an explicit new source/author record and reviewed allocation correction, not silent reassignment.
+
+This version has **no full-target formal verifier enrolled**. The documentary worker always sets formal verification false and rejects a configuration that claims otherwise. External solution reports can be reviewed, but publication links cannot resolve P vs NP. Implement and pin the actual full target verifier before enabling resolution for any problem.
+
+The workflow `provenance.yml` selects only verifier-admitted cases or these reviewed files, and supports an explicit `case_id` for recovery. It requests independent IC adjudication, checks exact receipts, waits for challenges and applies only the settled contract verdict. Public reports are under the evidence branch's `cases/` directory. Failed consensus remains visible and is not rerolled automatically.

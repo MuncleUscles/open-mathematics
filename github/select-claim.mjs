@@ -11,9 +11,9 @@ const PREFIX=/^Open-Mathematics-Claim: ([a-f0-9]{64})\n```json\n([\s\S]+)\n```\s
 const positiveId=x=>Number.isSafeInteger(x)&&x>0;
 const oldest=(a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id;
 
-export function reportMatches(candidate,report,deployment){
+export function reportMatches(candidate,report,deployment,{explicit=false}={}){
   if(!report)return true;
-  return !TERMINAL.has(report.status)&&!report.completedAt&&report.id===candidate.id&&
+  return !TERMINAL.has(report.status)&&(explicit||(!report.completedAt&&!report.blockedConsensus))&&report.id===candidate.id&&
     report.commentId===candidate.commentId&&report.contract?.toLowerCase()===deployment.contract.toLowerCase()&&
     report.repository===deployment.repository&&report.pr===candidate.claim.pr&&
     report.head===candidate.claim.head&&report.base===candidate.claim.base&&
@@ -22,9 +22,9 @@ export function reportMatches(candidate,report,deployment){
 
 // Invalid/unrelated input is simply not work. All authority is rechecked by the
 // executor; this preflight is only an inexpensive filter before the Docker build.
-export async function validateQueuedClaim({comment,pr,deployment,canonicalHead,entries=[],report,preflight=false}){
+export async function validateQueuedClaim({comment,pr,deployment,canonicalHead,entries=[],report,preflight=false,explicit=false}){
   try{
-    if(deployment.protocolVersion!==2||!positiveId(comment?.id)||
+    if(![2,3].includes(deployment.protocolVersion)||!positiveId(comment?.id)||
       typeof comment.body!=='string'||comment.body.length>20000||
       comment.created_at!==comment.updated_at||!Number.isFinite(Date.parse(comment.created_at)))return null;
     const match=comment.body.match(PREFIX);if(!match)return null;
@@ -39,13 +39,13 @@ export async function validateQueuedClaim({comment,pr,deployment,canonicalHead,e
       !positiveId(comment.user?.id)||comment.user.id!==pr.user?.id||
       pr.base?.repo?.full_name!==deployment.repository)return null;
     const id=`pr-${claim.pr}-${claim.head.slice(0,12)}-${digest(claim).slice(0,12)}`;
-    if(entries.some(e=>e.id===id&&(TERMINAL.has(e.status)||(e.status==='credited'&&e.needsResume!==true))))return null;
+    if(entries.some(e=>e.id===id&&(TERMINAL.has(e.status)||(!explicit&&e.status==='credited'&&e.needsResume!==true))))return null;
     const signer=await recoverMessageAddress({message:message(claim),signature});
     if(signer.toLowerCase()!==claim.wallet.toLowerCase())return null;
     const candidate={id,commentId:comment.id,claim,envelope};
     if(preflight)return candidate;
     if(report){
-      if(!reportMatches(candidate,report,deployment))return null;
+      if(!reportMatches(candidate,report,deployment,{explicit}))return null;
       // A saved exact claim can resume after merge, or let the executor expire
       // an unmerged stale claim and release its reservation. Neither authorizes
       // settlement: the executor independently verifies all final receipts.
@@ -59,17 +59,17 @@ export async function validateQueuedClaim({comment,pr,deployment,canonicalHead,e
 }
 
 export async function selectClaim({github,deployment,event={},eventName,readEvidence}){
-  if(deployment.protocolVersion!==2||github.repository!==deployment.repository||!deployment.branch)throw Error('Enrolled v2 deployment required');
+  if(![2,3].includes(deployment.protocolVersion)||github.repository!==deployment.repository||!deployment.branch)throw Error('Enrolled pilot deployment required');
   const index=await readEvidence('index.json');
   if(index&&(!Array.isArray(index.entries)||index.entries.some(e=>!e||typeof e.id!=='string')))throw Error('Malformed evidence index');
   const entries=index?.entries||[];
   const canonicalHead=await github.branchHead(deployment.branch);
-  async function candidate(comment,pr,requireSaved=false){
-    const c=await validateQueuedClaim({comment,pr,deployment,canonicalHead,entries,preflight:true});
+  async function candidate(comment,pr,requireSaved=false,explicit=false){
+    const c=await validateQueuedClaim({comment,pr,deployment,canonicalHead,entries,preflight:true,explicit});
     if(!c)return null;
     const report=await readEvidence(`reports/${c.id}.json`);
     if(requireSaved&&!report)return null;
-    if(!await validateQueuedClaim({comment,pr,deployment,canonicalHead,entries,report}))return null;
+    if(!await validateQueuedClaim({comment,pr,deployment,canonicalHead,entries,report,explicit}))return null;
     // A merge during the scan invalidates a newly selected old-base claim.
     if(!report&&await github.branchHead(deployment.branch)!==canonicalHead)return null;
     return c;
@@ -85,7 +85,7 @@ export async function selectClaim({github,deployment,event={},eventName,readEvid
       requested=Number(raw);
     }
   }else if(eventName!=='schedule')return null;
-  async function byCommentId(commentId,requireSaved=false){
+  async function byCommentId(commentId,requireSaved=false,explicit=false){
     let comment;
     try{comment=await github.request(`/issues/comments/${commentId}`);}
     catch(e){if(e.message==='GitHub 404')return null;throw e;}
@@ -93,9 +93,9 @@ export async function selectClaim({github,deployment,event={},eventName,readEvid
     if(typeof comment.issue_url!=='string'||!comment.issue_url.startsWith(start))return null;
     const suffix=comment.issue_url.slice(start.length);
     if(!/^[1-9][0-9]*$/.test(suffix)||!positiveId(Number(suffix)))return null;
-    return candidate(comment,await github.pr(Number(suffix)),requireSaved);
+    return candidate(comment,await github.pr(Number(suffix)),requireSaved,explicit);
   }
-  if(requested)return byCommentId(requested);
+  if(requested)return byCommentId(requested,false,eventName==='workflow_dispatch');
   // Recover interrupted execution, including an already merged PR whose initial
   // credit is settled but whose separately reviewed downstream award is not.
   // Only saved exact claims are eligible. Bound recovery work as well as scans.
