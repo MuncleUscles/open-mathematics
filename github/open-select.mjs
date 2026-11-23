@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {recoverMessageAddress} from 'viem';
 import {GitHub} from '../src/github.mjs';
+import {readEvidenceFile} from './evidence-file.mjs';
 import {canonical,digest,message} from '../src/security.mjs';
 import {loadOpenProblem,validateOpenClaim,verifyOpenCheckout} from '../src/open-research.mjs';
 
@@ -208,13 +209,7 @@ async function main(){
  verifyOpenCheckout(problem,PROTOCOL_ROOT);
  const github=new GitHub({repository:problem.deployment.repository,token:process.env.GITHUB_TOKEN});
  const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
- async function readEvidence(file){
-  try{
-   const result=await github.request(`/contents/${file}?ref=evidence`);
-   if(result.encoding!=='base64'||typeof result.content!=='string')throw Error('Malformed evidence file');
-   return JSON.parse(Buffer.from(result.content,'base64').toString('utf8'));
-  }catch(error){if(error.message==='GitHub 404')return null;throw error;}
- }
+ async function readEvidence(file){return (await readEvidenceFile(github,file))?.data??null;}
  const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence});
  if(!process.env.GITHUB_OUTPUT)throw Error('GitHub output file required');
  fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\n`);

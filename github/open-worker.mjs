@@ -7,6 +7,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createAccount} from 'genlayer-js';
 import {GitHub,executeDecision} from '../src/github.mjs';
+import {readEvidenceFile} from './evidence-file.mjs';
 import {StudioAuthority} from '../src/studio.mjs';
 import {canonical,digest} from '../src/security.mjs';
 import {verifyOpenCheckout} from '../src/open-research.mjs';
@@ -180,16 +181,7 @@ async function main(){
  const pr=await github.pr(claim.pr);
  if(!candidate.recoveryOnly)requireClaimAuthor(candidate,comment,pr,d);
 
- async function getFile(file){
-  try{
-   const result=await github.request(`/contents/${file}?ref=evidence`);
-   if(result.encoding!=='base64'||typeof result.content!=='string'||typeof result.sha!=='string')throw Error('Malformed evidence file');
-   return {sha:result.sha,data:JSON.parse(Buffer.from(result.content,'base64').toString('utf8'))};
-  }catch(error){
-   if(error.message==='GitHub 404')return null;
-   throw error;
-  }
- }
+ async function getFile(file){return readEvidenceFile(github,file);}
  async function putFile(file,data){
   const old=await getFile(file);
   return github.request(`/contents/${file}`,{method:'PUT',body:{

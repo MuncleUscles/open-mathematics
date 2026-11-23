@@ -1,7 +1,35 @@
 import {canonical,digest} from './security.mjs';
+
+async function boundedJSON(response, maximum) {
+  const declared=response.headers.get('content-length');
+  if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>maximum)){
+    response.body?.cancel().catch(()=>{});
+    throw Error('GitHub response exceeds the byte limit');
+  }
+  if(!response.body?.getReader)throw Error('Readable GitHub response required');
+  const reader=response.body.getReader(),chunks=[];let total=0;
+  try{
+    for(;;){
+      const {done,value}=await reader.read();if(done)break;
+      if(!(value instanceof Uint8Array))throw Error('Invalid GitHub response bytes');
+      total+=value.byteLength;
+      if(total>maximum)throw Error('GitHub response exceeds the byte limit');
+      chunks.push(value);
+    }
+    const bytes=new Uint8Array(total);let offset=0;
+    for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    return JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes));
+  }finally{reader.cancel().catch(()=>{});reader.releaseLock();}
+}
+
 export class GitHub {
   constructor({repository,token,fetcher=fetch}){if(!/^[\w.-]+\/[\w.-]+$/.test(repository))throw Error('Repository enrollment required');this.repository=repository;this.token=token;this.fetcher=fetcher;}
-  async request(path,{method='GET',body}={}){const r=await this.fetcher(`https://api.github.com/repos/${this.repository}${path}`,{method,headers:{Accept:'application/vnd.github+json',...(this.token?{Authorization:`Bearer ${this.token}`}:{ }),'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error(`GitHub ${r.status}`);return r.status===204?null:r.json();}
+  async request(path,{method='GET',body,maxResponseBytes}={}){
+    if(maxResponseBytes!==undefined&&(!Number.isSafeInteger(maxResponseBytes)||maxResponseBytes<1))throw Error('Positive GitHub response byte limit required');
+    const r=await this.fetcher(`https://api.github.com/repos/${this.repository}${path}`,{method,headers:{Accept:'application/vnd.github+json',...(this.token?{Authorization:`Bearer ${this.token}`}:{ }),'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000),...(maxResponseBytes===undefined?{}:{redirect:'error'})});
+    if(!r.ok)throw Error(`GitHub ${r.status}`);
+    return r.status===204?null:maxResponseBytes===undefined?r.json():boundedJSON(r,maxResponseBytes);
+  }
   pr(n){if(!Number.isSafeInteger(n)||n<1)throw Error('Invalid PR');return this.request(`/pulls/${n}`);}
   async bindAuthor({claim,signature},{commentId,createdAt}={}){
     if(!Number.isSafeInteger(commentId)||commentId<1||typeof createdAt!=='string'||!Number.isFinite(Date.parse(createdAt)))
