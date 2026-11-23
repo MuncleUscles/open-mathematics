@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "problem": "p-vs-np",
+  "kind": "infrastructure",
+  "title": "Controlled rejection test for the CNF satisfiability proof",
+  "claim": "This controlled verifier test leaves the enrolled CNF satisfiability-preservation goal unfinished for a renaming with a left inverse.",
+  "novelty": "This submission exercises the live v2 proof gate using an intentionally incomplete expression. It claims no mathematical contribution.",
+  "prior_art": [
+    {
+      "reference": "Open Mathematics accepted CNF renaming lemma",
+      "relationship": "The credited renaming lemma is prior infrastructure for the enrolled satisfiability goal."
+    }
+  ],
+  "evidence": {
+    "policy": "cnf-core-v2",
+    "goal": "renaming_sat",
+    "proof_path": "research/proofs/renaming_sat.proof",
+    "reproduce": "Run the pinned isolated Lean verifier with the credited dependency. The candidate is expected to leave unsolved goals."
+  },
+  "dependencies": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "use": "A complete proof would use this lemma to rewrite evaluation after renaming. The test expression ends before that step.",
+      "importance": "This credited lemma links the renamed formula to evaluation under the composed assignment and supplies the exact dependency for this goal."
+    }
+  ],
+  "attribution": {
+    "wallet": "0xE325C3DC47C08100806f7c19559EA8D3aA0325cF",
+    "contributions": "Prepared a bounded incomplete-proof fixture for the public verifier rejection test."
+  },
+  "limitations": "The expression intentionally omits the proof of the enrolled statement and establishes no mathematical result."
+}
