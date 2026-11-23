@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { abi } from 'genlayer-js';
 import { recoverReceipt } from './receipt-recovery.mjs';
 import { clean, finalized, FinalizedExecutionError } from './runtime.mjs';
+import { studioEnvelopeFailure } from '../src/studio-client.mjs';
 
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
@@ -113,7 +114,17 @@ export async function journaledTransaction({
 
       remember({});
       await save();
-      const hash = await client.writeContract({ address, functionName: method, args: stableArgs, leaderOnly: false });
+      let hash;
+      try {
+        hash = await client.writeContract({ address, functionName: method, args: stableArgs, leaderOnly: false });
+      } catch (error) {
+        const transportFailure = studioEnvelopeFailure(error);
+        if (transportFailure) {
+          remember({ transportFailure });
+          await save();
+        }
+        throw error;
+      }
       if (typeof hash !== 'string' || !HASH.test(hash)) {
         throw Error(`Broadcast for journal stage ${stage} did not return a valid transaction hash`);
       }

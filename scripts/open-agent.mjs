@@ -9,7 +9,7 @@ import {fetchGitHubIdentity} from '../src/github-identity.mjs';
 import {readEvidenceFile} from '../github/evidence-file.mjs';
 import {clientFor,read,finalized} from '../github/runtime.mjs';
 import {loadLocalSigner,publicEnvelope} from './problem-agent.mjs';import {contributorPath} from './agent.mjs';
-import {createClient} from 'genlayer-js';import {studionet} from 'genlayer-js/chains';
+import {createStudioClient} from '../src/studio-client.mjs';
 import {resolveOpenDependencies,writeOpenDependencyManifest,openVerifierFailure} from '../github/open-verify.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function claimFor(problem,{pr,head,base,recordPath,recordBytes,wallet,now=Date.now()}){
@@ -119,7 +119,7 @@ export async function run(argv=process.argv.slice(2)){
    const [id,file]=rest,isImpact=rest.includes('--impact'),evidence=fs.readFileSync(path.isAbsolute(file)?file:workFile(file),'utf8'),state=await native(isImpact?'get_impact':'get',[id]),method=isImpact?'challenge_impact':'challenge';
    if(evidence.trim().length<20||evidence.length>4000||state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||Number(state.round)>=2)throw Error('Substantive evidence and an open challenge window required');
    if(!rest.includes('--send'))out({contract:d.contract,method,args:[id,evidence],deadline:state.deadline,next:'Repeat with --send and your local signer after reviewing.'});
-   else{const a=loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]),client=createClient({chain:studionet,account:a});sent={contract:d.contract,wallet:a.address,method};const hash=await client.writeContract({address:d.contract,functionName:method,args:[id,evidence],leaderOnly:false});sent.hash=hash;console.error(JSON.stringify({status:'broadcast',...sent}));await finalized(client,hash,{address:d.contract,method,args:[id,evidence],sender:a.address});out({status:'challenge finalized',hash});}
+   else{const a=loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]),client=createStudioClient({account:a});sent={contract:d.contract,wallet:a.address,method};const hash=await client.writeContract({address:d.contract,functionName:method,args:[id,evidence],leaderOnly:false});sent.hash=hash;console.error(JSON.stringify({status:'broadcast',...sent}));await finalized(client,hash,{address:d.contract,method,args:[id,evidence],sender:a.address});out({status:'challenge finalized',hash});}
   }else throw Error('Unknown command; run help');
  }catch(error){console.error(JSON.stringify({error:error.message,...(sent?{transaction:sent,next:'Inspect this transaction before retrying; it may already be broadcast.'}:{})}));process.exitCode=1;}
 }

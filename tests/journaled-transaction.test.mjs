@@ -129,6 +129,17 @@ test('if broadcast or hash saving fails, the durable intent only permits recover
   }
 });
 
+test('a reverted Studio envelope is kept separately and cannot authorize another broadcast',async()=>{
+  const h=harness();h.state.onWrite=()=>{throw Error(`Transaction reverted: EVM tx ${secondHash}. FeesDistributionMissing`);};
+  await assert.rejects(h.run(),/FeesDistributionMissing/);
+  const saved=h.state.saved.at(-1)[stage];
+  assert.ok(saved.intent);assert.equal(saved.hash,undefined);assert.equal(saved.receipt,undefined);
+  assert.deepEqual(saved.transportFailure,{kind:'studio-envelope-reverted',hash:secondHash,reason:'FeesDistributionMissing',verified:false});
+  const resumed=harness(h.state.saved.at(-1));
+  await assert.rejects(resumed.run(),/Ambiguous broadcast/);
+  assert.deepEqual(resumed.state.calls,['history']);
+});
+
 test('an observed pending match records its hash and can finalize after history stops showing it', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const h = harness();

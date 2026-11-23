@@ -1,12 +1,13 @@
 import fs from 'node:fs';
-import {createClient,createAccount,generatePrivateKey} from 'genlayer-js';
+import {createAccount,generatePrivateKey} from 'genlayer-js';
+import {createStudioClient} from '../src/studio-client.mjs';
 import {studionet} from 'genlayer-js/chains';
 import {digest,message} from '../src/security.mjs';
 import {normalize} from '../src/studio.mjs';
 import {randomBytes} from 'node:crypto';
 const out='public/studio-evidence.json';
 const account=createAccount(generatePrivateKey()); // ephemeral operator, never a contributor key
-const client=createClient({chain:studionet,account});
+const client=createStudioClient({account});
 const stringify=x=>JSON.stringify(x,(_,v)=>v instanceof Map?Object.fromEntries(v):typeof v==='bigint'?String(v):v,2);
 const report={mode:'live-studio-with-fixture-inputs',network:'studionet',chainId:studionet.id,authority:account.address,startedAt:new Date().toISOString(),transactions:{},records:{},limitations:['GitHub PRs and merge confirmations are fixtures.','Points are nontransferable records on the IC; no token or bridge.','Operator key exists only in process memory. Re-run deploys a new demonstration.']};
 function save(){fs.writeFileSync(out,stringify(report));}

@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
-import {abi,createClient,createAccount} from 'genlayer-js';
-import {studionet} from 'genlayer-js/chains';
+import {abi,createAccount} from 'genlayer-js';
+import {createStudioClient} from '../src/studio-client.mjs';
 import {rpcRateLimit,STUDIO_RATE_LIMIT_CODE} from '../src/rpc-errors.mjs';
 import {digest} from '../src/security.mjs';
 import {normalize,verifyReceipt,verifyReceiptCall} from '../src/studio.mjs';
 export const clean=x=>JSON.parse(JSON.stringify(normalize(x)),(k,v)=>['node_config','contract_state','execution_stats'].includes(k)?undefined:v);
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-export const clientFor=key=>createClient({chain:studionet,...(key?{account:createAccount(key)}:{})});
+export const clientFor=key=>createStudioClient(key?{account:createAccount(key)}:{});
 export async function retry(fn,{wait=sleep}={}){
  for(let attempt=1;attempt<=5;attempt++){
   try{return await fn();}
