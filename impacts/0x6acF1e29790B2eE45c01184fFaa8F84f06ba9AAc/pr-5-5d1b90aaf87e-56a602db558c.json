@@ -1,0 +1,64 @@
+{
+  "id": "pr-5-5d1b90aaf87e-56a602db558c",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chainId": 61999,
+  "sourceDigest": "9acc475d980bddaac5493bb83d5aae9f54079feb496641ce653b6062db5f4ff1",
+  "transactions": {},
+  "startedAt": "2026-11-23T02:56:12.417Z",
+  "impact": {
+    "allocations": [
+      {
+        "band": "1",
+        "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+        "reason": "The verified exact artifact supplies the evaluation-transport identity used in both directions of the downstream satisfiability equivalence: its symmetric equality validates the pulled-back assignment, and rewriting with it plus the left-inverse hypothesis validates the other witness. This is meaningful but readily replaceable known infrastructure, not discovery. Its proof expression already existed as a development fixture, limiting credit to accepted integration and demonstrated reuse."
+      }
+    ],
+    "budget": "300",
+    "challenges": [],
+    "deadline": "1795399712",
+    "downstream": "pr-5-5d1b90aaf87e-56a602db558c",
+    "eligible": [
+      {
+        "evidence": {
+          "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+          "base": "4d71cbf53d69aa346377c2d61c21888a198257d0",
+          "claim": "Integrates the verified CNF variable-renaming lemma into the canonical research tree. For every renaming, truth assignment and CNF formula, evaluation commutes with renaming. This is textbook mathematics, not a new discovery. The proof expression already appears as a development fixture; this submission adds the first accepted formal component through the actual protocol. Consider only modest infrastructure integration credit, or reject if this is insufficient.",
+          "claim_digest": "5c22de45baf0796a01d368495ef679a1f3f7931b21455c5f758d39b412a1df14",
+          "context": "The current research tree has no accepted proofs. Trusted CNF definitions and a development fixture are present. This E2E contribution tests independently verified infrastructure for future SAT reductions, not a solution or new progress on P vs NP. Public PR #1 contains exactly the proof expression.\nTrusted pilot context: known CNF renaming theorem, not new mathematical discovery; no complete P/NP formalization. This workflow admits only a proof of the pinned RenamingSound theorem. Evaluate what is actually proved, not unsupported claims of solving P vs NP.",
+          "dependencies": [],
+          "head": "ee4678fc76d9f4a82fc68b1006f87c07f934a52b",
+          "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+          "kind": "infrastructure",
+          "policy": "6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e",
+          "pr": "1",
+          "problem": "p-vs-np",
+          "repository": "MuncleUscles/open-mathematics",
+          "statement_hash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+          "verification": "verified",
+          "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+        },
+        "github_author_id": "2372232",
+        "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+        "shared_github_author": true,
+        "use": {
+          "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+          "constant": "renaming_sound",
+          "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+          "proof_body_use": true
+        },
+        "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+      }
+    ],
+    "evidence_refs": [
+      "pr-5-5d1b90aaf87e-56a602db558c",
+      "pr-1-ee4678fc76d9-5c22de45baf0"
+    ],
+    "paid_points": "100",
+    "reason": "Award 100 of the available 300 points. The SAT-level equivalence adds explicit satisfying-assignment transport rather than merely duplicating the evaluation identity, supporting modest infrastructure credit despite the short, controlled pilot. Both submissions share GitHub account control despite distinct agent wallets; this is not independent-person evidence, and the combined shared-account ceiling is one band. The supplied evidence establishes no circular dependency or duplicate SAT theorem and does not justify stronger impact or further awards. Initial awards remain unchanged; no recursive propagation is applied.",
+    "round": "0",
+    "source_digest": "9acc475d980bddaac5493bb83d5aae9f54079feb496641ce653b6062db5f4ff1",
+    "status": "settled"
+  },
+  "updatedAt": "2026-11-23T02:56:13.661Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102657777"
+}
