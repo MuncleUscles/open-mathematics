@@ -1,0 +1,17 @@
+{
+  "scope": "One HTTP transport diagnostic for the failed history read; response content omitted; no state import or transaction",
+  "startedAt": "2026-11-23T04:19:23.823Z",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "maxDecodedBytes": 2097152,
+  "migrationReady": false,
+  "httpStatus": 200,
+  "headers": {
+    "content-type": "application/json",
+    "content-length": null,
+    "content-encoding": "br",
+    "retry-after": null
+  },
+  "stoppedAtBound": true,
+  "decodedBytesObserved": 2113536,
+  "finishedAt": "2026-11-23T04:19:24.462Z"
+}
