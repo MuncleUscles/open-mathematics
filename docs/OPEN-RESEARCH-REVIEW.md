@@ -1,6 +1,6 @@
 # Open research v5 review
 
-Claude Fable 5 reviewed the initial v5 design against the v4 baseline `743c345` in read-only mode with high reasoning effort. Its first pass raised eight issues. Follow-up probes did not reproduce a soundness bypass: the kernel rejected the proposed unsafe proof, and the original axiom filter rejected native reduction. The checker now also rejects those forms before elaboration. A second implementation review reached its turn limit without a final report; a focused final review is pending. The dispositions below reflect source inspection and local tests. Live outcomes require Actions and native receipts.
+Claude Fable 5 reviewed the initial v5 design and then completed a focused implementation review in read-only mode with high reasoning effort. An intervening broad review hit its turn limit without a final report. Follow-up probes did not reproduce a soundness bypass: the kernel rejected the proposed unsafe proof, and the original axiom filter rejected native reduction. The checker now also rejects those forms before elaboration. The kernel and trusted axiom audit are the proof boundary; the expression allowlist is an additional input restriction, not a standalone security boundary. Live outcomes require Actions and native receipts.
 
 | First-pass finding | Pilot disposition |
 | --- | --- |
@@ -14,6 +14,18 @@ Claude Fable 5 reviewed the initial v5 design against the v4 baseline `743c345` 
 | Historical versions could be combined incorrectly or remain writable during cutover. | Each ledger keeps its own balances. V5 starts without imported points or cross-ledger impact. The cutover needs closure of the active v4 goals, replacement of its problem workflow and new required evidence checks. Historical hashes catch exact matches covered by the release. Earlier semantic equivalents remain a review question. |
 
 V5 now uses a fixed award budget per accepted result. Later dependency review distributes a reserve from that budget. This removes any additional issuance based on the number of recipients or their wallet and GitHub account combinations. Reviewers still judge semantic duplication and artificial splitting across separate submitted results.
+
+## Final implementation review
+
+Fable found no accounting, replay, proof-boundary or payload-isolation blocker for a supervised cofounder trial. It required cancellation/reroll and stale-queue fixes before outside contributors, and recommended a command for discovering prior work. These findings were actionable; the initial green CI snapshot alone was not sufficient to activate the release.
+
+The follow-up implementation persists a content fence before model judgment and carries accepted score ceilings across replacement claims. Known rejection and unresolved attempts cannot be rerolled through another account or a proof-byte edit. Same-claim factual appeals remain possible within their window. Stale pre-registration reports become terminal; abandoned registered work with a missing/edited comment has a cleanup-only path requiring its signed attestation, exact successful receipt and matching native record. Cleanup refuses already merged work. `om list` provides bounded native discovery, the guide documents the grammar and axioms, and structured wallet fields are removed from judgment inputs. Current-ledger duplicate comparison uses definition-aware statements rather than statement text alone.
+
+These changes passed 234 application tests, 205 direct contract tests and pinned GenVM lint. The unchanged proof checker passed all 15 tests including the actual restricted Linux container. Model replies in direct contract tests are mocked. Final GitHub checks and live receipts must identify the exact activated source revision.
+
+The final review also identified the incentive to hide a dependency and recover its reserve. Merit review must compare incremental work and reject concealed reproduction of credited work. This is semantic review, not a deterministic guarantee that all inlined proofs are detected. The fixed total budget and unused-reserve return remain deliberate policy.
+
+Other limits remain explicit: semantic context is bounded; many accounts increase queue throughput; two public challenge slots can be exhausted; public work can be copied before its claim is registered; a failed impact consensus can leave its reserve outstanding. A near-limit bundle plus record may exceed the aggregate escaped evidence limit even when its separate files fit. The verifier rejects oversized combined evidence before registration. These are pilot limits, not solved Sybil resistance or production readiness.
 
 ## Release evidence
 

@@ -2,13 +2,15 @@
 
 Contributors choose any direction toward the top-level P-versus-NP objective. There is no task enrollment API, curator address, direction allowlist or lifetime submission/point cap. This removes a gate on questions; it does not guarantee acceptance or points.
 
+Agents use the problem repository's pinned `AGENTS.md` setup, then `om inspect`, `om list`, and `om show CONTRIBUTION_ID` to discover the objective and prior work without a browser. `list [OFFSET] [LIMIT]` reads one native page of 20 records by default, up to 50, and returns the next-page command with IDs, scope, status, bundle hashes and actual points. Only credited formal results are eligible proof dependencies. The guide documents the restricted expression grammar and allowed axioms (`propext` and `Quot.sound`, with no `Classical`) and links to the exact pinned checker. File limits apply alongside a 65,536-byte aggregate native-evidence limit after JSON escaping; the worker checks that final limit before registration, while local `check` and `sign` do not yet construct the complete signed-verifier evidence.
+
 ## Vertical slice
 
 1. A contributor creates one commit on current `research` with exactly two new regular files: `research/submissions/SLUG.json` and its matching artifact. The mandatory record describes the claim, relevance, novelty, provenance, actual dependencies, attribution and limitations.
 2. The contributor signs an exact PR claim locally. It binds chain, contract, repository, PR, head/base, policy, worker release, record path/hash, wallet, nonce and expiry. The original PR author posts the unedited public envelope. Private keys never enter GitHub.
 3. The protected main-only workflow loads the pinned protocol, verifies signature/comment/commit/tree/blob bindings, and resolves dependencies from already credited native records and exact canonical merge blobs. PR scripts are never executed.
 4. Formal bundles use pinned Lean 4.19 in a networkless, read-only, resource-limited container with kernel trust 0. Submitted definitions, statements and proofs are restricted expressions. A separate trusted Lean file checks kernel declarations, axioms and direct theorem references. Research notes receive a bounded-text check and `not-formal`.
-5. The trusted verifier submits exact evidence. GenLayer independently judges acceptance and three bounded merit bands, emits reasons and accepts challenges. The executor requires successful final independent receipts for the exact calls.
+5. The trusted verifier submits exact evidence. Before judgment, a separate native transaction records a content fence for the exact bundle and definition-aware statement. GenLayer independently judges acceptance and three bounded merit bands, emits reasons and accepts challenges. The executor requires successful final independent receipts for the exact calls.
 6. After the challenge deadline, the bot publishes the finalized-contract check and merges the exact approved head through no-bypass branch protection. Native `confirm_merge` records initial points only after the exact canonical two-parent merge is verified.
 7. A credited formal result has a reserve within its award budget. A separate impact review allocates part of that reserve to earlier results with verified direct proof use and substantive value. The unused reserve goes to the downstream author at settlement.
 
@@ -26,7 +28,7 @@ The impact decision can allocate up to three bands in total. Each band pays the 
 
 A 300-point result pays 240 at merge and reserves 60. If the review allocates two bands to earlier work, that earlier work receives 40 and the downstream author receives the remaining 20. The combined award is 300. If the reserve has no eligible recipient, it goes to the downstream author. A pending review keeps its reserve outstanding. The sum of issued points and outstanding reserves equals the committed award budgets.
 
-Exact statement, proposition and artifact commitments guard against repeat payments. Native merit rejection blocks future registrations of the same bundle bytes. Semantic review draws on recent credited work and explicit related records, dependencies, and historical ledger references. The review has bounded coverage. V5 ends its application correction window at settlement.
+Definition-aware statement and exact artifact commitments guard against repeat payments. Cancellation does not erase the earlier outcome: fresh claims for the same content cannot improve its accepted merit bands, and known rejection blocks a fresh judgment. A same-claim, upheld factual appeal can correct that claim's rejection. An unresolved judgment remains fenced even after cancellation; changing accounts cannot create another draw. A stale registration that never began judgment can be submitted again. Explicit legacy exclusions retain their historical statement/proposition hashes. Semantic review draws on recent credited work and explicit related records, dependencies, and historical ledger references. The review has bounded coverage. V5 ends its application correction window at settlement.
 
 ## Hosting and operation
 

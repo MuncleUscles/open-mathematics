@@ -83,10 +83,15 @@ def initial_review(vm, key, *, accept=True, refs=None, scores=(1, 1, 2), upheld=
     return value
 
 
+def adjudicate(protocol, key, expected_round):
+    protocol.begin_adjudication(key, expected_round)
+    return protocol.adjudicate(key, expected_round)
+
+
 def settle_initial(protocol, vm, executor, key, *, accept=True):
     vm.sender = executor
     initial_review(vm, key, accept=accept, upheld=True if protocol.get(key)["status"] == "challenged" else None)
-    protocol.adjudicate(key, protocol.get(key)["round"])
+    adjudicate(protocol, key, protocol.get(key)["round"])
     state = protocol.get(key)
     vm.warp(datetime.fromtimestamp(state["deadline"] + 1, timezone.utc).isoformat())
     protocol.finalize(key, state["round"])
@@ -157,7 +162,7 @@ def test_open_formal_admission_and_wallet_bound_initial_credit(open_protocol, di
     assert open_protocol.get(data["id"])["evidence"] == data
     direct_vm.sender = direct_bob
     initial_review(direct_vm, data["id"])
-    verdict = open_protocol.adjudicate(data["id"], 0)
+    verdict = adjudicate(open_protocol, data["id"], 0)
     assert verdict["award"] == "400"
     assert direct_vm.run_validator() is True
     with direct_vm.expect_revert("dispute window"):
@@ -210,7 +215,7 @@ def test_authorities_claim_replay_and_historical_exclusions(open_protocol, direc
     open_protocol.register(json.dumps(data))
     with direct_vm.expect_revert("signed claim already registered"):
         open_protocol.register(json.dumps({**data, "id": "replayed-claim"}))
-    for method in [lambda: open_protocol.adjudicate(data["id"], 0), lambda: open_protocol.finalize(data["id"], 0), lambda: open_protocol.confirm_merge(data["id"], data["head"], "5" * 40), lambda: open_protocol.review_impact(data["id"], 0), lambda: open_protocol.settle_impact(data["id"], 0)]:
+    for method in [lambda: adjudicate(open_protocol, data["id"], 0), lambda: open_protocol.finalize(data["id"], 0), lambda: open_protocol.confirm_merge(data["id"], data["head"], "5" * 40), lambda: open_protocol.review_impact(data["id"], 0), lambda: open_protocol.settle_impact(data["id"], 0)]:
         with direct_vm.expect_revert("executor"):
             method()
 
@@ -326,12 +331,12 @@ def test_challenges_block_each_settlement_and_stale_rounds(open_protocol, direct
     current = submit(open_protocol, direct_vm, direct_alice, direct_charlie, "later", dependencies=["first"], verified_dependencies=[use(prior)])
     direct_vm.sender = direct_bob
     initial_review(direct_vm, "later")
-    open_protocol.adjudicate("later", 0)
+    adjudicate(open_protocol, "later", 0)
     direct_vm.sender = direct_owner
     open_protocol.challenge("later", "Check whether the contribution adds more than a trivial restatement.")
     direct_vm.sender = direct_bob
     with direct_vm.expect_revert("stale adjudication"):
-        open_protocol.adjudicate("later", 0)
+        adjudicate(open_protocol, "later", 0)
     with direct_vm.expect_revert("unresolved"):
         open_protocol.finalize("later", 1)
     settle_initial(open_protocol, direct_vm, direct_bob, "later")
@@ -355,7 +360,7 @@ def test_exact_consensus_band_disagreement_does_not_validate(open_protocol, dire
     submit(open_protocol, direct_vm, direct_alice, direct_owner)
     direct_vm.sender = direct_bob
     initial_review(direct_vm, "open-result")
-    decision = open_protocol.adjudicate("open-result", 0)
+    decision = adjudicate(open_protocol, "open-result", 0)
     assert direct_vm.run_validator() is True
     initial_review(direct_vm, "open-result", scores=(1, 1, 1))
     assert direct_vm.run_validator() is False
@@ -366,19 +371,13 @@ def test_exact_consensus_band_disagreement_does_not_validate(open_protocol, dire
 
 def test_concurrent_duplicates_and_stale_reservations(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
     first = submit(open_protocol, direct_vm, direct_alice, direct_owner, "first")
-    second = evidence(direct_vm, direct_charlie, "second", github_author_id=2, statement_hash=first["statement_hash"], proposition_hash=first["proposition_hash"])
-    direct_vm.sender = direct_alice
-    open_protocol.register(json.dumps(second))
+    with direct_vm.expect_revert("same content already has an active"):
+        submit(open_protocol, direct_vm, direct_alice, direct_charlie, "second", github_author_id=2, statement_hash=first["statement_hash"])
     direct_vm.sender = direct_bob
-    for key in ["first", "second"]:
-        initial_review(direct_vm, key)
-        open_protocol.adjudicate(key, 0)
-    deadline = max(open_protocol.get(key)["deadline"] for key in ["first", "second"])
-    direct_vm.warp(datetime.fromtimestamp(deadline + 1, timezone.utc).isoformat())
+    initial_review(direct_vm, "first")
+    adjudicate(open_protocol, "first", 0)
+    direct_vm.warp(datetime.fromtimestamp(open_protocol.get("first")["deadline"] + 1, timezone.utc).isoformat())
     open_protocol.finalize("first", 0)
-    open_protocol.finalize("second", 0)
-    assert open_protocol.get("second")["status"] == "rejected"
-    assert open_protocol.get("second")["verdict"]["award"] == "0"
     open_protocol.release_unmerged("first", "The approved PR was closed before canonical merge confirmation.")
     replacement = submit(open_protocol, direct_vm, direct_alice, direct_owner, "replacement", statement_hash=first["statement_hash"], proposition_hash=first["proposition_hash"], artifact_hash=first["artifact_hash"], proof=first["proof"], bundle_hash=first["bundle_hash"])
     settle_initial(open_protocol, direct_vm, direct_bob, replacement["id"])
@@ -413,7 +412,7 @@ def test_duplicate_context_is_recent50_plus_exact_old_related_records(open_proto
 
     monkeypatch.setattr(direct_vm, "_match_llm_mock", response)
     direct_vm.sender = direct_bob
-    open_protocol.adjudicate("current", 0)
+    adjudicate(open_protocol, "current", 0)
     assert captured
     assert [p["id"] for p in captured[0]["prior"]] == [f"result-{i}" for i in range(2, 52)] + ["result-1", "result-0"]
     assert captured[0]["required_submission_reference"] == "current"
@@ -436,7 +435,7 @@ def challenged_initial(protocol, vm, verifier, executor, owner, *, accepted=True
     data = submit(protocol, vm, verifier, owner)
     vm.sender = executor
     initial_review(vm, data["id"], accept=accepted)
-    previous = protocol.adjudicate(data["id"], 0)
+    previous = adjudicate(protocol, data["id"], 0)
     vm.sender = owner
     protocol.challenge(data["id"], "The review missed the explicitly stated boundary condition in the supplied artifact.")
     vm.sender = executor
@@ -446,7 +445,7 @@ def challenged_initial(protocol, vm, verifier, executor, owner, *, accepted=True
 def test_unupheld_challenge_restores_verdict_verbatim_and_bool_requires_consensus(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
     data, previous = challenged_initial(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner)
     initial_review(direct_vm, data["id"], upheld=False, reason="The objection establishes no factual error and supplies no new supporting evidence.")
-    assert open_protocol.adjudicate(data["id"], 1) == previous
+    assert adjudicate(open_protocol, data["id"], 1) == previous
     assert direct_vm.run_validator() is True
     record = open_protocol.get(data["id"])
     assert record["verdict"] == previous and record["challenge_reviews"][0]["challenge_upheld"] is False
@@ -464,19 +463,19 @@ def test_challenges_cannot_reroll_accepted_bands(open_protocol, direct_vm, direc
     data, previous = challenged_initial(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner)
     initial_review(direct_vm, data["id"], **changes)
     with direct_vm.expect_revert(error):
-        open_protocol.adjudicate(data["id"], 1)
+        adjudicate(open_protocol, data["id"], 1)
     assert open_protocol.get(data["id"])["verdict"] == previous
     initial_review(direct_vm, data["id"], upheld=True, scores=(1, 1, 1))
-    assert open_protocol.adjudicate(data["id"], 1)["award"] == "300"
+    assert adjudicate(open_protocol, data["id"], 1)["award"] == "300"
 
 
 def test_rejected_appeal_requires_upheld_evidence_and_preserves_independent_band_agreement(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
     data, previous = challenged_initial(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, accepted=False)
     initial_review(direct_vm, data["id"], upheld=True, reason="Please increase this award because it deserves points.")
     with direct_vm.expect_revert("substantive factual correction"):
-        open_protocol.adjudicate(data["id"], 1)
+        adjudicate(open_protocol, data["id"], 1)
     initial_review(direct_vm, data["id"], upheld=True, reason="The original rejection overlooked the explicitly restricted domain of the construction; the cited boundary example now resolves that specific factual error without changing the proved statement.")
-    assert open_protocol.adjudicate(data["id"], 1)["accept"] is True
+    assert adjudicate(open_protocol, data["id"], 1)["accept"] is True
     assert direct_vm.run_validator() is True
     initial_review(direct_vm, data["id"], upheld=True, scores=(1, 1, 1))
     assert direct_vm.run_validator() is False
@@ -520,7 +519,7 @@ def test_github_admission_quota_cannot_be_evaded_with_wallets_or_expiration(open
         submit(open_protocol, direct_vm, direct_alice, direct_charlie, "same-controller")
     direct_vm.sender = direct_bob
     initial_review(direct_vm, "first")
-    open_protocol.adjudicate("first", 0)
+    adjudicate(open_protocol, "first", 0)
     direct_vm.warp(datetime.fromtimestamp(open_protocol.get("first")["deadline"] + 1, timezone.utc).isoformat())
     open_protocol.finalize("first", 0)
     with direct_vm.expect_revert("one active contribution"):
@@ -556,7 +555,7 @@ def test_notes_have_separate_capped_initial_accounting_and_short_formal_claims_r
     note = submit(open_protocol, direct_vm, direct_alice, direct_owner, "note", note=True)
     direct_vm.sender = direct_bob
     initial_review(direct_vm, "note", scores=(3, 3, 3))
-    assert open_protocol.adjudicate("note", 0)["award"] == "300"
+    assert adjudicate(open_protocol, "note", 0)["award"] == "300"
     direct_vm.warp(datetime.fromtimestamp(open_protocol.get("note")["deadline"] + 1, timezone.utc).isoformat())
     open_protocol.finalize("note", 0)
     open_protocol.confirm_merge("note", note["head"], "5" * 40)
@@ -654,7 +653,7 @@ def test_every_merit_budget_pays_only_its_reserve_and_returns_rounding_once(open
     data = submit(open_protocol, direct_vm, direct_alice, direct_charlie, "result", dependencies=["prior"], verified_dependencies=[use(prior)])
     direct_vm.sender = direct_bob
     initial_review(direct_vm, "result", scores=scores)
-    assert open_protocol.adjudicate("result", 0)["award"] == str(budget)
+    assert adjudicate(open_protocol, "result", 0)["award"] == str(budget)
     direct_vm.warp(datetime.fromtimestamp(open_protocol.get("result")["deadline"] + 1, timezone.utc).isoformat())
     open_protocol.finalize("result", 0)
     open_protocol.confirm_merge("result", data["head"], "5" * 40)
@@ -683,3 +682,197 @@ def test_zero_allocation_refunds_full_reserve_and_notes_never_create_one(open_pr
     assert outcome["paid_points"] == outcome["returned_points"] == "0"
     open_protocol.settle_impact("note", 0)
     assert_fixed_budget_totals(open_protocol, direct_owner, budgets=1100, issued=1100, reserved=0)
+
+
+def same_content(original, *, proof_edit=False, **changes):
+    proof = original['proof'] + ('\n' if proof_edit else '')
+    return {field: original[field] for field in ['statement_hash', 'proposition_hash', 'formal_statement']} | {
+        'proof': proof, 'bundle_hash': digest(proof), 'artifact_hash': digest('closure:' + proof), **changes,
+    }
+
+
+def expire(protocol, vm, executor, key):
+    vm.sender = executor
+    protocol.release_unmerged(key, 'The exact canonical PR moved or closed before protected merge confirmation.')
+
+
+def test_begin_adjudication_is_separate_persistent_and_exactly_scoped(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+    data = submit(open_protocol, direct_vm, direct_alice, direct_owner)
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, data['id'])
+    with direct_vm.expect_revert('persisted begin_adjudication'):
+        open_protocol.adjudicate(data['id'], 0)
+    assert open_protocol.get(data['id'])['adjudication_started_round'] == -1
+    fence = open_protocol.begin_adjudication(data['id'], 0)
+    assert fence == {'id': data['id'], 'round': 0, 'content_fenced': True}
+    assert open_protocol.begin_adjudication(data['id'], 0) == fence
+    assert open_protocol.get(data['id'])['adjudication_started_round'] == 0
+    assert open_protocol.get(data['id'])['adjudication_finished_round'] == -1
+    with direct_vm.expect_revert('stale adjudication'):
+        open_protocol.begin_adjudication(data['id'], 1)
+    direct_vm.sender = direct_owner
+    with direct_vm.expect_revert('executor'):
+        open_protocol.begin_adjudication(data['id'], 0)
+    direct_vm.sender = direct_bob
+    open_protocol.adjudicate(data['id'], 0)
+    assert open_protocol.get(data['id'])['adjudication_finished_round'] == 0
+    assert open_protocol.begin_adjudication(data['id'], 0) == fence
+    assert open_protocol.get(data['id'])['status'] == 'provisional'
+
+
+@pytest.mark.parametrize('failed_call', [False, True])
+@pytest.mark.parametrize('proof_edit', [False, True])
+def test_unknown_or_failed_draw_stays_fenced_after_expiry_and_identity_change(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, failed_call, proof_edit):
+    first = submit(open_protocol, direct_vm, direct_alice, direct_owner, 'attempt')
+    direct_vm.sender = direct_bob
+    open_protocol.begin_adjudication('attempt', 0)
+    if failed_call:
+        direct_vm.mock_llm('.*', '{}')
+        with direct_vm.expect_revert('malformed adjudication'):
+            open_protocol.adjudicate('attempt', 0)
+    expire(open_protocol, direct_vm, direct_bob, 'attempt')
+    record = open_protocol.get('attempt')
+    assert record['status'] == 'expired' and record['adjudication_finished_round'] == -1
+    with direct_vm.expect_revert('unresolved adjudication'):
+        submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'new-account', github_author_id=2, **same_content(first, proof_edit=proof_edit))
+    assert open_protocol.count_contributions() == 1
+
+
+@pytest.mark.parametrize('proof_edit', [False, True])
+def test_cancelled_accepted_verdict_is_a_global_ceiling_on_rebased_content(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, proof_edit):
+    first = submit(open_protocol, direct_vm, direct_alice, direct_owner, 'original')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'original', scores=(1, 2, 3))
+    assert adjudicate(open_protocol, 'original', 0)['award'] == '600'
+    expire(open_protocol, direct_vm, direct_bob, 'original')
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'rebased', github_author_id=2, **same_content(first, proof_edit=proof_edit))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'rebased', scores=(3, 3, 3))
+    verdict = adjudicate(open_protocol, 'rebased', 0)
+    assert tuple(verdict[x] for x in ['novelty', 'significance', 'reusability']) == (1, 2, 3)
+    assert verdict['award'] == '600'
+    expire(open_protocol, direct_vm, direct_bob, 'rebased')
+    submit(open_protocol, direct_vm, direct_alice, direct_owner, 'lowered', github_author_id=3, **same_content(first))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'lowered', scores=(1, 1, 1))
+    assert adjudicate(open_protocol, 'lowered', 0)['award'] == '300'
+    expire(open_protocol, direct_vm, direct_bob, 'lowered')
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'last', github_author_id=4, **same_content(first, proof_edit=True))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'last', scores=(3, 3, 3))
+    assert adjudicate(open_protocol, 'last', 0)['award'] == '300'
+
+
+@pytest.mark.parametrize('finalized', [False, True])
+def test_known_rejection_cannot_be_retried_by_proof_byte_or_account_change(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, finalized):
+    first = submit(open_protocol, direct_vm, direct_alice, direct_owner, 'rejected-content')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'rejected-content', accept=False)
+    adjudicate(open_protocol, 'rejected-content', 0)
+    if finalized:
+        direct_vm.warp(datetime.fromtimestamp(open_protocol.get('rejected-content')['deadline'] + 1, timezone.utc).isoformat())
+        open_protocol.finalize('rejected-content', 0)
+    else:
+        expire(open_protocol, direct_vm, direct_bob, 'rejected-content')
+    with direct_vm.expect_revert('previously rejected content'):
+        submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'one-byte-retry', github_author_id=2, **same_content(first, proof_edit=True))
+
+
+def test_exact_content_can_rebase_before_adjudication_begins(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
+    first = submit(open_protocol, direct_vm, direct_alice, direct_owner, 'not-attempted')
+    assert open_protocol.get('not-attempted')['adjudication_started_round'] == -1
+    expire(open_protocol, direct_vm, direct_bob, 'not-attempted')
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'fresh-base', github_author_id=2, **same_content(first))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'fresh-base', scores=(2, 2, 2))
+    assert adjudicate(open_protocol, 'fresh-base', 0)['award'] == '600'
+
+
+@pytest.mark.parametrize('has_prior_ceiling', [False, True])
+def test_upheld_same_claim_rejection_appeal_can_rebase_without_erasing_prior_ceiling(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, has_prior_ceiling):
+    original = None
+    if has_prior_ceiling:
+        original = submit(open_protocol, direct_vm, direct_alice, direct_owner, 'earlier')
+        direct_vm.sender = direct_bob
+        initial_review(direct_vm, 'earlier', scores=(1, 1, 1))
+        adjudicate(open_protocol, 'earlier', 0)
+        expire(open_protocol, direct_vm, direct_bob, 'earlier')
+    current = submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'appealed', github_author_id=2, **(same_content(original) if original else {}))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'appealed', accept=False)
+    adjudicate(open_protocol, 'appealed', 0)
+    direct_vm.sender = direct_charlie
+    open_protocol.challenge('appealed', 'The reviewer overlooked the explicitly restricted domain and the supplied boundary evidence.')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'appealed', upheld=True, scores=(3, 3, 3), reason='The initial rejection overlooked the explicitly restricted domain. The cited boundary construction resolves that specific factual error without changing the submitted theorem.')
+    expected = '300' if has_prior_ceiling else '900'
+    assert adjudicate(open_protocol, 'appealed', 1)['award'] == expected
+    expire(open_protocol, direct_vm, direct_bob, 'appealed')
+    submit(open_protocol, direct_vm, direct_alice, direct_owner, 'after-correction', github_author_id=3, **same_content(current, proof_edit=True))
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'after-correction', scores=(3, 3, 3))
+    assert adjudicate(open_protocol, 'after-correction', 0)['award'] == expected
+
+
+def test_rejection_correction_cannot_erase_earlier_accepted_bands_of_same_claim(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+    submit(open_protocol, direct_vm, direct_alice, direct_owner, 'oscillation')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'oscillation', scores=(1, 1, 1))
+    adjudicate(open_protocol, 'oscillation', 0)
+    direct_vm.sender = direct_owner
+    open_protocol.challenge('oscillation', 'A bounded factual objection requests reconsideration of the stated domain.')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'oscillation', accept=False, upheld=True, scores=(1, 1, 1))
+    adjudicate(open_protocol, 'oscillation', 1)
+    direct_vm.sender = direct_owner
+    open_protocol.challenge('oscillation', 'The second objection corrects the concrete factual misunderstanding in the rejection.')
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'oscillation', scores=(3, 3, 3), upheld=True, refs=['oscillation', 'challenge:1'], reason='The preceding rejection made a concrete factual mistake about the restricted domain. The original evidence resolves that mistake and supports restoring acceptance, without adding new work.')
+    assert adjudicate(open_protocol, 'oscillation', 2)['award'] == '300'
+
+
+def test_identical_statement_text_with_different_definitions_is_not_exact_duplicate(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
+    statement = 'Value = Value'
+    def content(value):
+        bundle = {'version': 1, 'definitions': [{'name': 'Value', 'type': 'Nat', 'value': str(value)}], 'statement': statement, 'proof': 'by\n  rfl', 'dependencies': []}
+        proof = json.dumps(bundle, indent=2) + '\n'
+        return {'formal_statement': statement, 'proof': proof, 'bundle_hash': digest(proof), 'artifact_hash': digest('closure:' + proof), 'proposition_hash': digest(statement), 'statement_hash': digest(json.dumps({k: bundle[k] for k in ['definitions', 'statement', 'dependencies']}, sort_keys=True))}
+    credited(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, 'value-zero', **content(0))
+    second = submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'value-one', github_author_id=2, **content(1))
+    assert open_protocol.get(second['id'])['status'] == 'submitted'
+    assert open_protocol.get('value-zero')['evidence']['proposition_hash'] == second['proposition_hash']
+    assert open_protocol.get('value-zero')['evidence']['statement_hash'] != second['statement_hash']
+
+
+def test_model_challenge_payloads_omit_wallet_but_public_evidence_keeps_it(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, monkeypatch):
+    prior = credited(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, 'prior')
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, 'later', github_author_id=2, dependencies=['prior'], verified_dependencies=[use(prior)])
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'later')
+    adjudicate(open_protocol, 'later', 0)
+    direct_vm.sender = direct_owner
+    open_protocol.challenge('later', 'The semantic contribution should be compared carefully with the already credited source.')
+    captured = []
+    original = direct_vm._match_llm_mock
+    def capture(prompt):
+        captured.append(json.loads(prompt.split('\nUNTRUSTED_DATA=', 1)[1]))
+        return original(prompt)
+    monkeypatch.setattr(direct_vm, '_match_llm_mock', capture)
+    direct_vm.sender = direct_bob
+    initial_review(direct_vm, 'later', upheld=False)
+    adjudicate(open_protocol, 'later', 1)
+    assert all(set(item) == {'evidence'} for item in captured[-1]['challenges'])
+    assert 'wallet' in open_protocol.get('later')['challenges'][0]
+    direct_vm.warp(datetime.fromtimestamp(open_protocol.get('later')['deadline'] + 1, timezone.utc).isoformat())
+    open_protocol.finalize('later', 1)
+    open_protocol.confirm_merge('later', open_protocol.get('later')['evidence']['head'], '5' * 40)
+    impact_review(direct_vm, 'later', [('prior', 1)])
+    open_protocol.review_impact('later', 0)
+    direct_vm.sender = direct_owner
+    open_protocol.challenge_impact('later', 'The prior proof is replaceable infrastructure; the review should check the concrete use.')
+    direct_vm.sender = direct_bob
+    impact_review(direct_vm, 'later', [('prior', 1)], upheld=False)
+    open_protocol.review_impact('later', 1)
+    assert all(set(item) == {'evidence'} for item in captured[-1]['challenges'])
+    assert 'wallet' in open_protocol.get_impact('later')['challenges'][0]
+    assert all(set(item) == {'evidence'} for item in captured[-1]['downstream']['challenges'])

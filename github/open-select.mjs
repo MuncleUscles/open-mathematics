@@ -11,6 +11,7 @@ const PROTOCOL_ROOT=fileURLToPath(new URL('../',import.meta.url));
 const TERMINAL=new Set(['invalid','expired']);
 const terminalEntry=entry=>TERMINAL.has(entry.status)||(entry.status==='rejected'&&entry.needsResume!==true);
 const PREFIX=/^Open-Mathematics-Claim: ([a-f0-9]{64})\n```json\n([\s\S]+)\n```\s*$/;
+const CONTRIBUTION_ID=/^pr-[1-9][0-9]*-[a-f0-9]{12}-[a-f0-9]{12}$/;
 export const positiveId=value=>Number.isSafeInteger(value)&&value>0;
 const oldest=(a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id;
 
@@ -63,6 +64,60 @@ export function exactOpenReport(candidate,report,deployment){
   canonical(report.claim)===canonical(candidate.envelope);
 }
 
+// A saved wallet signature supplies an immutable claim, not fresh GitHub or
+// native authority. The worker must verify the signed attestation and exact
+// successful registration before this candidate can release anything.
+export async function readOpenRecoveryClaim({report,problem,commentId}){
+ if(!positiveId(commentId)||report?.commentId!==commentId||
+  typeof report.commentCreatedAt!=='string'||!Number.isFinite(Date.parse(report.commentCreatedAt))||
+  !report.attestation||typeof report.evidenceJSON!=='string'||
+  !report.transactions||typeof report.transactions!=='object'||Array.isArray(report.transactions))throw Error('Saved signed evidence required for cleanup');
+ const envelope=report.claim;
+ if(!envelope||typeof envelope!=='object'||Object.keys(envelope).length!==2||
+  !Object.hasOwn(envelope,'claim')||!Object.hasOwn(envelope,'signature'))throw Error('Saved exact signed envelope required');
+ const {claim,signature}=envelope;
+ validateOpenClaim(claim,problem,{now:Date.parse(report.commentCreatedAt)});
+ if(typeof signature!=='string'||!/^0x[0-9a-fA-F]{130}$/.test(signature)||
+  (await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())
+  throw Error('Invalid saved wallet claim');
+ const candidate={id:`pr-${claim.pr}-${claim.head.slice(0,12)}-${digest(claim).slice(0,12)}`,
+  commentId,createdAt:report.commentCreatedAt,claim,envelope,recoveryOnly:true,
+  abandonOnly:!Object.hasOwn(report.transactions,'register')};
+ if(!exactOpenReport(candidate,report,problem.deployment))throw Error('Saved recovery report binding mismatch');
+ return candidate;
+}
+
+export async function staleOpenRecoveryPR({github,candidate,pr,authorId,deployment}){
+ if(!positiveId(authorId)||pr?.user?.id!==authorId||pr.number!==candidate.claim.pr||
+  pr.base?.repo?.full_name!==deployment.repository||pr.merged!==false||
+  !['open','closed'].includes(pr.state)||typeof pr.head?.sha!=='string'||
+  !/^[a-f0-9]{40}$/.test(pr.head.sha)||typeof pr.base?.ref!=='string')return false;
+ return pr.state==='closed'||pr.head.sha!==candidate.claim.head||pr.base.ref!==candidate.claim.branch||
+  await github.branchHead(candidate.claim.branch)!==candidate.claim.base;
+}
+
+export async function selectOpenRecoveryClaim({github,problem,commentId,readEvidence,entries}){
+ const d=problem.deployment;
+ if(!entries){
+  const index=await readEvidence('index.json');
+  if(!index||!Array.isArray(index.entries))return null;
+  entries=index.entries;
+ }
+ const matches=entries.filter(e=>openIndexScope(e,d)&&e.commentId===commentId&&
+  typeof e.id==='string'&&CONTRIBUTION_ID.test(e.id));
+ // Never choose between contradictory archive entries for one original comment.
+ if(matches.length!==1)return null;
+ const report=await readEvidence(`reports/${matches[0].id}.json`);
+ if(!report||report.completedAt||['credited','rejected','invalid','expired'].includes(report.status))return null;
+ let candidate;
+ try{candidate=await readOpenRecoveryClaim({report,problem,commentId});}catch{return null;}
+ if(candidate.id!==matches[0].id)return null;
+ const pr=await github.pr(candidate.claim.pr),authorId=report.attestation?.evidence?.github_author_id;
+ if(candidate.abandonOnly)return positiveId(authorId)&&pr?.user?.id===authorId&&
+  pr.number===candidate.claim.pr&&pr.base?.repo?.full_name===d.repository?candidate:null;
+ return await staleOpenRecoveryPR({github,candidate,pr,authorId,deployment:d})?candidate:null;
+}
+
 export function eligibleOpenClaim({candidate,pr,deployment,canonicalHead,report,entries=[],explicit=false}){
  if(entries.some(e=>e.id===candidate.id&&(terminalEntry(e)||(!explicit&&e.status==='credited'&&e.needsResume!==true))))return false;
  if(report){
@@ -111,16 +166,23 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
  async function byCommentId(commentId,options={}){
   let comment;
   try{comment=await github.request(`/issues/comments/${commentId}`);}
-  catch(error){if(error.message==='GitHub 404')return null;throw error;}
+  catch(error){if(error.message!=='GitHub 404')throw error;}
+  const recover=()=>selectOpenRecoveryClaim({github,problem,commentId,readEvidence,entries});
+  if(!comment)return recover();
   const prefix=`https://api.github.com/repos/${d.repository}/issues/`;
   if(comment?.id!==commentId||typeof comment.issue_url!=='string'||!comment.issue_url.startsWith(prefix))return null;
   const suffix=comment.issue_url.slice(prefix.length);
   if(!/^[1-9][0-9]*$/.test(suffix)||!positiveId(Number(suffix)))return null;
-  return candidate(comment,await github.pr(Number(suffix)),{commentId,...options});
+  const pr=await github.pr(Number(suffix));
+  try{requireClaimAuthor(await readOpenClaimComment({comment,problem,commentId}),comment,pr,d);}
+  catch{return recover();}
+  return candidate(comment,pr,{commentId,...options});
  }
 
  if(requested)return byCommentId(requested,{explicit:eventName==='workflow_dispatch'});
- const resumable=entries.filter(e=>e.needsResume===true&&!terminalEntry(e)&&positiveId(e.commentId))
+ // Failed consensus still needs stale-slot cleanup if its original comment
+ // disappears. Normal selection remains blocked by the saved failure journal.
+ const resumable=entries.filter(e=>(e.needsResume===true||['submitted','provisional','challenged','approved','registration-pending'].includes(e.status))&&!terminalEntry(e)&&positiveId(e.commentId))
   .sort((a,b)=>Date.parse(a.updatedAt)-Date.parse(b.updatedAt)||a.commentId-b.commentId).slice(0,100);
  for(const entry of resumable){
   const item=await byCommentId(entry.commentId,{requireSaved:true});

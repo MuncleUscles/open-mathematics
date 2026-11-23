@@ -10,7 +10,7 @@ import {GitHub,executeDecision} from '../src/github.mjs';
 import {StudioAuthority} from '../src/studio.mjs';
 import {canonical,digest} from '../src/security.mjs';
 import {verifyOpenCheckout} from '../src/open-research.mjs';
-import {exactOpenReport,loadWorkflowOpenProblem,openIndexScope,positiveId,readOpenClaimComment,requireClaimAuthor} from './open-select.mjs';
+import {exactOpenReport,loadWorkflowOpenProblem,openIndexScope,positiveId,readOpenClaimComment,requireClaimAuthor,selectOpenRecoveryClaim,staleOpenRecoveryPR} from './open-select.mjs';
 import {requireOpenNative,verifyOpenAttestation} from './open-verify.mjs';
 import {claimFailureOutcome,expireStaleUnmergedClaim} from './claim-recovery.mjs';
 import {journaledTransaction} from './journaled-transaction.mjs';
@@ -26,7 +26,7 @@ export async function openEvidenceJSON({attestation,problem,candidate,authorId,c
  const {evidence:e,submission:s}=await verifyOpenAttestation(attestation,{problem,claim,authorId,commentId,createdAt});
  const context=JSON.stringify({
   title:s.title,novelty:s.novelty,prior_art:s.prior_art,dependencies:s.dependencies,
-  attribution:s.attribution,limitations:s.limitations,
+  attribution:s.attribution.contributions,limitations:s.limitations,
   scope_note:'Contribution scope and novelty are separate merit questions. A GitHub author may control multiple agent wallets.',
  });
  if(context.length>12000)throw Error('Research context exceeds the contract limit');
@@ -64,6 +64,87 @@ export function requireOpenRecord(record,evidenceJSON,{settledImpact}={}){
  return record;
 }
 
+export function expireUnregisteredOpenReport(report){
+ if(Object.hasOwn(report.transactions,'register'))return false;
+ report.status='expired';
+ report.expiredBeforeRegistration=true;
+ report.completedAt=new Date().toISOString();
+ delete report.blockedConsensus;
+ return true;
+}
+
+function invalidateUnregisteredOpenReport(report){
+ if(Object.hasOwn(report.transactions,'register'))return false;
+ report.status='invalid';report.invalidBeforeRegistration=true;
+ report.completedAt=new Date().toISOString();delete report.blockedConsensus;
+ return true;
+}
+
+export function openClaimFailureOutcome(report,error){
+ if(report.expiredBeforeRegistration===true&&!Object.hasOwn(report.transactions,'register'))return {status:'expired'};
+ if(report.invalidBeforeRegistration===true&&!Object.hasOwn(report.transactions,'register'))return {status:'invalid'};
+ return claimFailureOutcome(report,error);
+}
+
+export async function bindOpenRegistration({github,report,candidate,problem,expire,save}){
+ const {claim,envelope,commentId,createdAt}=candidate;
+ try{
+  const selected=await github.bindAuthor(envelope,{commentId,createdAt});
+  if(selected.state!=='open'||selected.merged!==false||selected.base.ref!==problem.deployment.branch||
+   selected.base.sha!==claim.base||await github.branchHead(problem.deployment.branch)!==claim.base)
+   throw Error('Canonical PR changed before registration');
+  return selected;
+ }catch(error){
+  if(!Object.hasOwn(report.transactions,'register')){
+   try{
+    const current=await github.pr(claim.pr);
+    if(current.merged===true||await expire(current)){
+     if(report.status!=='expired'&&expireUnregisteredOpenReport(report))await save();
+    }else{
+     let original;
+     try{original=await github.request(`/issues/comments/${commentId}`);}
+     catch(readError){if(readError.message!=='GitHub 404')throw readError;}
+     let valid=false;
+     if(original){
+      try{
+       const parsed=await readOpenClaimComment({comment:original,problem,commentId});
+       requireClaimAuthor(parsed,original,current,problem.deployment);
+       valid=parsed.createdAt===createdAt&&canonical(parsed.envelope)===canonical(envelope);
+      }catch{}
+     }
+     if(!valid&&invalidateUnregisteredOpenReport(report))await save();
+    }
+   }catch(recovery){error.message+='; stale-claim inspection: '+String(recovery.message);}
+  }
+  throw error;
+ }
+}
+
+export async function adjudicateOpenRecord({id,record,tx}){
+ if(!['submitted','challenged'].includes(record.status))return false;
+ const round=Number(record.round);
+ await tx(`begin-adjudicate-r${round}`,'begin_adjudication',[id,round]);
+ await tx(`adjudicate-r${round}`,'adjudicate',[id,round]);
+ return true;
+}
+
+export async function recoverStaleOpenRegistration({github,candidate,deployment,authorId,confirmRegistration,readRecord,expire}){
+ if(candidate.recoveryOnly!==true)throw Error('Cleanup-only saved claim required');
+ // These callbacks verify the exact native receipt and evidence digest; no
+ // archive status is sufficient to grant cancellation authority.
+ await confirmRegistration();
+ const record=await readRecord();
+ if(!['submitted','provisional','challenged','approved','expired'].includes(record.status))
+  throw Error('Cleanup cannot alter credited or rejected native work');
+ const current=await github.pr(candidate.claim.pr);
+ if(!await staleOpenRecoveryPR({github,candidate,pr:current,authorId,deployment}))
+  throw Error('Cleanup requires a stale unmerged PR with the attested original author');
+ if(!await expire(current))throw Error('PR became current; cleanup refused');
+ const expired=await readRecord();
+ if(expired.status!=='expired')throw Error('Native expiration was not confirmed');
+ return expired;
+}
+
 function verifierRun(problem,candidate){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-open-claim-'));
  try{
@@ -88,12 +169,16 @@ async function main(){
  const rawCommentId=process.env.CLAIM_COMMENT_ID,commentId=Number(rawCommentId);
  if(!/^[1-9][0-9]*$/.test(rawCommentId||'')||!positiveId(commentId))throw Error('Selected signed claim comment ID required');
  const github=new GitHub({repository:d.repository,token:process.env.GITHUB_TOKEN});
- const comment=await github.request(`/issues/comments/${commentId}`);
- const candidate=await readOpenClaimComment({comment,problem,commentId});
+ let comment,candidate;
+ try{comment=await github.request(`/issues/comments/${commentId}`);}
+ catch(error){if(error.message!=='GitHub 404')throw error;}
+ if(comment){try{candidate=await readOpenClaimComment({comment,problem,commentId});}catch{}}
+ if(!candidate)candidate=await selectOpenRecoveryClaim({github,problem,commentId,readEvidence:async file=>(await getFile(file))?.data});
+ if(!candidate)throw Error('Original signed comment unavailable; no safely bound stale registration can be cleaned up');
  const {id,claim,createdAt,envelope}=candidate;
  verifyOpenCheckout(problem,PROTOCOL_ROOT);
  const pr=await github.pr(claim.pr);
- requireClaimAuthor(candidate,comment,pr,d);
+ if(!candidate.recoveryOnly)requireClaimAuthor(candidate,comment,pr,d);
 
  async function getFile(file){
   try{
@@ -180,17 +265,19 @@ async function main(){
   await save();
   return record;
  }
- function expireIfStale(current){
-  return expireStaleUnmergedClaim({
+ async function expireIfStale(current){
+  const expired=await expireStaleUnmergedClaim({
    pr:current,claim,branchHead:branch=>github.branchHead(branch),
-   registered:!!report.transactions.register,expirationStarted:!!report.transactions.expire,
+   registered:Object.hasOwn(report.transactions,'register'),expirationStarted:Object.hasOwn(report.transactions,'expire'),
    confirmRegistration:()=>tx('register',verifier,'register',[report.evidenceJSON],true),
    readRecord:recordState,release:reason=>tx('expire',executor,'release_unmerged',[id,reason]),
   });
+  if(expired&&expireUnregisteredOpenReport(report))await save();
+  return expired;
  }
 
  async function freshClaim(){
-  if(report.transactions.register||report.evidenceJSON!==undefined)throw Error('Saved claim lost its verifier attestation');
+  if(Object.hasOwn(report.transactions,'register')||report.evidenceJSON!==undefined)throw Error('Saved claim lost its verifier attestation');
   if(await expireIfStale(pr)||pr.merged!==false||pr.base.sha!==claim.base)throw Error('PR changed; rebase and sign a new claim');
   return verifierRun(problem,candidate);
  }
@@ -199,21 +286,39 @@ async function main(){
   report.evidenceJSON=await openEvidenceJSON({attestation,problem,candidate,authorId:pr.user.id,cached:report.evidenceJSON});
   report.attestation=attestation;
   evidenceValidated=true;
-  if(await expireIfStale(pr)||(pr.merged===true&&(pr.head.sha!==claim.head||pr.base.ref!==d.branch)))
+  if(candidate.recoveryOnly){
+   if(candidate.abandonOnly){
+    if(!invalidateUnregisteredOpenReport(report))throw Error('Registration journal appeared; cleanup requires native reconciliation');
+    report.recovery='Original signed comment became unavailable before any saved registration intent. No native transaction was requested.';
+    await save();
+    await check('open-mathematics/finalized','failure','Unregistered claim invalidated',report.recovery,id);
+    return;
+   }
+   // Recovery is deliberately narrower than processing an intact author comment.
+   // The saved journal is only a hint; a fresh exact successful native receipt
+   // and evidence-bound native record are required before releasing a slot.
+   await recoverStaleOpenRegistration({github,candidate,deployment:d,authorId:attestation.evidence.github_author_id,
+    confirmRegistration:()=>tx('register',verifier,'register',[report.evidenceJSON],true),
+    readRecord:recordState,expire:expireIfStale});
+   report.completedAt=new Date().toISOString();
+   report.recovery='Expired stale unmerged work from its exact saved signed evidence after the original comment became unavailable.';
+   delete report.error;delete report.blockedConsensus;
+   await save();
+   await check('open-mathematics/finalized','failure','Stale contribution expired',report.recovery,report.transactions.expire?.hash||id);
+   return;
+  }
+  const currentPR=await github.pr(claim.pr);
+  if(await expireIfStale(currentPR)||(currentPR.merged===true&&(currentPR.head.sha!==claim.head||currentPR.base.ref!==d.branch)))
    throw Error('PR changed; rebase and sign a new claim');
   await save();
   const summary=attestation.evidence.evidence_kind==='formal'?'Pinned Lean proof and signed submission verified':'Signed research note checked for format. No formal verification.';
   await check('open-mathematics/evidence','success',summary,JSON.stringify(attestation.evidence,null,2),digest(attestation.evidence));
-  if(!report.transactions.register){
-   const selected=await github.bindAuthor(envelope,{commentId,createdAt});
-   if(selected.state!=='open'||selected.merged!==false||selected.base.ref!==d.branch||
-    selected.base.sha!==claim.base||await github.branchHead(d.branch)!==claim.base)
-    throw Error('Canonical PR changed before registration');
+  if(!Object.hasOwn(report.transactions,'register')){
+   await bindOpenRegistration({github,report,candidate,problem,expire:expireIfStale,save});
   }
   await tx('register',verifier,'register',[report.evidenceJSON]);
   let record=await recordState();
-  if(['submitted','challenged'].includes(record.status)){
-   await tx(`adjudicate-r${record.round}`,executor,'adjudicate',[id,Number(record.round)]);
+  if(await adjudicateOpenRecord({id,record,tx:(stage,method,args)=>tx(stage,executor,method,args)})){
    record=await recordState();
   }
   if(record.status==='provisional'){
@@ -281,11 +386,11 @@ async function main(){
   console.log('Contribution outcome:',report.status,report.record.credited_points,'Upstream reserve allocation:',report.impact?.paid_points||'0');
  }catch(error){
   let failure=safeError(error);
-  if(evidenceValidated&&report.record&&['submitted','provisional','challenged','approved'].includes(report.record.status)){
+  if(!candidate.recoveryOnly&&evidenceValidated&&report.record&&['submitted','provisional','challenged','approved'].includes(report.record.status)){
    try{await expireIfStale(await github.pr(claim.pr));}
    catch(recovery){failure+='\nStale-claim recovery: '+safeError(recovery);}
   }
-  const {status,registrationRejection}=claimFailureOutcome(report,error);
+  const {status,registrationRejection}=openClaimFailureOutcome(report,error);
   report.status=status;
   if(registrationRejection){
    report.registrationRejection=registrationRejection;

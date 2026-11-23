@@ -1,0 +1,32 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {listOpenContributions} from '../scripts/open-agent.mjs';
+
+const contract='0x'+'1'.repeat(40),problem={descriptor:{protocol:{commit:'a'.repeat(40)}},deployment:{problem:'p-vs-np',repository:'owner/problem',branch:'research',chainId:61999,contract}};
+const record=(id,changes={})=>({status:'credited',credited_points:'260',award_budget:'300',impact_reserve:'60',reserve_settled:true,evidence:{...problem.deployment,id,context:JSON.stringify({title:'A useful contribution '+id}),claim:'Precisely stated scope',formal_statement:'∀ n : Nat, n = n',evidence_kind:'formal',verification:'verified',research_direction:'A chosen direction',bundle_hash:'b'.repeat(64)},...changes});
+
+test('list discovers a bounded native page with reusable IDs, scope and actual points',async()=>{
+ const calls=[],native=async(method,args)=>{calls.push([method,args]);return method==='list_contributions'?{items:['pr-2','pr-3'],total:'7',next_offset:'3'}:record(args[0],args[0]==='pr-3'?{status:'provisional',credited_points:'0',award_budget:undefined,reserve_settled:undefined}:{});};
+ const page=await listOpenContributions({native,problem,offset:1,limit:2});
+ assert.deepEqual(calls,[['list_contributions',[1,2]],['get',['pr-2']],['get',['pr-3']]]);
+ assert.equal(page.total,7);assert.equal(page.next_offset,3);assert.equal(page.next,'om list 3 2');assert.equal(page.contract,contract);assert.equal(page.protocolCommit,problem.descriptor.protocol.commit);
+ assert.deepEqual(page.items.map(x=>x.id),['pr-2','pr-3']);assert.equal(page.items[0].title,'A useful contribution pr-2');assert.equal(page.items[0].scope.formal_statement,'∀ n : Nat, n = n');assert.equal(page.items[0].bundle_hash,'b'.repeat(64));
+ assert.deepEqual(page.items[0].points,{author_credited:'260',award_budget:'300',reserve:'60',reserve_settled:true});assert.equal(page.items[0].eligible_dependency,true);assert.equal(page.items[1].eligible_dependency,false);assert.equal(page.items[1].points.award_budget,null);
+});
+
+test('list bounds record requests to four at once and never silently walks the ledger',async()=>{
+ const ids=Array.from({length:11},(_,i)=>'pr-'+i),calls=[];let active=0,maximum=0;
+ const native=async(method,args)=>{calls.push([method,args]);if(method==='list_contributions')return {items:ids,total:50,next_offset:11};active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setTimeout(resolve,2));active--;return record(args[0]);};
+ const page=await listOpenContributions({native,problem,limit:11});assert.equal(maximum,4);assert.equal(calls.length,12);assert.equal(calls.filter(([m])=>m==='list_contributions').length,1);assert.deepEqual(page.items.map(x=>x.id),ids);
+});
+
+test('list handles an empty ledger and refuses malformed or excessive pages',async()=>{
+ const empty=await listOpenContributions({native:async()=>({items:[],total:'0',next_offset:null}),problem});assert.deepEqual(empty.items,[]);assert.equal(empty.next,null);
+ for(const args of [{offset:-1},{offset:0.5},{limit:0},{limit:51},{limit:NaN},{offset:'0'}])await assert.rejects(listOpenContributions({native:async()=>assert.fail('invalid bounds must not read'),problem,...args}),/Usage/);
+ for(const page of [{items:['pr-1','pr-1'],total:2,next_offset:null},{items:['pr-1'],total:2,next_offset:null},{items:[],total:0},{items:['bad id'],total:1,next_offset:null},{items:[],total:'9007199254740992',next_offset:null}])await assert.rejects(listOpenContributions({native:async()=>page,problem}),/Malformed bounded/);
+});
+
+test('list refuses substituted records and never labels notes as reusable formal dependencies',async()=>{
+ const read=r=>async method=>method==='list_contributions'?{items:['pr-1'],total:1,next_offset:null}:r;
+ for(const change of [{id:'pr-other'},{contract:'0x'+'2'.repeat(40)},{repository:'other/problem'},{problem:'other'},{branch:'main'}]){const r=record('pr-1');Object.assign(r.evidence,change);await assert.rejects(listOpenContributions({native:read(r),problem}),/scope mismatch/);}
+ const note=record('pr-1');Object.assign(note.evidence,{evidence_kind:'research-note',verification:'not-formal',formal_statement:''});const page=await listOpenContributions({native:read(note),problem});assert.equal(page.items[0].eligible_dependency,false);assert.equal(page.items[0].scope.verification,'not-formal');
+});

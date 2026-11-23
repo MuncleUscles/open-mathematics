@@ -7,12 +7,12 @@ import path from 'node:path';
 import {privateKeyToAccount} from 'viem/accounts';
 import {canonical,digest,message} from '../src/security.mjs';
 import {sha256} from '../src/open-research.mjs';
-import {readOpenClaimComment,requireClaimAuthor,exactOpenReport,eligibleOpenClaim,selectOpenClaim} from '../github/open-select.mjs';
+import {readOpenClaimComment,requireClaimAuthor,exactOpenReport,eligibleOpenClaim,selectOpenClaim,readOpenRecoveryClaim} from '../github/open-select.mjs';
 import {
  noteResult,openVerifierFailure,readOpenBlobs,requireOpenNative,resolveOpenDependencies,validateOpenResult,
  verifyOpenAttestation,writeOpenDependencyManifest,
 } from '../github/open-verify.mjs';
-import {openEvidenceJSON,requireOpenRecord} from '../github/open-worker.mjs';
+import {openEvidenceJSON,requireOpenRecord,expireUnregisteredOpenReport,openClaimFailureOutcome,adjudicateOpenRecord,recoverStaleOpenRegistration,bindOpenRegistration} from '../github/open-worker.mjs';
 
 const commit=x=>x.repeat(40);
 const hash=x=>x.repeat(64);
@@ -180,6 +180,122 @@ test('historical index entries cannot block a current ledger claim',async()=>{
  assert.equal((await selectOpenClaim({...input,readEvidence:readEvidence()})).id,candidate.id);
  assert.equal((await selectOpenClaim({...input,readEvidence:readEvidence({...sameScope,contract:address('f')})})).id,candidate.id);
  assert.equal(await selectOpenClaim({...input,readEvidence:readEvidence(sameScope)}),null);
+});
+
+test('deleted or edited original comments select only a signed, scoped stale-registration cleanup',async()=>{
+ const f=await fixture(),{problem,claim,candidate,comment,pr,attestation}=f,d=problem.deployment;
+ const evidenceJSON=await openEvidenceJSON({attestation,problem,candidate,authorId:AUTHOR});
+ const report={id:candidate.id,commentId:COMMENT,commentCreatedAt:CREATED,contract:d.contract,chainId:d.chainId,
+  repository:d.repository,pr:PR,head:claim.head,base:claim.base,claim:candidate.envelope,
+  attestation,evidenceJSON,status:'approved',transactions:{register:{hash:'0x'+hash('4')}}};
+ const entry={id:candidate.id,contract:d.contract,chainId:d.chainId,repository:d.repository,
+  commentId:COMMENT,status:'approved',needsResume:true,updatedAt:CREATED};
+ for(const eventName of ['schedule','workflow_dispatch'])for(const missing of [true,false]){
+  const github={repository:d.repository,branchHead:async()=>claim.base,pr:async()=>({...pr,state:'closed'}),
+   request:async endpoint=>{
+    if(endpoint===`/issues/comments/${COMMENT}`){if(missing)throw Error('GitHub 404');return {...comment,updated_at:'2025-11-23T00:01:00Z'};}
+    if(endpoint.startsWith('/pulls?'))return [];
+    assert.fail(endpoint);
+   }};
+  const readEvidence=async file=>file==='index.json'?{entries:[entry]}:structuredClone(report);
+  const input={github,problem,eventName,event:{inputs:{comment_id:String(COMMENT)}},readEvidence};
+  const cleanup=await selectOpenClaim(input);
+  assert.equal(cleanup.id,candidate.id);assert.equal(cleanup.recoveryOnly,true);
+  const blocked=await selectOpenClaim({...input,readEvidence:async file=>file==='index.json'?{entries:[{...entry,needsResume:false}]}:{...report,blockedConsensus:true}});
+  assert.equal(blocked.recoveryOnly,true);
+  for(const changed of [pr,{...pr,merged:true,state:'closed'},{...pr,state:'closed',user:{id:AUTHOR+1}}]){
+   assert.equal(await selectOpenClaim({...input,github:{...github,pr:async()=>changed}}),null);
+  }
+  const tampered=structuredClone(report);tampered.claim.claim.wallet=address('f');
+  assert.equal(await selectOpenClaim({...input,readEvidence:async file=>file==='index.json'?{entries:[entry]}:tampered}),null);
+  assert.equal(await selectOpenClaim({...input,readEvidence:async file=>file==='index.json'?{entries:[entry,{...entry,id:'pr-9-aaaaaaaaaaaa-bbbbbbbbbbbb'}]}:report}),null);
+  const abandoned=await selectOpenClaim({...input,github:{...github,pr:async()=>pr},readEvidence:async file=>file==='index.json'?{entries:[entry]}:{...report,status:'verifying',transactions:{}}});
+  assert.equal(abandoned.abandonOnly,true);
+  assert.equal(abandoned.recoveryOnly,true);
+ }
+ assert.equal((await readOpenRecoveryClaim({problem,commentId:COMMENT,report:{...report,transactions:{}}})).abandonOnly,true);
+ await assert.rejects(readOpenRecoveryClaim({problem,commentId:COMMENT,report:{...report,attestation:undefined}}),/signed evidence/);
+});
+
+test('cleanup verifies registration and native state before release, and never releases merged or credited work',async()=>{
+ const {problem,claim,candidate,pr}=await fixture();
+ async function run({status='approved',current={...pr,state:'closed'},receiptError=false,nativeError=false}={}){
+  const calls=[];let nativeStatus=status;
+  const options={candidate:{...candidate,recoveryOnly:true},deployment:problem.deployment,authorId:AUTHOR,
+   github:{pr:async()=>{calls.push('current PR');return current;},branchHead:async()=>claim.base},
+   confirmRegistration:async()=>{calls.push('exact registration');if(receiptError)throw Error('Uncertain native receipt');},
+   readRecord:async()=>{calls.push('bound native record');if(nativeError)throw Error('Native evidence digest mismatch');return {status:nativeStatus};},
+   expire:async seen=>{assert.equal(seen,current);calls.push('journal expiration');nativeStatus='expired';return true;},
+  };
+  if(receiptError||nativeError||['credited','rejected'].includes(status)||current.merged===true||current===pr){
+   await assert.rejects(recoverStaleOpenRegistration(options));
+   assert(!calls.includes('journal expiration'));
+  }else{
+   assert.equal((await recoverStaleOpenRegistration(options)).status,'expired');
+   assert.deepEqual(calls,['exact registration','bound native record','current PR','journal expiration','bound native record']);
+  }
+ }
+ await run();await run({receiptError:true});await run({nativeError:true});await run({status:'credited'});await run({status:'rejected'});
+ await run({current:{...pr,merged:true,state:'closed'}});await run({current:pr});
+});
+
+test('stale work before registration ends its queue entry but an uncertain registration remains pending',()=>{
+ const report={status:'verifying',transactions:{},attestation:{},blockedConsensus:true};
+ assert.equal(expireUnregisteredOpenReport(report),true);
+ assert.equal(report.status,'expired');assert.ok(report.completedAt);assert.equal(report.blockedConsensus,undefined);
+ assert.deepEqual(openClaimFailureOutcome(report,Error('PR changed')),{status:'expired'});
+ for(const register of [{intent:{method:'register'}},{hash:'0x'+hash('4')},null]){
+  const pending={status:'verifying',transactions:{register},attestation:{}};
+  assert.equal(expireUnregisteredOpenReport(pending),false);assert.equal(pending.completedAt,undefined);
+  assert.notEqual(openClaimFailureOutcome(pending,Error('Uncertain registration')).status,'expired');
+ }
+});
+
+test('a failing final author-binding callback rereads the PR and terminates only objectively stale or invalid unregistered claims',async()=>{
+ const {problem,candidate,pr,comment}=await fixture();
+ for(const kind of ['closed','pushed','edited','deleted','transport','uncertain-registration']){
+  const calls=[],report={status:'verifying',attestation:{},transactions:kind==='uncertain-registration'?{register:{intent:{method:'register'}}}:{}};
+  const current=kind==='closed'?{...pr,state:'closed'}:kind==='pushed'?{...pr,head:{sha:commit('a')}}:pr;
+  const github={
+   bindAuthor:async()=>{calls.push('bind');throw Error('Author binding failed');},
+   pr:async()=>{calls.push('reread PR');return current;},
+   request:async()=>{calls.push('reread comment');if(kind==='deleted')throw Error('GitHub 404');return kind==='edited'?{...comment,updated_at:'2025-11-23T00:01:00Z'}:comment;},
+  };
+  await assert.rejects(bindOpenRegistration({github,report,candidate,problem,
+   expire:async seen=>{assert.equal(seen,current);calls.push('stale check');return ['closed','pushed'].includes(kind);},
+   save:async()=>calls.push('save'),
+  }),/Author binding failed/);
+  if(['closed','pushed'].includes(kind)){
+   assert.equal(openClaimFailureOutcome(report,Error('binding')).status,'expired');assert.ok(report.completedAt);
+   assert.deepEqual(calls,['bind','reread PR','stale check','save']);
+  }else if(['edited','deleted'].includes(kind)){
+   assert.equal(openClaimFailureOutcome(report,Error('binding')).status,'invalid');assert.ok(report.completedAt);
+  }else{
+   assert.equal(report.completedAt,undefined);
+   assert.notEqual(openClaimFailureOutcome(report,Error('binding')).status,'invalid');
+   if(kind==='uncertain-registration')assert.deepEqual(calls,['bind']);
+  }
+ }
+});
+
+test('the native review context carries contribution text without the attribution wallet',async()=>{
+ const f=await fixture();
+ const e=JSON.parse(await openEvidenceJSON({attestation:f.attestation,problem:f.problem,candidate:f.candidate,authorId:AUTHOR}));
+ const context=JSON.parse(e.context);
+ assert.equal(context.attribution,f.submission.attribution.contributions);
+ assert(!e.context.includes(f.claim.wallet));
+});
+
+test('native attempt fencing precedes adjudication and a failed fence cannot call the model',async()=>{
+ for(const status of ['submitted','challenged']){
+  const calls=[];
+  assert.equal(await adjudicateOpenRecord({id:A,record:{status,round:1},tx:async(...call)=>calls.push(call)}),true);
+  assert.deepEqual(calls,[[`begin-adjudicate-r1`,'begin_adjudication',[A,1]],[`adjudicate-r1`,'adjudicate',[A,1]]]);
+ }
+ const calls=[];
+ await assert.rejects(adjudicateOpenRecord({id:A,record:{status:'submitted',round:0},tx:async(stage)=>{calls.push(stage);throw Error('Fence unavailable');}}));
+ assert.deepEqual(calls,['begin-adjudicate-r0']);
+ assert.equal(await adjudicateOpenRecord({id:A,record:{status:'approved',round:0},tx:async()=>assert.fail('No new adjudication')}),false);
 });
 
 test('two new immutable regular blobs are accepted and extra or replaced files fail',async()=>{

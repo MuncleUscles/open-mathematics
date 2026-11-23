@@ -85,6 +85,9 @@ test('v5 identity, quota and duplicate rejections retain their safe reason witho
     'GitHub account below minimum age at original signed claim',
     'one active contribution per GitHub account; finish or expire the existing claim',
     'three registrations per GitHub account in rolling 24 hours',
+    'content has unresolved adjudication; same-content resubmission is fenced',
+    'previously rejected content cannot receive a fresh adjudication',
+    'same content already has an active or settled claim',
   ]){
     const report={transactions:{}};
     const run=fixture(failedReceipt({
