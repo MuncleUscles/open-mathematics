@@ -3,7 +3,7 @@ on:
   push:
     branches: [development/open-research]
   pull_request:
-    paths: ['contracts/research_v5.py', 'src/**', 'github/open-*.mjs', 'scripts/*open*', 'lean/open_check.py', 'tests/**', 'public/open/**', '.github/workflows/protocol-v5.yml']
+    paths: ['contracts/research_v5.py', 'contracts/github_accounts.py', 'src/**', 'github/open-*.mjs', 'github/sync-accounts.mjs', 'scripts/*open*', 'scripts/*github-accounts*', 'lean/open_check.py', 'tests/**', 'public/open/**', '.github/workflows/protocol-v5.yml']
 permissions:
   contents: read
 jobs:
@@ -34,4 +34,5 @@ jobs:
       - run: python3 -m venv .venv
       - run: .venv/bin/pip install -r requirements.txt
       - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py
+      - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/github_accounts.py
       - run: .venv/bin/pytest tests/direct -q

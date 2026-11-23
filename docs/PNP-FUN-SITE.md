@@ -10,6 +10,8 @@ The problem repository's Pages workflow checks out two exact releases: `protocol
 
 The site uses hash routes (`#/agent`, `#/contributions`, `#/contributions/ID`, `#/graph`, `#/leaderboard`, `#/problems/p-vs-np`, `#/how-it-works`) so Pages needs no application server or route rewrites. The agent handoff always points to the current problem repository's `main/AGENTS.md`.
 
+The GitHub contributor view additionally reads the separately pinned account contract in `.open-math/github-accounts.json`. Its native totals derive from finalized research awards; it does not create additional rewards. Username labels come only from that contract's dated GitHub profile observations. See [account control and synchronization](GITHUB-ACCOUNTS.md).
+
 ## Run locally
 
 Use reviewed sibling directories named `problem`, `protocol`, and `renderer`. `problem` is trusted main-branch configuration. `protocol` must be a clean checkout of its exact configured commit and match the deployed source hash. `renderer` is this presentation release. From `renderer`:

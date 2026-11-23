@@ -163,3 +163,88 @@ test('an empty authenticated ledger has complete zero totals and no invented win
   assert.deepEqual(view.leaderboard, []);
   assert.deepEqual(view.graph, {nodes: [], edges: []});
 });
+
+test('one GitHub account consolidates multiple wallets without changing wallet accounting', () => {
+  const a = credited('a', address('a')), b = credited('b', address('b'));
+  a.evidence.github_author_id = 2372232; b.evidence.github_author_id = '2372232';
+  const view = build([a, b], [returned(a), returned(b)], totals({author: '800', returned: '160'}));
+  assert.deepEqual(view.leaderboard.map(row => [row.wallet, row.earnedPoints, row.rank]), [[address('a'), '400', 1], [address('b'), '400', 1]]);
+  assert.equal(view.contributorLeaderboard.length, 1);
+  assert.deepEqual(view.contributorLeaderboard[0], {contributorKey: 'github:2372232', githubAuthorId: '2372232',
+    wallets: [address('a'), address('b')], authorPoints: '800', impactPoints: '0', earnedPoints: '800', returnedPoints: '160',
+    notePoints: '0', acceptedContributions: 2, formalContributions: 2, contributionIds: ['a', 'b'], rank: 1});
+  assert.ok(view.contributions.every(row => row.githubAuthorId === '2372232'));
+  assert.equal(view.coverage.contributorRanked, true);
+});
+
+test('a shared wallet does not merge different attested GitHub accounts', () => {
+  const a = credited('a'), b = credited('b', address('A'));
+  a.evidence.github_author_id = 17; b.evidence.github_author_id = 18n;
+  const view = build([a, b], [returned(a), returned(b)], totals({author: '800', returned: '160'}));
+  assert.equal(view.leaderboard.length, 1); assert.equal(view.leaderboard[0].earnedPoints, '800');
+  assert.deepEqual(view.contributorLeaderboard.map(row => [row.githubAuthorId, row.wallets, row.earnedPoints, row.rank]),
+    [['17', [address('a')], '400', 1], ['18', [address('a')], '400', 1]]);
+});
+
+test('upstream impact follows the original contribution author even when wallets are shared', () => {
+  const a = credited('a'), {r: b, impact} = dependent(a, {sameWallet: true});
+  a.evidence.github_author_id = '17'; b.evidence.github_author_id = '18';
+  // Process downstream first to exclude any dependency on insertion order or
+  // a last-seen account for this shared wallet.
+  const view = build([b, a], [impact, returned(a)], totals({author: '774', impact: '26', returned: '134'}));
+  assert.deepEqual(view.contributorLeaderboard.map(row => [row.githubAuthorId, row.authorPoints, row.impactPoints, row.earnedPoints, row.rank]),
+    [['17', '400', '26', '426', 1], ['18', '374', '0', '374', 2]]);
+  assert.equal(view.leaderboard[0].earnedPoints, '800');
+  assert.deepEqual(view.contributorLeaderboard[0].contributionIds, ['a']);
+});
+
+test('same-account cross-wallet attribution remains within the result budgets', () => {
+  const a = credited('a'), {r: b, impact} = dependent(a);
+  a.evidence.github_author_id = 17; b.evidence.github_author_id = 17;
+  const view = build([a, b], [returned(a), impact], totals({author: '774', impact: '26', returned: '134'}));
+  assert.deepEqual(view.contributorLeaderboard.map(row => [row.authorPoints, row.impactPoints, row.earnedPoints]), [['774', '26', '800']]);
+  assert.equal(view.coverage.global.earnedPoints, '800');
+});
+
+test('missing and malformed GitHub IDs get separate fallback rows and disable contributor ranks', () => {
+  for (const invalid of [undefined, null, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, true, {}, '', '0', '01', '-2', '1e2', ' 17 ', '9'.repeat(79)]) {
+    const a = credited('a'), b = credited('b');
+    a.evidence.github_author_id = 17; b.evidence.github_author_id = invalid;
+    const view = build([a, b], [returned(a), returned(b)], totals({author: '800', returned: '160'}));
+    assert.equal(view.coverage.ranked, true); // Native wallet accounting is still complete.
+    assert.equal(view.coverage.contributorRanked, false);
+    assert.equal(view.coverage.contributorStatus, 'unidentified');
+    assert.deepEqual(view.coverage.missingAuthorIds, ['b']);
+    assert.ok(view.contributorLeaderboard.every(row => row.rank === null));
+    const fallback = view.contributorLeaderboard.find(row => row.githubAuthorId === null);
+    assert.equal(fallback.contributorKey, 'contribution:b');
+    assert.equal(fallback.earnedPoints, '400');
+    assert.deepEqual(fallback.wallets, [address('a')]);
+    assert.equal(view.contributions[1].githubAuthorId, null);
+  }
+  const a = credited('a'), b = credited('b');
+  const unknown = build([a, b], [returned(a), returned(b)], totals({author: '800', returned: '160'}));
+  assert.deepEqual(unknown.contributorLeaderboard.map(row => row.contributorKey), ['contribution:a', 'contribution:b']);
+});
+
+test('attribution to an unidentified upstream record is retained without guessing its account', () => {
+  const a = credited('a'), {r: b, impact} = dependent(a, {sameWallet: true});
+  b.evidence.github_author_id = 18;
+  const view = build([a, b], [returned(a), impact], totals({author: '774', impact: '26', returned: '134'}));
+  const fallback = view.contributorLeaderboard.find(row => row.githubAuthorId === null);
+  assert.equal(fallback.earnedPoints, '426'); assert.equal(fallback.impactPoints, '26');
+  assert.equal(view.contributorLeaderboard.find(row => row.githubAuthorId === '18').earnedPoints, '374');
+  assert.ok(view.contributorLeaderboard.every(row => row.rank === null));
+});
+
+test('contributor ranks obey the same complete-ledger and reconciliation gates', () => {
+  const a = credited('a'); a.evidence.github_author_id = '900719925474099312345';
+  const partial = build([a], [returned(a)], totals(), 2);
+  assert.equal(partial.contributorLeaderboard[0].githubAuthorId, '900719925474099312345');
+  assert.equal(partial.contributorLeaderboard[0].rank, null);
+  assert.equal(partial.coverage.contributorStatus, 'partial');
+  const changed = build([a], [returned(a)], totals({author: '800', returned: '160'}));
+  assert.equal(changed.contributorLeaderboard[0].rank, null);
+  assert.equal(changed.coverage.contributorStatus, 'unreconciled');
+  assert.doesNotThrow(() => JSON.stringify(changed));
+});

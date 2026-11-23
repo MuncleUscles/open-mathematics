@@ -12,6 +12,13 @@ const wallet = value => {
   need(typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value) && !/^0x0{40}$/i.test(value), 'invalid recipient wallet');
   return value.toLowerCase();
 };
+// The native attestation supplies the stable account ID. A login lookup is
+// display metadata only and must never determine attribution or grouping.
+const githubAuthorId = value => {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
+  if (typeof value === 'bigint') return value > 0n && String(value).length <= 78 ? String(value) : null;
+  return typeof value === 'string' && value.length <= 78 && /^[1-9][0-9]*$/.test(value) ? value : null;
+};
 // Strings remain plain text, including any angle brackets; consumers must use
 // textContent, never innerHTML. Only selected context fields enter this model.
 const plain = (value, maximum = 4000) => typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, maximum) : '';
@@ -40,6 +47,9 @@ const strings = value => Object.fromEntries(Object.entries(value).map(([key, ite
  * from a contribution to its prerequisite; kind is verified or reference.
  * leaderboard[].rank is null unless coverage.ranked is true (full registry,
  * complete dependencies, reconciled totals). Partial totals never imply rank.
+ * contributorLeaderboard groups original attested GitHub author IDs, retaining
+ * wallets as payment references. Missing IDs get separate contribution:<id>
+ * fallback rows and suppress contributor ranks via coverage.contributorRanked.
  */
 export function buildResearchView({records, impacts, count, points}) {
   need(Array.isArray(records) && Array.isArray(impacts) && records.length === impacts.length, 'matching record and impact pages required');
@@ -49,18 +59,28 @@ export function buildResearchView({records, impacts, count, points}) {
   const global = Object.fromEntries(Object.entries(totalFields).map(([key, field]) => [key, amount(points[field], field)]));
   need(global.authorPoints + global.impactPoints === global.earnedPoints && global.earnedPoints + global.reservedPoints === global.awardBudgets &&
     global.returnedPoints <= global.authorPoints && global.notePoints <= global.authorPoints, 'inconsistent global point totals');
-  const byId = new Map(), impactById = new Map(), accounts = new Map(), unresolved = new Set(), nodes = new Map(), edges = [], contributions = [], computed = zeroTotals();
+  const byId = new Map(), impactById = new Map(), accounts = new Map(), contributors = new Map(), authors = new Map(), missingAuthorIds = [],
+    unresolved = new Set(), nodes = new Map(), edges = [], contributions = [], computed = zeroTotals();
   const account = address => {
     const key = wallet(address);
     if (!accounts.has(key)) accounts.set(key, {wallet: key, authorPoints: 0n, impactPoints: 0n, earnedPoints: 0n, returnedPoints: 0n,
       notePoints: 0n, acceptedContributions: 0, formalContributions: 0, contributionIds: [], rank: null});
     return accounts.get(key);
   };
+  const contributor = record => {
+    const id = authors.get(record.evidence.id), key = id === null ? 'contribution:' + record.evidence.id : 'github:' + id;
+    if (!contributors.has(key)) contributors.set(key, {contributorKey: key, githubAuthorId: id, wallets: new Set(),
+      authorPoints: 0n, impactPoints: 0n, earnedPoints: 0n, returnedPoints: 0n, notePoints: 0n,
+      acceptedContributions: 0, formalContributions: 0, contributionIds: [], rank: null});
+    const row = contributors.get(key); row.wallets.add(wallet(record.evidence.wallet)); return row;
+  };
   for (const record of records) {
     const e = record?.evidence;
     need(object(record) && object(e) && validId(e.id) && Object.hasOwn(states, record.status), 'invalid contribution');
     need(!byId.has(e.id), 'duplicate contribution ID');
     wallet(e.wallet); byId.set(e.id, record);
+    const author = githubAuthorId(e.github_author_id); authors.set(e.id, author);
+    if (author === null) missingAuthorIds.push(e.id);
     nodes.set(e.id, {id: e.id, title: contextOf(record).title, status: record.status, wallet: wallet(e.wallet), loaded: true,
       eligibleDependency: record.status === 'credited' && e.evidence_kind === 'formal' && e.verification === 'verified'});
   }
@@ -70,7 +90,7 @@ export function buildResearchView({records, impacts, count, points}) {
     impactById.set(impact.downstream, impact);
   }
   for (const record of records) {
-    const e = record.evidence, impact = impactById.get(e.id), owner = account(e.wallet), context = contextOf(record);
+    const e = record.evidence, impact = impactById.get(e.id), owner = account(e.wallet), author = contributor(record), context = contextOf(record);
     const credited = record.status === 'credited', formal = e.evidence_kind === 'formal';
     need(formal && e.verification === 'verified' || e.evidence_kind === 'research-note' && e.verification === 'not-formal', 'invalid evidence label');
     need(Array.isArray(e.dependencies) && e.dependencies.every(validId) && new Set(e.dependencies).size === e.dependencies.length &&
@@ -107,13 +127,15 @@ export function buildResearchView({records, impacts, count, points}) {
       need(formal || reserve === 0n, 'research note cannot have an attribution reserve');
       need(record.reserve_settled || returned === 0n, 'unsettled reserve was returned');
       outstanding = record.reserve_settled ? 0n : reserve;
-      owner.acceptedContributions++; if (formal) owner.formalContributions++;
-      owner.authorPoints += authorPoints; owner.returnedPoints += returned;
-      if (!formal) owner.notePoints += authorPoints;
+      for (const row of [owner, author]) {
+        row.acceptedContributions++; if (formal) row.formalContributions++;
+        row.authorPoints += authorPoints; row.returnedPoints += returned;
+        if (!formal) row.notePoints += authorPoints;
+      }
       computed.authorPoints += authorPoints; computed.returnedPoints += returned;
       computed.notePoints += formal ? 0n : authorPoints; computed.awardBudgets += budget; computed.reservedPoints += outstanding;
     }
-    owner.contributionIds.push(e.id);
+    owner.contributionIds.push(e.id); author.contributionIds.push(e.id);
     if (impact.status !== 'not-requested') {
       need(credited && impact.source_digest === record.digest && amount(impact.budget, 'impact budget') === reserve &&
         Array.isArray(impact.allocations), 'impact source or budget mismatch');
@@ -125,7 +147,12 @@ export function buildResearchView({records, impacts, count, points}) {
         allocated += allocationPoints;
         if (impact.status === 'settled') {
           edge.settledPoints = String(allocationPoints);
-          if (edge.recipientWallet) account(edge.recipientWallet).impactPoints += allocationPoints;
+          if (edge.recipientWallet) {
+            account(edge.recipientWallet).impactPoints += allocationPoints;
+            // A wallet can serve several GitHub accounts. Attribute reuse to
+            // the original upstream submission, never a wallet→account lookup.
+            contributor(byId.get(allocation.id)).impactPoints += allocationPoints;
+          }
         } else edge.proposedPoints = String(allocationPoints);
       }
       need(allocated <= reserve, 'impact allocations exceed reserve');
@@ -140,7 +167,7 @@ export function buildResearchView({records, impacts, count, points}) {
     }
     contributions.push({id: e.id, title: context.title, context, status: record.status, stateLabel: states[record.status],
       evidenceKind: e.evidence_kind, evidenceLabel: formal ? 'Lean-checked statement' : 'Research note · not formally verified',
-      wallet: wallet(e.wallet), pr: String(e.pr), head: e.head, claim: plain(e.claim), formalStatement: plain(e.formal_statement),
+      wallet: wallet(e.wallet), githubAuthorId: authors.get(e.id), pr: String(e.pr), head: e.head, claim: plain(e.claim), formalStatement: plain(e.formal_statement),
       researchDirection: plain(e.research_direction, 160),
       reason: plain(record.status === 'expired' ? record.expiration_reason : record.verdict?.reason) ||
         (record.status === 'expired' ? 'Closed without a merit verdict or points. Unresolved work cannot receive another judgment.' : 'No agreed merit verdict is recorded yet.'),
@@ -158,9 +185,24 @@ export function buildResearchView({records, impacts, count, points}) {
   leaderboard.forEach((row, index) => {
     if (ranked && row.earnedPoints > 0n) { if (row.earnedPoints !== previous) rank = index + 1; row.rank = rank; previous = row.earnedPoints; }
   });
+  const contributorRanked = ranked && missingAuthorIds.length === 0, contributorLeaderboard = [...contributors.values()];
+  for (const row of contributorLeaderboard) row.earnedPoints = row.authorPoints + row.impactPoints;
+  contributorLeaderboard.sort((left, right) => contributorRanked && left.earnedPoints !== right.earnedPoints ?
+    (left.earnedPoints > right.earnedPoints ? -1 : 1) : left.contributorKey.localeCompare(right.contributorKey));
+  previous = undefined; rank = 0;
+  contributorLeaderboard.forEach((row, index) => {
+    if (contributorRanked && row.earnedPoints > 0n) { if (row.earnedPoints !== previous) rank = index + 1; row.rank = rank; previous = row.earnedPoints; }
+  });
   return {contributions, graph: {nodes: [...nodes.values()], edges}, leaderboard: leaderboard.map(strings),
+    contributorLeaderboard: contributorLeaderboard.map(row => strings({...row, wallets: [...row.wallets].sort()})),
     coverage: {loaded: records.length, total: String(total), complete, reconciled, ranked,
       status: ranked ? 'ranked' : complete ? 'unreconciled' : 'partial', missingDependencies: [...unresolved], mismatches,
+      contributorRanked, missingAuthorIds,
+      contributorStatus: !complete ? 'partial' : !reconciled ? 'unreconciled' : missingAuthorIds.length ? 'unidentified' : 'ranked',
+      contributorLabel: !complete ? `Partial ledger: ${records.length} of ${total} contributions loaded. Contributor totals are incomplete; no rankings.` :
+        !reconciled ? 'Point totals do not reconcile; contributor rankings are unavailable.' : missingAuthorIds.length ?
+          'Some contributions lack a valid attested GitHub account ID; contributor rankings are unavailable.' :
+          'Complete ledger; earned points grouped by attested GitHub account and reconciled.',
       computed: strings(computed), global: strings(global),
       label: ranked ? 'Complete ledger; earned points reconciled.' : complete ? 'Point totals do not reconcile; rankings are unavailable.' :
         `Partial ledger: ${records.length} of ${total} contributions loaded. Earned totals are incomplete; no rankings.`}};

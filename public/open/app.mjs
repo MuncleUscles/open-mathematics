@@ -2,13 +2,18 @@ import {createClient} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
 import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,readOpenRecordInheritance,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT,normalizeOpenRead} from '../../src/open-snapshot.mjs';
 import {buildResearchView} from '../../src/open-research-view.mjs';
+import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot,validateGitHubAccountsSnapshot,githubAccountsCoverage,githubAccountsSnapshotLabel,chooseGitHubAccountsView,GITHUB_ACCOUNTS_BYTE_LIMIT} from '../../src/github-accounts.mjs';
 const $=id=>document.getElementById(id);
 const el=(tag,value,cls)=>{const node=document.createElement(tag);if(value!==undefined)node.textContent=value;if(cls)node.className=cls;return node;};
 const link=(label,href,cls)=>{const node=el('a',label,cls);node.href=href;return node;};
 const fmt=value=>BigInt(value).toLocaleString('en-US');
 const short=value=>value.slice(0,8)+'…'+value.slice(-6);
 const detailUrl=id=>'#/contributions/'+encodeURIComponent(id);
-let data,repository,read,currentView=null,nextEnd=0,busy=false,records=[],impacts=[],model=null;
+const identities=new Map();
+function contributorName(id){const user=identities.get(id);return user?'@'+user.login:id?'GitHub user #'+id:'Unidentified contributor';}
+function contributorLink(id){const user=identities.get(id);if(!user)return el('span',contributorName(id));const node=link('@'+user.login,'https://github.com/'+user.login,'github-user');node.title=`GitHub account #${id}. Name verified on chain ${new Date(Number(user.username_checked_at)*1000).toLocaleString()}.`;return node;}
+function renderIdentities(){if(model){renderFeed();renderLeaderboard();if(location.hash.startsWith('#/contributions/'))route();}}
+let data,repository,read,accountRead,currentView=null,accountView=null,nextEnd=0,busy=false,accountBusy=false,records=[],impacts=[],model=null;
 const viewMap={'/':['home','problem','research','graph','leaderboard','how','agent'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/leaderboard':['leaderboard'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
@@ -26,14 +31,14 @@ function recordRow(c){
  const row=el('article',undefined,'contribution-row'),state=el('div',undefined,'record-state'),body=el('div',undefined,'record-body'),points=el('div',undefined,'record-points');
  state.append(badge(c),el('span',c.evidenceKind==='formal'?'Formal proof':'Research note','record-type'));
  const title=el('h3');title.append(link(c.title,detailUrl(c.id)));body.append(title,el('p',c.claim.length>210?c.claim.slice(0,207)+'…':c.claim));
- const meta=el('div',undefined,'record-meta');meta.append(el('span',c.evidenceLabel),el('span',c.researchDirection),el('span',short(c.wallet)));body.append(meta);
+ const meta=el('div',undefined,'record-meta');meta.append(el('span',c.evidenceLabel),el('span',c.researchDirection),contributorLink(c.githubAuthorId));body.append(meta);
  points.append(el('strong',fmt(c.authorPoints)),el('span','author PNP'),link('PR #'+c.pr,repository+'/pull/'+c.pr));
  row.append(state,body,points);return row;
 }
 function renderFeed(){
  if(!model)return;
  const query=$('search').value.trim().toLowerCase(),status=$('filter-status').value,kind=$('filter-kind').value;
- const rows=model.contributions.filter(c=>(kind==='all'||kind===c.evidenceKind)&&(status==='all'||(status==='pending'?['submitted','provisional','challenged','approved'].includes(c.status):status===c.status))&&(!query||[c.title,c.claim,c.researchDirection,c.wallet].join(' ').toLowerCase().includes(query))).reverse();
+ const rows=model.contributions.filter(c=>(kind==='all'||kind===c.evidenceKind)&&(status==='all'||(status==='pending'?['submitted','provisional','challenged','approved'].includes(c.status):status===c.status))&&(!query||[c.title,c.claim,c.researchDirection,c.wallet,contributorName(c.githubAuthorId)].join(' ').toLowerCase().includes(query))).reverse();
  $('contributions').replaceChildren(...(rows.length?rows.map(recordRow):[el('p','No matching contributions in the loaded records.','empty')]));
  $('results-count').textContent=`${rows.length} matching contribution${rows.length===1?'':'s'} · ${model.coverage.loaded} of ${model.coverage.total} registered records loaded`;
 }
@@ -42,7 +47,7 @@ function renderDetail(id){
  const c=model?.contributions.find(row=>row.id===id),target=$('detail');
  if(!c){target.replaceChildren(el('h1','Contribution not loaded.'),el('p','The ledger may still be loading, or this contribution may be outside the current page. Open the contributions view and load earlier records, then follow its link.'));return;}
  const raw=records.find(row=>row.evidence.id===id),e=raw.evidence,impact=impacts.find(row=>row.downstream===id);
- const head=el('div',undefined,'detail-header');head.append(badge(c),el('span',c.evidenceLabel,'fine'),link('GitHub PR #'+c.pr,repository+'/pull/'+c.pr));
+ const head=el('div',undefined,'detail-header');head.append(badge(c),contributorLink(c.githubAuthorId),el('span',c.evidenceLabel,'fine'),link('GitHub PR #'+c.pr,repository+'/pull/'+c.pr));
  const columns=el('div',undefined,'detail-grid'),left=el('div'),right=el('aside');
  const decision=block('The decision',c.reason);left.append(decision);
  if(c.status==='expired'&&!raw.verdict)decision.append(el('p','Closed without an agreed merit verdict or points. Withdrawal does not turn an undetermined consensus outcome into rejection or acceptance. Unresolved content remains fenced against another judgment.'));
@@ -60,7 +65,7 @@ function renderDetail(id){
  const steps=[['Signed submission',`Wallet bound to PR #${c.pr} at exact commit ${short(c.head)}.`],['Independent verification',c.evidenceKind==='formal'?'The submitted formal statement passed the pinned restricted Lean checker.':'Research note: no formal proof verification.'],['GenLayer review',raw.verdict?c.reason:'No agreed merit verdict recorded.'],['Merge & points',c.status==='credited'?`Exact merge confirmed; ${fmt(c.authorPoints)} author points recorded.`:c.status==='expired'?'Unmerged claim withdrawn or expired. No points awarded.':c.status==='rejected'?'Research rejected. No points awarded.':'Not yet credited; no completed merge is asserted.']];
  for(const [title,description] of steps){const item=el('li');item.append(el('strong',title),el('span',description));list.append(item);}timeline.append(list);right.append(timeline);
  const provenance=block('Exact evidence'),dl=el('dl',undefined,'provenance');
- for(const [label,value,href] of [['Contributor wallet',e.wallet],['Head commit',e.head,repository+'/commit/'+e.head],['Bundle hash',e.bundle_hash||e.artifact_hash],['Statement hash',e.statement_hash],['Decision evidence digest',raw.digest],['Original protocol release',e.protocol_commit],['Contribution ID',c.id]])if(value){const pair=el('div'),dd=el('dd');pair.append(el('dt',label));dd.append(href?link(value,href):el('span',value));pair.append(dd);dl.append(pair);}
+ for(const [label,value,href] of [['GitHub account ID',c.githubAuthorId],['Contributor wallet',e.wallet],['Head commit',e.head,repository+'/commit/'+e.head],['Bundle hash',e.bundle_hash||e.artifact_hash],['Statement hash',e.statement_hash],['Decision evidence digest',raw.digest],['Original protocol release',e.protocol_commit],['Contribution ID',c.id]])if(value){const pair=el('div'),dd=el('dd');pair.append(el('dt',label));dd.append(href?link(value,href):el('span',value));pair.append(dd);dl.append(pair);}
  provenance.append(dl,el('p','Original evidence stays bound to its original release, including carried records.'),link('Browse public evidence reports',repository+'/tree/evidence'));right.append(provenance);
  columns.append(left,right);target.replaceChildren(head,el('h1',c.title),el('p',c.claim,'detail-summary'),columns);
 }
@@ -82,16 +87,32 @@ function renderGraph(){
  $('graph-coverage').textContent=`${model.coverage.loaded} of ${model.coverage.total} registered records loaded. ${model.graph.edges.length} dependency connections. Only declared references and verified direct proof use are shown. Other relationships are not inferred.`;
 }
 function renderLeaderboard(){
- const rows=model.leaderboard.filter(row=>BigInt(row.earnedPoints)>0n),tbody=$('leaderboard');tbody.replaceChildren();
- for(const row of rows){const tr=el('tr');tr.append(el('td',row.rank===null?'—':String(row.rank)),el('td',row.wallet,'wallet'),el('td',fmt(row.authorPoints),'numeric'),el('td',fmt(row.impactPoints),'numeric'),el('td',fmt(row.earnedPoints),'numeric'));tbody.append(tr);}
- if(!rows.length){const tr=el('tr'),td=el('td','No earned points in the loaded records.');td.colSpan=5;tr.append(td);tbody.append(tr);}
- $('ranking-status').textContent=model.coverage.label+' '+(currentView?.mode==='published'?'Based on the dated published snapshot.':'Based on finalized views collected over an interval.');
+ const coverage=accountView?.snapshot?githubAccountsCoverage(accountView.snapshot,currentView.snapshot):null;
+ const rows=(accountView?.snapshot?.accounts||[]).filter(row=>BigInt(row.points)>0n).sort((a,b)=>BigInt(a.points)===BigInt(b.points)?a.github_author_id.localeCompare(b.github_author_id):BigInt(a.points)>BigInt(b.points)?-1:1),tbody=$('leaderboard');tbody.replaceChildren();
+ let rank=0,previous;
+ rows.forEach((row,index)=>{if(row.points!==previous)rank=index+1;previous=row.points;const tr=el('tr'),person=el('td',undefined,'contributor');person.append(contributorLink(row.github_author_id));
+  person.append(el('span',row.login?`Name verified on chain ${new Date(Number(row.username_checked_at)*1000).toLocaleString()}`:'Username verification pending','identity-date'));
+  const wallets=model.contributorLeaderboard.find(item=>item.githubAuthorId===row.github_author_id)?.wallets||[];
+  const details=el('details',undefined,'wallet-details');details.append(el('summary',`${row.wallet_count} signing wallet${Number(row.wallet_count)===1?'':'s'}`),el('span',`GitHub account ID ${row.github_author_id}`));for(const wallet of wallets)details.append(el('code',wallet));if(wallets.length<Number(row.wallet_count))details.append(el('span','Some wallet addresses belong to earlier contributions outside this page.'));person.append(details);
+  tr.append(el('td',coverage.ranked?String(rank):'—'),person,el('td',fmt(row.author_points),'numeric'),el('td',fmt(row.impact_points),'numeric'),el('td',fmt(row.points),'numeric'));tbody.append(tr);});
+ if(!rows.length){const tr=el('tr'),td=el('td',accountView?.snapshot?'No earned points in the account ledger.':accountView?.mode==='unavailable'||!data.githubAccounts?'GitHub account ledger unavailable.':'Reading the GitHub account ledger…');td.colSpan=5;tr.append(td);tbody.append(tr);}
+ $('ranking-status').textContent=coverage?coverage.label:'GitHub account credit is being read from its on-chain ledger. Rankings are unavailable until it is verified.';
 }
 function renderAll(){
  const snapshot=currentView.snapshot;model=buildResearchView({records,impacts,count:snapshot.count,points:snapshot.points});
  $('count').textContent=fmt(snapshot.count);$('total').textContent=fmt(snapshot.points.total_awarded);$('impact').textContent=fmt(snapshot.points.total_impact_points);
  $('reserve-status').textContent=`${fmt(snapshot.points.total_award_budgets)} PNP in accepted result budgets; ${fmt(snapshot.points.total_reserved_points)} PNP awaiting attribution settlement. Carried points are counted once.`;
  renderFeed();renderGraph();renderLeaderboard();route();$('older').hidden=nextEnd===0;
+}
+async function publishedAccounts(){const response=await fetch('./github-accounts-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot unavailable');const text=await response.text();if(new TextEncoder().encode(text).length>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot too large');return validateGitHubAccountsSnapshot(JSON.parse(text),data.githubAccounts);}
+async function refreshAccounts(){
+ if(accountBusy||!data?.githubAccounts||data.preview)return;accountBusy=true;
+ try{
+  accountView=await chooseGitHubAccountsView({loadLive:()=>collectGitHubAccountsSnapshot({deployment:data.githubAccounts,read:accountRead}),loadPublished:publishedAccounts,current:accountView});
+  if(accountView.snapshot){identities.clear();for(const user of accountView.snapshot.accounts)if(user.login)identities.set(user.github_author_id,user);}renderIdentities();
+  $('accounts-status').textContent=accountView.mode==='published'?githubAccountsSnapshotLabel(accountView.snapshot):accountView.mode==='live'?`${accountView.unavailable?'Live account refresh unavailable. Keeping the prior view from':'Finalized account views checked'} ${accountView.snapshot.completedAt}. Username checks have their own dates above.`:'Account ledger and validated published copy are unavailable. No off-chain username lookup is substituted.';
+ }catch(error){console.warn('GitHub account view failed',error);$('accounts-status').textContent='Could not verify the GitHub account ledger. Previously displayed names and points may be stale.';}
+ finally{accountBusy=false;}
 }
 async function published(){const response=await fetch('./ledger-snapshot.json',{cache:'no-store'});if(!response.ok||Number(response.headers.get('content-length'))>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot unavailable');const bytes=await response.text();if(new TextEncoder().encode(bytes).length>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot too large');return validateOpenSnapshot(JSON.parse(bytes),data);}
 async function refresh(){
@@ -101,7 +122,7 @@ async function refresh(){
   if(view.mode==='published')$('status').textContent=openSnapshotLabel(view.snapshot);
   else if(view.mode==='live')$('status').textContent=view.unavailable?`Live refresh unavailable. Keeping the last successful view from ${view.snapshot.completedAt}; these records may be stale.`:`Live finalized views · checked ${new Date(view.snapshot.completedAt).toLocaleString()} · read interval ${view.snapshot.startedAt}–${view.snapshot.completedAt}. Not an atomic snapshot.`;
   else $('status').textContent='Live ledger and validated published snapshot unavailable. No example records have been substituted.';
- }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;}
+ }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;void refreshAccounts();}
 }
 async function earlier(){
  if(busy||!nextEnd||currentView?.mode!=='live')return;busy=true;$('older').disabled=true;$('refresh').disabled=true;
@@ -123,5 +144,6 @@ try{
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;
  const client=createClient({chain:studionet});read=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:d.contract,functionName:method,args,transactionHashVariant:'latest-final'}));
+ if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);accountRead=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:data.githubAccounts.contract,functionName:method,args,transactionHashVariant:'latest-final'}));$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
  if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;}else await refresh();
 }catch(error){console.warn('Configuration failed',error);$('status').textContent='Reviewed configuration unavailable. The contribution guide is still available; live records cannot be displayed.';$('refresh').disabled=true;}

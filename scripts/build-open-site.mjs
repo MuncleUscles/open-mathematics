@@ -1,6 +1,8 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {build} from 'esbuild';
 import {execFileSync} from 'node:child_process';
-import {loadOpenProblem,verifyOpenCheckout} from '../src/open-research.mjs';
+import {loadOpenProblem,verifyOpenCheckout,readProblemFile,parseProblemJSON} from '../src/open-research.mjs';
+import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot} from '../src/github-accounts.mjs';
+import {clientFor,read} from '../github/runtime.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const usage='Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only] [--protocol-checkout PATH]';
 
@@ -39,11 +41,22 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  fs.mkdirSync(destination,{recursive:true});
  fs.rmSync(path.join(destination,'ledger-snapshot.json'),{force:true});
  if(snapshot)execFileSync(process.execPath,[path.join(protocolRoot,'scripts/capture-open-ledger.mjs'),path.resolve(directory),path.resolve(destination,'ledger-snapshot.json')],{cwd:protocolRoot,stdio:'inherit'});
+ let githubAccounts;
+ fs.rmSync(path.join(destination,'github-accounts-snapshot.json'),{force:true});
+ fs.rmSync(path.join(destination,'contributors.json'),{force:true});
+ if(fs.existsSync(path.join(p.root,'.open-math/github-accounts.json'))){
+  githubAccounts=validateGitHubAccountsDeployment(parseProblemJSON(readProblemFile(p.root,'.open-math/github-accounts.json')),p);
+  if(snapshot){
+   const client=clientFor();if(await client.getChainId()!==githubAccounts.chainId)throw Error('Wrong account ledger chain');
+   const accounts=await collectGitHubAccountsSnapshot({deployment:githubAccounts,read:(method,args=[])=>read(client,githubAccounts.contract,method,args)});
+   fs.writeFileSync(path.join(destination,'github-accounts-snapshot.json'),JSON.stringify(accounts)+'\n');
+  }
+ }
  fs.copyFileSync(path.join(rendererRoot,'public/open/index.html'),path.join(destination,'index.html'));
  for(const name of ['style.css','favicon.svg'])fs.copyFileSync(path.join(rendererRoot,'public/open',name),path.join(destination,name));
  fs.cpSync(path.join(rendererRoot,'public/open/assets'),path.join(destination,'assets'),{recursive:true});
  const presentation={commit,protocolCommit:p.descriptor.protocol.commit,readOnly:true};
- fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation},null,2)+'\n');
+ fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,...(githubAccounts?{githubAccounts}:{})},null,2)+'\n');
  fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify({version:5,objective:p.policy.objective,admission:'open',guide:`https://github.com/${p.descriptor.repository}/blob/main/AGENTS.md`,protocol:p.descriptor.protocol,rewards:'Native nontransferable contribution and later-impact points',wallet:'Contributor-owned; signatures only',liveContract:p.deployment.contract},null,2)+'\n');fs.writeFileSync(path.join(destination,'.nojekyll'),'');
  await build({entryPoints:[path.join(rendererRoot,'public/open/app.mjs')],outfile:path.join(destination,'app.js'),bundle:true,format:'esm',platform:'browser',minify:true});
  return {directory:destination,mode:preview?'local-layout-preview':'live-native-read',admission:'open',contract:p.deployment.contract,presentation};
