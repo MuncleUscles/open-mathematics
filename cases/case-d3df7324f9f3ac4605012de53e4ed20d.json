@@ -1,0 +1,45 @@
+{
+  "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chainId": 61999,
+  "payloadHash": "a75bdcb47ec482b2160b7533bda203fcfdf4f154638c6b6c84762fb0351b3d0c",
+  "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+  "transactions": {},
+  "rounds": {},
+  "startedAt": "2026-11-23T02:49:03.593Z",
+  "case": {
+    "attestation": null,
+    "attestation_hash": null,
+    "challenges": [],
+    "created_at": "1795401540",
+    "deadline": "0",
+    "history": [],
+    "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
+    "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+    "identity_expiry": "1795487940",
+    "kind": "authorship",
+    "payload": {
+      "claim": "Controlled authorship trial for the Open Mathematics pilot GitHub source controller only. I claim the named pilot source identity from this wallet, and will publish the exact native expiring wallet-bound challenge on the same registered source. This is not a claim to an external academic identity, discovery priority, new mathematical result, or reward.",
+      "component": "Binding the registered pilot source author to its controlling wallet",
+      "sources": [
+        {
+          "authors": [
+            "Open Mathematics pilot (MuncleUscles)"
+          ],
+          "priority_evidence": "No discovery priority, third-party authorship or external point entitlement is asserted.",
+          "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+          "relationship": "The exact registered pilot source will publish the native challenge. The reporter is the controller being tested; the same GitHub account operates both pilot research wallets.",
+          "title": "Controlled Open Mathematics provenance test source"
+        }
+      ]
+    },
+    "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+    "revision": "0",
+    "round": "0",
+    "status": "submitted",
+    "target": "author-d76c65bded14d6d33865bc32651e4fee",
+    "verdict": null
+  },
+  "updatedAt": "2026-11-23T02:49:04.695Z",
+  "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
+}
