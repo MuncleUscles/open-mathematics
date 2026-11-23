@@ -5001,12 +5001,48 @@
   },
   "startedAt": "2026-11-23T02:49:03.593Z",
   "case": {
-    "attestation": null,
-    "attestation_hash": null,
+    "attestation": {
+      "artifact_hash": "",
+      "authorship_verified": true,
+      "formal_verified": false,
+      "identity_author_id": "author-d76c65bded14d6d33865bc32651e4fee",
+      "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+      "identity_source": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+      "identity_subject": "github:user:2372232",
+      "policy": "",
+      "priority_basis": [],
+      "priority_verified": false,
+      "sources": [
+        {
+          "content_hash": "ecb5a2f1ec2eac177193bb588638b29697d7a38c7d83626bdb4975c468474afa",
+          "excerpt": "Author identity for this document: Open Mathematics pilot (MuncleUscles).\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\n\nPublic wallet-bound challenge for the controlled pilot source identity:\n\nOpen Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+          "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+          "retrieved_at": "1795402148",
+          "verified_authors": [
+            {
+              "name": "Open Mathematics pilot (MuncleUscles)",
+              "subject": "github:user:2372232"
+            }
+          ]
+        }
+      ],
+      "statement_hash": ""
+    },
+    "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+    "author_ids": [
+      "author-d76c65bded14d6d33865bc32651e4fee"
+    ],
     "challenges": [],
     "created_at": "1795401540",
     "deadline": "0",
-    "history": [],
+    "history": [
+      {
+        "at": "1795402151",
+        "event": "documentary-verification",
+        "hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+        "round": "0"
+      }
+    ],
     "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
     "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
     "identity_expiry": "1795487940",
@@ -5026,13 +5062,25 @@
         }
       ]
     },
+    "priority_author_ids": [],
     "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
     "revision": "0",
     "round": "0",
-    "status": "submitted",
+    "status": "verified",
     "target": "author-d76c65bded14d6d33865bc32651e4fee",
-    "verdict": null
+    "verdict": null,
+    "verified_authors": [
+      {
+        "authors": [
+          {
+            "name": "Open Mathematics pilot (MuncleUscles)",
+            "subject": "github:user:2372232"
+          }
+        ],
+        "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md"
+      }
+    ]
   },
-  "updatedAt": "2026-11-23T02:49:46.377Z",
+  "updatedAt": "2026-11-23T02:49:48.927Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
 }
