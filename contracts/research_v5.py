@@ -1,5 +1,6 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
+from genlayer.py.public_abi import StorageType
 import json
 import hashlib
 import re
@@ -46,6 +47,22 @@ def canonical_digest(value) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def migration_normalize(value):
+    # SDK read normalization represents native ints as decimal strings. Bool
+    # remains bool; stored point amounts were already strings in the source.
+    if type(value) is int:
+        return str(value)
+    if isinstance(value, list):
+        return [migration_normalize(item) for item in value]
+    if isinstance(value, dict):
+        return {key: migration_normalize(item) for key, item in value.items()}
+    return value
+
+
+def migration_digest(value) -> str:
+    return canonical_digest(migration_normalize(value))
+
+
 def strict_object(raw: str, limit: int) -> dict:
     if not isinstance(raw, str) or utf8_size(raw) > limit:
         fail("bounded JSON required")
@@ -72,7 +89,7 @@ def strict_object(raw: str, limit: int) -> dict:
 class Research(gl.Contract):
     """Open submissions for one mathematical objective; native points only.
     The verifier attests bytes/kernel facts. Consensus judges relevance and merit.
-    No curator, task enrollment, imported balances or automatic full-target claim.
+    No curator, task enrollment or automatic full-target claim.
     """
     verifier: Address
     executor: Address
@@ -90,7 +107,6 @@ class Research(gl.Contract):
     bundles: TreeMap[str, str]
     rejected_bundles: TreeMap[str, bool]
     author_active: TreeMap[str, str]
-    author_registrations: TreeMap[str, str]
     historical_statements: TreeMap[str, bool]
     historical_propositions: TreeMap[str, bool]
     points: TreeMap[Address, u256]
@@ -110,11 +126,12 @@ class Research(gl.Contract):
     impacts: TreeMap[str, str]
     impact_artifacts: TreeMap[str, str]
     merit_content: TreeMap[str, str]
+    inherited_records: TreeMap[str, str]
 
     def __init__(self, config_json: str):
         config = strict_object(config_json, 32768)
         required = {"version", "problem", "repository", "branch", "verifier", "executor", "window", "policy", "objective", "legacy_ledgers", "minimum_account_age_days"}
-        if set(config) != required or type(config["version"]) is not int or config["version"] != 5:
+        if set(config) not in [required, required | {"predecessor"}] or type(config["version"]) is not int or config["version"] != 5:
             fail("exact version 5 configuration required")
         if not slug(config["problem"]) or not matches(config["repository"], r"[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}") or config["repository"].split("/")[1] in [".", ".."] or config["branch"] != "research":
             fail("valid problem repository and research branch required")
@@ -162,6 +179,125 @@ class Research(gl.Contract):
         self.total_returned_points = u256(0)
         self.total_award_budgets = u256(0)
         self.total_reserved_points = u256(0)
+        if "predecessor" in config:
+            self._inherit_predecessor(config)
+
+    def _inherit_predecessor(self, config: dict):
+        """Constructor-only, one-hop migration of the bounded pilot history."""
+        predecessor = config["predecessor"]
+        if not isinstance(predecessor, dict) or set(predecessor) != {"address", "snapshot_hash"} or not wallet(predecessor["address"]) or not digest(predecessor["snapshot_hash"]) or Address(predecessor["address"]) == gl.message.contract_address:
+            fail("exact nonself predecessor address and snapshot hash required")
+        if any(ledger["address"].lower() == predecessor["address"].lower() for ledger in config["legacy_ledgers"]):
+            fail("predecessor cannot also be a separate historical ledger")
+        source = gl.get_contract_at(Address(predecessor["address"])).view(state=StorageType.LATEST_FINAL)
+        source_config = source.get_config()
+        expected_config = {key: value for key, value in config.items() if key != "predecessor"}
+        if not isinstance(source_config, dict) or "predecessor" in source_config or canonical_digest(source_config) != canonical_digest(expected_config):
+            fail("predecessor must be one hop with identical configuration")
+        count = source.count_contributions()
+        if type(count) is not int or not 1 <= count <= 16:
+            fail("predecessor migration supports one to sixteen records")
+        page = source.list_contributions(0, 16)
+        if not isinstance(page, dict) or set(page) != {"items", "total", "next_offset"} or type(page["total"]) is not int or page["total"] != count or page["next_offset"] is not None or not isinstance(page["items"], list) or len(page["items"]) != count or any(not isinstance(key, str) for key in page["items"]) or len(set(page["items"])) != count:
+            fail("complete bounded predecessor order required")
+        records = [source.get(key) for key in page["items"]]
+        impacts = [source.get_impact(key) for key in page["items"]]
+        for key, record in zip(page["items"], records):
+            if not isinstance(record, dict) or not isinstance(record.get("evidence"), dict) or record["evidence"].get("id") != key or not wallet(record["evidence"].get("wallet")):
+                fail("invalid predecessor record identity")
+        wallets = sorted(set(record["evidence"]["wallet"].lower() for record in records))
+        balances = [{"wallet": recipient, "value": source.get_points(recipient)} for recipient in wallets]
+        snapshot = {"config": source_config, "records": records, "impacts": impacts, "balances": balances}
+        if utf8_size(json.dumps(snapshot, ensure_ascii=False)) > 2097152 or migration_digest(snapshot) != predecessor["snapshot_hash"]:
+            fail("predecessor snapshot commitment mismatch or exceeds bound")
+        # The old API exposes registration order but not credit order. With one
+        # credited record its exact credited-order context can be reconstructed.
+        if sum(record.get("status") == "credited" for record in records) > 1:
+            fail("pilot migration supports at most one credited predecessor record")
+        for record, impact in zip(records, impacts):
+            self._inherit_record(record, impact, predecessor)
+        for balance in balances:
+            if canonical_digest(self.get_points(balance["wallet"])) != canonical_digest(balance["value"]):
+                fail("predecessor accounting does not match reconstructed records")
+
+    def _inherit_record(self, r: dict, impact: dict, predecessor: dict):
+        base = {"evidence", "digest", "status", "round", "challenges", "challenge_reviews", "verdict", "deadline", "credited_points", "adjudication_started_round", "adjudication_finished_round"}
+        credited_fields = {"award_budget", "initial_paid", "impact_reserve", "reserve_returned", "reserve_settled", "merge_commit"}
+        status = r.get("status")
+        if status not in ["credited", "rejected", "submitted"] or set(r) != base | (credited_fields if status == "credited" else set()) or type(r["round"]) is not int or r["round"] != 0 or r["challenges"] != [] or r["challenge_reviews"] != [] or type(r["adjudication_started_round"]) is not int or r["adjudication_started_round"] != 0 or not digest(r["digest"]) or type(r["deadline"]) is not int:
+            fail("unsupported predecessor record history")
+        e = r["evidence"]
+        key = e["id"]
+        if not matches(key, r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}") or key in self.records or e.get("problem") != self.problem or e.get("repository") != self.repository or e.get("branch") != self.branch or e.get("policy") != self.policy or not wallet(e.get("contract")) or Address(e["contract"]) != Address(predecessor["address"]) or type(e.get("github_author_id")) is not int or e["github_author_id"] < 1:
+            fail("predecessor evidence scope mismatch")
+        if any(not digest(e.get(field)) for field in ["claim_digest", "statement_hash", "proposition_hash", "artifact_hash", "bundle_hash"]) or e["claim_digest"] in self.claims or not isinstance(e.get("proof"), str) or hashlib.sha256(e["proof"].encode("utf-8")).hexdigest() != e["bundle_hash"] or e.get("evidence_kind") not in ["formal", "research-note"]:
+            fail("invalid predecessor content commitments")
+        if any(content_key in self.merit_content for content_key in self._content_keys(e)):
+            fail("overlapping predecessor content history is unsupported")
+        if not isinstance(impact, dict) or impact.get("downstream") != key:
+            fail("predecessor impact identity mismatch")
+        pending = status == "submitted"
+        if type(r["adjudication_finished_round"]) is not int or r["adjudication_finished_round"] != (-1 if pending else 0):
+            fail("unsupported predecessor adjudication fence")
+        verdict = r["verdict"]
+        if pending:
+            if verdict is not None or r["deadline"] != 0 or r["credited_points"] != "0":
+                fail("pending predecessor must have no completed judgment or credit")
+        elif not isinstance(verdict, dict) or type(verdict.get("accept")) is not bool or verdict["accept"] != (status == "credited") or any(type(verdict.get(field)) is not int or not 0 <= verdict[field] <= 3 for field in ["novelty", "significance", "reusability"]) or r["deadline"] <= 0:
+            fail("invalid predecessor completed verdict")
+        if status == "credited":
+            if min(verdict[field] for field in ["novelty", "significance", "reusability"]) < 1:
+                fail("credited predecessor requires positive merit bands")
+            budget = sum(verdict[field] for field in ["novelty", "significance", "reusability"]) * 100
+            note = e["evidence_kind"] == "research-note"
+            budget = min(budget, 300) if note else budget
+            reserve = 0 if note else budget // 5
+            if verdict.get("award") != str(budget) or r["award_budget"] != str(budget) or r["initial_paid"] != str(budget - reserve) or r["impact_reserve"] != str(reserve) or r["reserve_returned"] != str(reserve) or r["reserve_settled"] is not True or r["credited_points"] != str(budget) or not commit(r["merge_commit"]):
+                fail("predecessor credit must have a fully returned settled reserve")
+            if impact.get("status") == "not-requested" and reserve == 0:
+                if impact != {"downstream": key, "status": "not-requested"}:
+                    fail("invalid predecessor empty impact")
+            else:
+                if impact.get("status") != "settled" or impact.get("source_digest") != r["digest"] or type(impact.get("round")) is not int or impact["round"] != 0 or impact.get("challenges") != [] or impact.get("challenge_reviews") != [] or impact.get("allocations") != [] or type(impact.get("budget")) is not int or impact["budget"] != reserve or type(impact.get("band_points")) is not int or impact["band_points"] != reserve // 3 or impact.get("paid_points") != "0" or impact.get("returned_points") != str(reserve):
+                    fail("predecessor impact must be settled without upstream awards or challenges")
+                self.impacts[key] = json.dumps(impact, sort_keys=True)
+                self.impact_artifacts[e["artifact_hash"]] = key
+            recipient = Address(e["wallet"])
+            self.points[recipient] = u256(budget)
+            self.initial_points[recipient] = u256(budget)
+            self.returned_points[recipient] = u256(reserve)
+            self.total_points = u256(budget)
+            self.total_initial_points = u256(budget)
+            self.total_returned_points = u256(reserve)
+            self.total_award_budgets = u256(budget)
+            if note:
+                self.note_points[recipient] = u256(budget)
+                self.total_note_points = u256(budget)
+            self.fingerprints[e["statement_hash"]] = key
+            self.artifacts[e["artifact_hash"]] = key
+            self.bundles[e["bundle_hash"]] = key
+            self.credited_order.append(key)
+        else:
+            if impact != {"downstream": key, "status": "not-requested"} or r["credited_points"] != "0":
+                fail("uncredited predecessor cannot have impact or points")
+            if status == "rejected":
+                if verdict.get("award") != "0":
+                    fail("rejected predecessor cannot have an award")
+                self.rejected_bundles[e["bundle_hash"]] = True
+            else:
+                author = str(e["github_author_id"])
+                if self.author_active.get(author, ""):
+                    fail("predecessor has multiple active claims for one author")
+                self.author_active[author] = key
+        self._save(key, r)
+        self.order.append(key)
+        self.claims[e["claim_digest"]] = key
+        outcome = None if pending else {field: verdict[field] for field in ["accept", "novelty", "significance", "reusability"]}
+        for content_key in self._content_keys(e):
+            self.merit_content[content_key] = json.dumps({"owner": key, "round": 0, "pending": pending, "prior": None,
+                                                        "accepted": outcome if status == "credited" else None, "outcome": outcome}, sort_keys=True)
+        self.inherited_records[key] = json.dumps({"predecessor": predecessor["address"], "snapshot_hash": predecessor["snapshot_hash"],
+                                                  "original_record_hash": migration_digest(r)}, sort_keys=True)
 
     @gl.public.view
     def get_config(self) -> dict:
@@ -323,16 +459,10 @@ class Research(gl.Contract):
         author = str(e["github_author_id"])
         if self.author_active.get(author, ""):
             fail("one active contribution per GitHub account; finish or expire the existing claim")
-        registered_at = now()
-        recent = [t for t in json.loads(self.author_registrations.get(author, "[]")) if t > registered_at - 86400]
-        if len(recent) >= 3:
-            fail("three registrations per GitHub account in rolling 24 hours")
-        recent.append(registered_at)
         evidence_hash = hashlib.sha256(evidence_json.encode("utf-8")).hexdigest()
         self._save(key, {"evidence": e, "digest": evidence_hash, "status": "submitted", "round": 0, "challenges": [], "challenge_reviews": [], "verdict": None, "deadline": 0, "credited_points": "0", "adjudication_started_round": -1, "adjudication_finished_round": -1})
         self._claim_content(e)
         self.author_active[author] = key
-        self.author_registrations[author] = json.dumps(recent)
         self.claims[e["claim_digest"]] = key
         self.order.append(key)
         return evidence_hash
@@ -346,6 +476,8 @@ class Research(gl.Contract):
         """
         if gl.message.sender_address != self.executor:
             fail("consensus executor required")
+        if key in self.inherited_records:
+            fail("inherited adjudication cannot receive a new attempt")
         r = self._load(key)
         if type(expected_round) is not int or expected_round != r["round"]:
             fail("stale adjudication round")
@@ -368,6 +500,8 @@ class Research(gl.Contract):
     def adjudicate(self, key: str, expected_round: int) -> dict:
         if gl.message.sender_address != self.executor:
             fail("consensus executor required")
+        if key in self.inherited_records:
+            fail("inherited adjudication cannot receive a new attempt")
         r = self._load(key)
         if type(expected_round) is not int or expected_round != r["round"]:
             fail("stale adjudication round")
@@ -565,6 +699,13 @@ class Research(gl.Contract):
     @gl.public.view
     def get(self, key: str) -> dict:
         return self._load(key)
+
+    @gl.public.view
+    def get_inheritance(self, key: str) -> dict:
+        if key not in self.inherited_records:
+            return {"inherited": False}
+        origin = json.loads(self.inherited_records[key])
+        return {"inherited": True, **origin, "record_hash": migration_digest(self._load(key))}
 
     @gl.public.view
     def get_points(self, wallet: str) -> dict:
@@ -777,7 +918,7 @@ class Research(gl.Contract):
 
     @gl.public.view
     def get_problem(self) -> dict:
-        return {"id": self.problem, "objective": self.get_config()["objective"], "status": "open", "admission": "open", "admission_limits": {"active_per_github_account": 1, "registrations_per_rolling_24h": 3, "minimum_account_age_days": int(self.minimum_account_age_days), "note_initial_point_cap": 300}, "formal_scope": "Only the contributor-defined statement and definitions are kernel checked; no canonical full-problem target is enrolled.", "post_settlement_corrections": False}
+        return {"id": self.problem, "objective": self.get_config()["objective"], "status": "open", "admission": "open", "admission_limits": {"active_per_github_account": 1, "registrations_per_rolling_24h": None, "minimum_account_age_days": int(self.minimum_account_age_days), "note_initial_point_cap": 300}, "formal_scope": "Only the contributor-defined statement and definitions are kernel checked; no canonical full-problem target is enrolled.", "post_settlement_corrections": False}
 
     @gl.public.view
     def get_provenance(self, key: str) -> dict:

@@ -28,7 +28,9 @@ Studio v0.123 requires fee-aware writes. This release pins `genlayer-js` **2.0.0
 
 ## Status and boundaries
 
-v5 is the open-admission implementation. Release status, exact source/config pins and actual E2E results belong in the deployment record and public evidence, not in sample files. Earlier deployed contracts retain their own balances and audit history; v5 does not import or sum those points.
+v5 is the open-admission implementation. This release removes the daily registration quota while retaining the 30-day GitHub account age rule and one active initial claim per author. Activating it requires a verified successor contract and migration; the immutable original contract keeps its original rules. Inspect the problem repository's deployment record for the live address, exact source/config pins and actual E2E results.
+
+The successor carries the original 400 points once, together with accepted work, rejected-content history and the unresolved contribution's content fence and active slot. It creates no new award and does not reroll the unresolved judgment. This is a bounded, one-hop migration for the current pilot, not a general import mechanism. The original contract and evidence remain history; never add its balance to the successor's. Earlier v1–v4 balances remain separate.
 
 Contributor-defined statements and definitions are untrusted semantic input. Lean proves the submitted proposition only. GenLayer must reject vacuous, irrelevant, duplicate or unsupported claims. No canonical full P-versus-NP resolution target is enabled. Research notes are clearly nonformal; arbitrary contributed programs are not executed.
 

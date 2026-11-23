@@ -1,6 +1,8 @@
 // A bounded, dated read model. This module never signs or authorizes a mutation.
+import {sha256, stringToBytes} from 'viem';
 export const SNAPSHOT_RECORD_LIMIT = 12;
-export const SNAPSHOT_READ_LIMIT = 28;
+// Four page-level reads and at most three reads per inherited record.
+export const SNAPSHOT_READ_LIMIT = 40;
 export const SNAPSHOT_BYTE_LIMIT = 4 * 1024 * 1024;
 const need = (ok, message) => { if (!ok) throw Error('Open ledger snapshot: ' + message); };
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -14,6 +16,45 @@ const same = (left, right) => canonical(left) === canonical(right);
 const canonical = value => JSON.stringify(sort(value));
 const sort = value => Array.isArray(value) ? value.map(sort) : object(value) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sort(value[key])])) : typeof value === 'number' ? String(value) : value;
 export const normalizeOpenRead = value => value instanceof Map ? Object.fromEntries([...value].map(([key, item]) => [key, normalizeOpenRead(item)])) : Array.isArray(value) ? value.map(normalizeOpenRead) : typeof value === 'bigint' ? String(value) : object(value) ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeOpenRead(item)])) : value;
+// Matches native migration_hash: integers become decimal strings, booleans stay
+// booleans, and original evidence remains untouched. The RPC may return ints as
+// either numbers or decimal strings.
+export const openMigrationHash = value => sha256(stringToBytes(canonical(normalizeOpenRead(value)))).slice(2);
+const exact = (value, keys) => object(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+const sameAddress = (left, right) => address(left) && address(right) && left.toLowerCase() === right.toLowerCase();
+
+export function validateOpenPredecessor(predecessor, {contract, legacyLedgers = []} = {}) {
+  need(exact(predecessor, ['address', 'snapshot_hash']) && address(predecessor.address) && !/^0x0{40}$/i.test(predecessor.address) && hash(predecessor.snapshot_hash), 'invalid predecessor commitment');
+  need(!sameAddress(predecessor.address, contract) && !legacyLedgers.some(item => sameAddress(predecessor.address, item.address)), 'predecessor cannot be the current or a separate historical ledger');
+  return predecessor;
+}
+
+// Only this successor's authenticated view can certify that an older record
+// was imported. A matching historical address by itself is never sufficient.
+export function validateOpenRecordOrigin(record, contributionId, problem, inheritance) {
+  const e = record?.evidence, d = problem.deployment;
+  need(object(record) && object(e) && e.id === contributionId && e.problem === d.problem && e.repository === d.repository && e.branch === d.branch && e.policy === problem.policyHash, 'record scope mismatch');
+  if (sameAddress(e.contract, d.contract)) {
+    need(inheritance === undefined || exact(inheritance, ['inherited']) && inheritance.inherited === false, 'unexpected record inheritance');
+    return {inherited: false};
+  }
+  need(d.predecessor && sameAddress(e.contract, d.predecessor.address), 'record scope mismatch: foreign contract');
+  validateOpenPredecessor(d.predecessor, d);
+  need(exact(inheritance, ['inherited', 'predecessor', 'snapshot_hash', 'record_hash', 'original_record_hash']) && inheritance.inherited === true &&
+    sameAddress(inheritance.predecessor, d.predecessor.address) && inheritance.snapshot_hash === d.predecessor.snapshot_hash &&
+    hash(inheritance.record_hash) && hash(inheritance.original_record_hash) && inheritance.record_hash === openMigrationHash(record), 'record inheritance commitment mismatch');
+  return inheritance;
+}
+
+export async function readOpenRecordInheritance(record, contributionId, problem, readInheritance) {
+  const e = record?.evidence, d = problem.deployment;
+  if (sameAddress(e?.contract, d.contract)) return validateOpenRecordOrigin(record, contributionId, problem);
+  // Reject foreign contracts before asking the authenticated successor for data.
+  need(d.predecessor && sameAddress(e?.contract, d.predecessor.address), 'record scope mismatch: foreign contract');
+  need(typeof readInheritance === 'function', 'authenticated predecessor record required');
+  const inheritance = normalizeOpenRead(await readInheritance(contributionId));
+  return validateOpenRecordOrigin(record, contributionId, problem, inheritance);
+}
 
 export function openSnapshotIdentity(problem) {
   const d = problem.deployment;
@@ -26,10 +67,11 @@ export function validateSnapshotConfig(config, problem) {
   const expected = {version: 5, problem: d.problem, repository: d.repository, branch: d.branch,
     verifier: d.verifier, executor: d.executor, window: d.windowSeconds,
     minimum_account_age_days: d.minimumGitHubAccountAgeDays, policy: problem.policyHash,
-    objective: problem.policy.objective, legacy_ledgers: d.legacyLedgers};
+    objective: problem.policy.objective, legacy_ledgers: d.legacyLedgers, ...(d.predecessor === undefined ? {} : {predecessor: validateOpenPredecessor(d.predecessor, d)})};
   // Native address casing is immaterial; all other constructor fields must match.
   const addresses = value => ({...value, verifier: value?.verifier?.toLowerCase(), executor: value?.executor?.toLowerCase(),
-    legacy_ledgers: value?.legacy_ledgers?.map(item => ({...item, address: item.address?.toLowerCase()}))});
+    legacy_ledgers: value?.legacy_ledgers?.map(item => ({...item, address: item.address?.toLowerCase()})),
+    ...(value?.predecessor === undefined ? {} : {predecessor: {...value.predecessor, address: value.predecessor.address?.toLowerCase()}})});
   need(object(config) && same(addresses(config), addresses(expected)), 'native configuration mismatch');
   return config;
 }
@@ -42,9 +84,9 @@ function validatePoints(points, problem) {
   need(BigInt(points.total_note_points) <= BigInt(points.total_initial_points) && BigInt(points.total_returned_points) <= BigInt(points.total_initial_points), 'point subset mismatch');
 }
 
-export function validateSnapshotRecord(record, impact, contributionId, problem) {
+export function validateSnapshotRecord(record, impact, contributionId, problem, inheritance) {
   const e = record?.evidence, d = problem.deployment;
-  need(object(record) && object(e) && e.id === contributionId && e.problem === d.problem && e.repository === d.repository && e.branch === d.branch && e.policy === problem.policyHash && typeof e.contract === 'string' && e.contract.toLowerCase() === d.contract.toLowerCase(), 'record scope mismatch');
+  validateOpenRecordOrigin(record, contributionId, problem, inheritance);
   need(['submitted', 'provisional', 'challenged', 'approved', 'credited', 'rejected', 'expired'].includes(record.status) && integer(record.credited_points) && hash(record.digest), 'invalid native record');
   need(['head', 'base', 'protocol_commit', 'worker_commit'].every(key => commit(e[key])) && e.protocol_commit === e.worker_commit, 'invalid original record source pins');
   need(address(e.wallet) && integer(e.pr) && Number.isSafeInteger(Number(e.pr)) && Number(e.pr) > 0, 'invalid contributor reference');
@@ -75,10 +117,14 @@ export function validateOpenSnapshot(snapshot, problem, {now = Date.now()} = {})
   need(snapshot.offset === offset && Array.isArray(snapshot.records) && snapshot.records.length === size && Array.isArray(snapshot.impacts) && snapshot.impacts.length === size, 'bounded newest page required');
   const ids = snapshot.records.map(record => record?.evidence?.id);
   need(ids.every(id) && new Set(ids).size === size, 'duplicate or invalid record IDs');
-  for (let i = 0; i < size; i++) validateSnapshotRecord(snapshot.records[i], snapshot.impacts[i], ids[i], problem);
+  need(snapshot.inheritances === undefined || Array.isArray(snapshot.inheritances) && snapshot.inheritances.length === size, 'invalid inherited record page');
+  for (let i = 0; i < size; i++) validateSnapshotRecord(snapshot.records[i], snapshot.impacts[i], ids[i], problem, snapshot.inheritances?.[i]);
   const calls = [['get_config', []], ['count_contributions', []], ['get_points', [problem.deployment.verifier]]];
   if (size) calls.push(['list_contributions', [offset, size]]);
-  for (const contributionId of ids) calls.push(['get', [contributionId]], ['get_impact', [contributionId]]);
+  for (let i = 0; i < size; i++) {
+    calls.push(['get', [ids[i]]], ['get_impact', [ids[i]]]);
+    if (!sameAddress(snapshot.records[i].evidence.contract, problem.deployment.contract)) calls.push(['get_inheritance', [ids[i]]]);
+  }
   need(Array.isArray(snapshot.reads) && snapshot.reads.length === calls.length && calls.length <= SNAPSHOT_READ_LIMIT, 'read budget mismatch');
   let previous = started;
   snapshot.reads.forEach((read, index) => {
@@ -111,14 +157,16 @@ export async function collectOpenSnapshot({problem, read, now = () => new Date()
     need(object(page) && Number(page.total) === Number(count) && page.next_offset === null && Array.isArray(page.items) && page.items.length === size && page.items.every(id) && new Set(page.items).size === size, 'ledger page changed or is malformed');
     ids = page.items;
   }
-  const records = [], impacts = [];
+  const records = [], impacts = [], inheritances = [];
   for (const contributionId of ids) {
     const record = await view('get', [contributionId]), impact = await view('get_impact', [contributionId]);
-    validateSnapshotRecord(record, impact, contributionId, problem);
-    records.push(record); impacts.push(impact);
+    const inheritance = await readOpenRecordInheritance(record, contributionId, problem, id => view('get_inheritance', [id]));
+    validateSnapshotRecord(record, impact, contributionId, problem, inheritance);
+    records.push(record); impacts.push(impact); inheritances.push(inheritance);
   }
   return validateOpenSnapshot({version: 1, identity: openSnapshotIdentity(problem), readMode: 'latest-final', atomic: false,
-    startedAt, completedAt: now(), reads, config, count: String(count), points, offset, records, impacts}, problem);
+    startedAt, completedAt: now(), reads, config, count: String(count), points, offset, records, impacts,
+    ...(inheritances.some(item => item.inherited) ? {inheritances} : {})}, problem);
 }
 
 export function openSnapshotLabel(snapshot) {

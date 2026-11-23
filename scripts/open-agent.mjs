@@ -3,7 +3,7 @@
 import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
 import {randomBytes,createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';import {recoverMessageAddress,isAddress} from 'viem';
-import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes} from '../src/open-research.mjs';
+import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes,readOpenRecordInheritance} from '../src/open-research.mjs';
 import {digest,message} from '../src/security.mjs';import {GitHub} from '../src/github.mjs';
 import {fetchGitHubIdentity} from '../src/github-identity.mjs';
 import {readEvidenceFile} from '../github/evidence-file.mjs';
@@ -42,7 +42,17 @@ export async function prepareOpenContribution({problem,github,number,recordPath,
 }
 export function currentOpenStatus(index,number,deployment){
  if(!index||!Array.isArray(index.entries))throw Error('Malformed evidence index');
- return index.entries.find(e=>e.pr===number&&typeof e.contract==='string'&&e.contract.toLowerCase()===deployment.contract.toLowerCase()&&e.chainId===deployment.chainId&&e.repository===deployment.repository);
+ return index.entries.find(e=>e?.pr===number&&typeof e.contract==='string'&&e.contract.toLowerCase()===deployment.contract.toLowerCase()&&e.chainId===deployment.chainId&&e.repository===deployment.repository);
+}
+export async function readOpenContributionStatus({index,number,problem,native}){
+ const d=problem.deployment;
+ let entry=currentOpenStatus(index,number,d);
+ if(!entry&&d.predecessor)entry=currentOpenStatus(index,number,{...d,contract:d.predecessor.address});
+ if(!entry)return null;
+ if(typeof entry.id!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$/.test(entry.id))throw Error('Indexed contribution ID required');
+ const record=await native('get',[entry.id]),inheritance=await readOpenRecordInheritance(record,entry.id,problem,id=>native('get_inheritance',[id]));
+ if(Number(record.evidence.pr)!==number||record.evidence.contract.toLowerCase()!==entry.contract.toLowerCase())throw Error('Indexed outcome differs from native contribution identity');
+ return {archived:entry,native:record,contract:d.contract,sourceContract:record.evidence.contract,inheritance,next:'Native state is authoritative. Archived evidence keeps its original contract; failed consensus is preserved, not rerolled.'};
 }
 export async function listOpenContributions({native,problem,offset=0,limit=20}){
  if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>50)throw Error('Usage: list [OFFSET >= 0] [LIMIT 1..50]; defaults: 0 20');
@@ -54,9 +64,9 @@ export async function listOpenContributions({native,problem,offset=0,limit=20}){
  for(let start=0;start<page.items.length;start+=4){
   const batch=await Promise.all(page.items.slice(start,start+4).map(async id=>{
    const r=await native('get',[id]),e=r?.evidence;
-   if(e?.id!==id||e.problem!==d.problem||e.repository!==d.repository||e.branch!==d.branch||typeof e.contract!=='string'||e.contract.toLowerCase()!==d.contract.toLowerCase())throw Error('Native contribution scope mismatch: '+id);
+   const inheritance=await readOpenRecordInheritance(r,id,problem,id=>native('get_inheritance',[id]));
    let context;try{context=JSON.parse(e.context);}catch{throw Error('Malformed native contribution context: '+id);}
-   return {id,status:r.status,title:context.title,scope:{claim:e.claim,formal_statement:e.formal_statement,evidence_kind:e.evidence_kind,verification:e.verification,research_direction:e.research_direction},bundle_hash:e.bundle_hash,points:{author_credited:r.credited_points,award_budget:r.award_budget??null,reserve:r.impact_reserve??'0',reserve_settled:r.reserve_settled===true},eligible_dependency:r.status==='credited'&&e.evidence_kind==='formal'};
+   return {id,status:r.status,title:context.title,scope:{claim:e.claim,formal_statement:e.formal_statement,evidence_kind:e.evidence_kind,verification:e.verification,research_direction:e.research_direction},bundle_hash:e.bundle_hash,points:{author_credited:r.credited_points,award_budget:r.award_budget??null,reserve:r.impact_reserve??'0',reserve_settled:r.reserve_settled===true},eligible_dependency:r.status==='credited'&&e.evidence_kind==='formal'&&e.verification==='verified',...(inheritance.inherited?{inheritance}:{})};
   }));items.push(...batch);
  }
  return {problem:d.problem,repository:d.repository,chainId:d.chainId,contract:d.contract,protocolCommit:problem.descriptor.protocol.commit,offset,limit,total,next_offset:next,items,next:next===null?null:`om list ${next} ${limit}`,reuse:'Use om show ID for the full native record. Only credited formal results can be imported.'};
@@ -87,7 +97,7 @@ export async function run(argv=process.argv.slice(2)){
    out({record,artifact:s.evidence.artifact_path,next:'Replace all guidance with your work; disclose prior art and limits. Run format and check.'});
   }else if(command==='check'){
    const s=decode(readProblemFile(worktree,rest[0],16000)),artifactBytes=readProblemFile(worktree,s.evidence.artifact_path,s.evidence.kind==='formal'?32768:12000),artifactText=validateOpenArtifactBytes(artifactBytes,s.evidence.kind);
-   const resolved=await resolveOpenDependencies({problem,submission:s,artifactText,github:gh,readRecord:id=>native('get',[id])});
+   const resolved=await resolveOpenDependencies({problem,submission:s,artifactText,github:gh,readRecord:id=>native('get',[id]),readInheritance:id=>native('get_inheritance',[id])});
    if(s.evidence.kind==='research-note'){out({record:'valid',evidence:'research-note',formalVerification:false,next:'GenLayer still needs to review whether the argument is supported and useful.'});return;}
    const temp=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-local-'));
    try{
@@ -97,7 +107,7 @@ export async function run(argv=process.argv.slice(2)){
     if(run.status!==0)throw Error(openVerifierFailure(run));out(JSON.parse(run.stdout));
    }finally{fs.rmSync(temp,{recursive:true,force:true});}
   }else if(command==='show'){
-   const r=await native('get',[rest[0]]);out({record:r,namespace:r.evidence.evidence_kind==='formal'?`B_${r.evidence.bundle_hash}`:null,next:'Only credited formal artifacts can be imported. Put the exact ID and bundle_hash in the bundle and explain actual use in the record.'});
+   const r=await native('get',[rest[0]]),inheritance=await readOpenRecordInheritance(r,rest[0],problem,id=>native('get_inheritance',[id]));out({record:r,inheritance,namespace:r.evidence.evidence_kind==='formal'?`B_${r.evidence.bundle_hash}`:null,next:'Only credited formal artifacts can be imported. Put the exact ID and bundle_hash in the bundle and explain actual use in the record.'});
   }else if(command==='prepare'||command==='sign'){
    const number=Number(rest[0]),recordPath=rest[1],account=command==='sign'?loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]):null,wallet=account?.address||rest[2];
    if(!Number.isSafeInteger(number)||number<1||!isAddress(wallet||''))throw Error('PR number, record path and public wallet required');
@@ -111,10 +121,9 @@ export async function run(argv=process.argv.slice(2)){
    if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Wrong signature');process.stdout.write(publicEnvelope(claim,signature));
   }else if(command==='status'){
    const number=Number(rest[0]);if(!Number.isSafeInteger(number)||number<1)throw Error('PR number required');
-   const index=await readEvidenceFile(gh,'index.json'),entry=currentOpenStatus(index?.data??{entries:[]},number,d);
-   if(!entry){out({pr:number,status:'No indexed outcome',next:'Check Actions or ask the operator to resume the original signed comment. Do not edit or repost it.'});return;}
-   let current=null;try{current=await native('get',[entry.id]);}catch{}
-   out({archived:entry,native:current,contract:d.contract,next:'Native state is authoritative. Failed consensus is preserved, not rerolled.'});
+   const index=await readEvidenceFile(gh,'index.json'),status=await readOpenContributionStatus({index:index?.data??{entries:[]},number,problem,native});
+   if(!status){out({pr:number,status:'No indexed outcome',next:'Check Actions or ask the operator to resume the original signed comment. Do not edit or repost it.'});return;}
+   out(status);
   }else if(command==='challenge'){
    const [id,file]=rest,isImpact=rest.includes('--impact'),evidence=fs.readFileSync(path.isAbsolute(file)?file:workFile(file),'utf8'),state=await native(isImpact?'get_impact':'get',[id]),method=isImpact?'challenge_impact':'challenge';
    if(evidence.trim().length<20||evidence.length>4000||state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||Number(state.round)>=2)throw Error('Substantive evidence and an open challenge window required');

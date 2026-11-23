@@ -6,7 +6,9 @@ import {isAddress} from 'viem';
 import {validateClaim} from './security.mjs';
 import {validateProvenance} from './submission.mjs';
 import {readProblemFile,parseProblemJSON,sha256,stableJSON,isHash,isCommit} from './problem.mjs';
+import {validateOpenPredecessor} from './open-snapshot.mjs';
 export {readProblemFile,parseProblemJSON,sha256,stableJSON};
+export {openMigrationHash,validateOpenPredecessor,validateOpenRecordOrigin,readOpenRecordInheritance} from './open-snapshot.mjs';
 const need=(ok,msg)=>{if(!ok)throw Error('Open research: '+msg);};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const str=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.length<=max;
@@ -39,6 +41,7 @@ export function loadOpenProblem(directory,{requireDeployment=true}={}){
   need(['appId','verifierAppId'].every(k=>Number.isSafeInteger(d[k])&&d[k]>0),'app-bound checks required');
   need(Array.isArray(d.legacyLedgers)&&d.legacyLedgers.length<=8,'separate historical ledger references required');
   for(const l of d.legacyLedgers)need(exact(l,['chain_id','address','reserved_statement_hashes','reserved_proposition_hashes','description'])&&l.chain_id===61999&&wallet(l.address)&&str(l.description,10,1000)&&['reserved_statement_hashes','reserved_proposition_hashes'].every(k=>Array.isArray(l[k])&&l[k].length<=100&&l[k].every(isHash)),'invalid historical ledger reference');
+  if(d.predecessor!==undefined)validateOpenPredecessor(d.predecessor,d);
  }
  const problem={root,descriptor,deployment,policy,policyHash};
  if(deployment)validateOpenConstructor(openNativeConfiguration(problem));
@@ -65,11 +68,11 @@ export function validateOpenClaim(claim,problem,{now=Date.now()}={}){
 
 export function openNativeConfiguration(problem){
  const d=problem.deployment;
- return {version:5,problem:d.problem,repository:d.repository,branch:d.branch,verifier:d.verifier,executor:d.executor,window:d.windowSeconds,minimum_account_age_days:d.minimumGitHubAccountAgeDays,policy:problem.policyHash,objective:problem.policy.objective,legacy_ledgers:d.legacyLedgers};
+ return {version:5,problem:d.problem,repository:d.repository,branch:d.branch,verifier:d.verifier,executor:d.executor,window:d.windowSeconds,minimum_account_age_days:d.minimumGitHubAccountAgeDays,policy:problem.policyHash,objective:problem.policy.objective,legacy_ledgers:d.legacyLedgers,...(d.predecessor===undefined?{}:{predecessor:validateOpenPredecessor(d.predecessor,d)})};
 }
 
 export function validateOpenConstructor(c){
- need(exact(c,['version','problem','repository','branch','verifier','executor','window','minimum_account_age_days','policy','objective','legacy_ledgers'])&&c.version===5,'exact v5 constructor required');
+ need(exact(c,['version','problem','repository','branch','verifier','executor','window','minimum_account_age_days','policy','objective','legacy_ledgers',...(c&&Object.hasOwn(c,'predecessor')?['predecessor']:[])])&&c.version===5,'exact v5 constructor required');
  need(c.problem==='p-vs-np'&&typeof c.repository==='string'&&/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(c.repository)&&!['.','..'].includes(c.repository.split('/')[1])&&c.branch==='research','constructor problem identity required');
  need(wallet(c.verifier)&&wallet(c.executor)&&c.verifier.toLowerCase()!==c.executor.toLowerCase(),'distinct nonzero native roles required');
  need(Number.isSafeInteger(c.window)&&c.window>=300&&c.window<=604800&&isHash(c.policy)&&str(c.objective,30,2000),'bounded reviewed window, policy and objective required');
@@ -79,6 +82,7 @@ export function validateOpenConstructor(c){
   need(exact(l,['chain_id','address','reserved_statement_hashes','reserved_proposition_hashes','description'])&&l.chain_id===61999&&wallet(l.address)&&str(l.description,10,500)&&!addresses.has(l.address.toLowerCase()),'unique historical Studio ledger required');addresses.add(l.address.toLowerCase());
   for(const key of ['reserved_statement_hashes','reserved_proposition_hashes'])need(Array.isArray(l[key])&&l[key].length<=100&&l[key].every(isHash)&&new Set(l[key]).size===l[key].length,'unique historical content hashes required');
  }
+ if(Object.hasOwn(c,'predecessor'))validateOpenPredecessor(c.predecessor,{legacyLedgers:c.legacy_ledgers});
  need(Buffer.byteLength(JSON.stringify(c))<=32768,'constructor exceeds 32,768 UTF-8 bytes');return c;
 }
 
@@ -91,6 +95,8 @@ export function assertOpenConfiguration(actual,expected){
  normalized.legacy_ledgers=actual.legacy_ledgers.map(l=>{need(l&&typeof l==='object'&&typeof l.address==='string','historical ledger mismatch');return {...l,chain_id:integer(l.chain_id),address:l.address.toLowerCase()};});
  for(const key of ['verifier','executor']){need(typeof actual[key]==='string','native role mismatch');normalized[key]=actual[key].toLowerCase();}
  const wanted={...expected,verifier:expected.verifier.toLowerCase(),executor:expected.executor.toLowerCase(),legacy_ledgers:expected.legacy_ledgers.map(l=>({...l,address:l.address.toLowerCase()}))};
+ if(Object.hasOwn(actual,'predecessor')){validateOpenPredecessor(actual.predecessor,{legacyLedgers:actual.legacy_ledgers});normalized.predecessor={...actual.predecessor,address:actual.predecessor.address.toLowerCase()};}
+ if(expected.predecessor)wanted.predecessor={...expected.predecessor,address:expected.predecessor.address.toLowerCase()};
  need(stableJSON(normalized)===stableJSON(wanted),'native configuration or role mismatch');return actual;
 }
 
