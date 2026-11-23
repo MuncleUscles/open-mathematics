@@ -7,7 +7,7 @@ import {createStudioClient,withStudioFees,MAX_STUDIO_FEE_DEPOSIT,studioEnvelopeF
 
 const address='0x'+'2'.repeat(40),hash='0x'+'a'.repeat(64);
 const policy={enabled:true,policy:{genPerTimeUnit:'1',storageUnitPrice:'250000000',receiptGasPrice:'250000000',messageFeeParamsBudgetFloor:'78852000000000',timeUnitOverlayBps:'1500'}};
-function quote(){return {policy:{enabled:true},feeValue:1000n,distribution:{leaderTimeunitsAllocation:100n,validatorTimeunitsAllocation:200n,appealRounds:0n,executionBudgetPerRound:500n,executionConsumed:0n,totalMessageFees:0n,rotations:[3n],maxPriceGenPerTimeUnit:2n,storageFeeMaxGasPrice:300000000n,receiptFeeMaxGasPrice:300000000n}};}
+function quote(){return {policy:{enabled:true},feeValue:1000n,distribution:{leaderTimeunitsAllocation:100n,validatorTimeunitsAllocation:200n,appealRounds:0n,executionBudgetPerRound:500n,executionConsumed:0n,totalMessageFees:0n,rotations:[5n],maxPriceGenPerTimeUnit:2n,storageFeeMaxGasPrice:300000000n,receiptFeeMaxGasPrice:300000000n}};}
 function harness(q=quote()){
  const estimates=[],sends=[];
  const client=withStudioFees({chain:{id:61999,isStudio:true},estimateTransactionFees:async options=>{estimates.push(options);return q;},writeContract:async args=>{sends.push({method:'write',args});return hash;},deployContract:async args=>{sends.push({method:'deploy',args});return hash;}});
@@ -20,8 +20,8 @@ test('every write and deploy receives an unchanged live quote with bounded fundi
  assert.equal(await h.client.deployContract({code:'trusted',args:['config'],leaderOnly:false}),hash);
  assert.equal(h.estimates.length,2);assert.equal(h.sends.length,2);
  for(const s of h.sends){assert.equal(s.args.fees.distribution,q.distribution);assert.equal(s.args.fees.feeValue,q.feeValue);assert.equal(s.args.leaderOnly,false);}
- assert.deepEqual(h.sends[0].args,{...write,fees:{distribution:q.distribution,feeValue:q.feeValue}});
- assert.deepEqual(h.estimates[0],{leaderTimeunitsAllocation:100n,validatorTimeunitsAllocation:200n,appealRounds:0n,rotations:[3n]});
+ assert.deepEqual(h.sends[0].args,{...write,consensusMaxRotations:5,fees:{distribution:q.distribution,feeValue:q.feeValue}});
+ assert.deepEqual(h.estimates[0],{leaderTimeunitsAllocation:100n,validatorTimeunitsAllocation:200n,appealRounds:0n,rotations:[5n]});
 });
 
 test('failed, oversized, malformed and caller-supplied fee quotes cannot reach a signer',async()=>{
@@ -33,7 +33,7 @@ test('failed, oversized, malformed and caller-supplied fee quotes cannot reach a
  const h=harness();h.client.estimateTransactionFees=async()=>{throw Error('RPC unavailable');};
  await assert.rejects(h.client.deployContract({code:'trusted'}),/RPC unavailable/);assert.equal(h.sends.length,0);
  const explicit=harness();
- for(const options of [{fees:quote()},{value:1n}])await assert.rejects(explicit.client.writeContract({...options,address}),/reviewed fee quote/);
+ for(const options of [{fees:quote()},{value:1n},{consensusMaxRotations:3},{consensusMaxRotations:5}])await assert.rejects(explicit.client.writeContract({...options,address}),/reviewed fee quote/);
  assert.equal(explicit.estimates.length,0);assert.equal(explicit.sends.length,0);
  assert.throws(()=>withStudioFees({chain:{id:61997,isStudio:true}}),/61999/);
 });
@@ -65,7 +65,7 @@ test('the pinned SDK sends the quoted fee tuple and exact native call, and retai
  assert.equal(call.functionName,'addTransaction');
  const params=call.args[0];
  assert.equal(params.recipient.toLowerCase(),address);assert.equal(params.feesDistribution.leaderTimeunitsAllocation,100n);
- assert.deepEqual(params.feesDistribution.rotations,[3n]);assert.equal(params.userValue,0n);
+ assert.deepEqual(params.feesDistribution.rotations,[5n]);assert.equal(params.userValue,0n);assert.equal(params.maxRotations,5n);assert.equal(params.maxRotations,params.feesDistribution.rotations[0]);
  const data=fromRlp(params.txCalldata,'bytes'),native=abi.calldata.decode(data[0]);
  assert.equal(native.get('method')??native.get(''),'register');assert.deepEqual(native.get('args'),[evidence]);
  assert.deepEqual([...data[1]],[0]);
@@ -74,7 +74,7 @@ test('the pinned SDK sends the quoted fee tuple and exact native call, and retai
  assert.equal(sent.length,2);assert(sent[1].value>0n&&sent[1].value<=MAX_STUDIO_FEE_DEPOSIT);
  const deployment=decodeFunctionData({abi:studionet.consensusMainContract.abi,data:sent[1].data}).args[0];
  assert.equal(deployment.recipient,'0x'+'0'.repeat(40));
- assert.deepEqual(deployment.feesDistribution,params.feesDistribution);
+ assert.deepEqual(deployment.feesDistribution,params.feesDistribution);assert.equal(deployment.maxRotations,5n);assert.equal(deployment.maxRotations,deployment.feesDistribution.rotations[0]);
  const deploymentData=fromRlp(deployment.txCalldata,'bytes');
  assert.equal(new TextDecoder().decode(deploymentData[0]),'trusted deployment source');
  assert.deepEqual(abi.calldata.decode(deploymentData[1]).get('args'),['config']);

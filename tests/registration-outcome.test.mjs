@@ -13,7 +13,7 @@ const calldata=(method='register',values=args)=>[...abi.calldata.encode({method,
 
 function failedReceipt(changes={}){
   return {
-    hash, from_address:sender, to_address:address, statusName:'FINALIZED', leader_only:false,
+    hash, from_address:sender, to_address:address, statusName:'FINALIZED', result:6, result_name:'MAJORITY_AGREE', leader_only:false,
     data:{calldata:{raw:calldata()}},
     consensus_data:{leader_receipt:[{execution_result:'ERROR',result:{status:'contract_error',payload:duplicate},genvm_result:hidden}]},
     ...changes,

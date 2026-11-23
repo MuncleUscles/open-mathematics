@@ -1,0 +1,147 @@
+{
+  "description": "Selected public receipt fields, not complete receipts or independent authority. Exact calldata/sender tests supply synthetic bound calls. C captured 2026-11-23T15:00:56.838Z; successful C register and historical B from original saved public reports.",
+  "modernUndetermined": {
+    "hash": "0x69f5b2798fa15f589eb73d16c672c60cc8b07e9fad10699986e3b99b427c9607",
+    "status": 7,
+    "statusName": "FINALIZED",
+    "result": 2,
+    "result_name": "MAJORITY_DISAGREE",
+    "lifecycle": {
+      "state": "finalized",
+      "outcome": "undetermined"
+    },
+    "txExecutionResult": 1,
+    "txExecutionResultName": "FINISHED_WITH_RETURN",
+    "leader_only": false,
+    "rotation_count": 3,
+    "config_rotation_rounds": 3,
+    "consensus_data": {
+      "leader_receipt": [
+        {
+          "mode": "leader",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "execution_result": "SUCCESS"
+        }
+      ],
+      "validators": [
+        {
+          "mode": "validator",
+          "vote": "disagree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "disagree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "disagree",
+          "execution_result": "SUCCESS"
+        }
+      ]
+    }
+  },
+  "modernAccepted": {
+    "hash": "0x96a98ad69e922405b644f8e5d88d5f6050a55037f5e4676538745e7af1c3a7fa",
+    "status": 7,
+    "statusName": "FINALIZED",
+    "result": 1,
+    "result_name": "MAJORITY_AGREE",
+    "lifecycle": {
+      "state": "finalized",
+      "outcome": "accepted"
+    },
+    "txExecutionResult": 1,
+    "txExecutionResultName": "FINISHED_WITH_RETURN",
+    "leader_only": false,
+    "rotation_count": 0,
+    "config_rotation_rounds": 3,
+    "consensus_data": {
+      "leader_receipt": [
+        {
+          "mode": "leader",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "execution_result": "SUCCESS"
+        }
+      ],
+      "validators": [
+        {
+          "mode": "validator",
+          "vote": "idle",
+          "execution_result": "ERROR"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "idle",
+          "execution_result": "ERROR"
+        }
+      ]
+    }
+  },
+  "legacyAccepted": {
+    "hash": "0x6723774034f2eb563c630d45f3a6a6a7a72e986af0764218df736eb6b4e83c1d",
+    "status": 7,
+    "statusName": "FINALIZED",
+    "result": 6,
+    "result_name": "MAJORITY_AGREE",
+    "leader_only": false,
+    "rotation_count": 0,
+    "config_rotation_rounds": 3,
+    "consensus_data": {
+      "leader_receipt": [
+        {
+          "mode": "leader",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "execution_result": "SUCCESS"
+        }
+      ],
+      "validators": [
+        {
+          "mode": "validator",
+          "vote": "disagree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        },
+        {
+          "mode": "validator",
+          "vote": "agree",
+          "execution_result": "SUCCESS"
+        }
+      ]
+    }
+  }
+}

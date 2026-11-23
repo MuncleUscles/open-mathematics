@@ -32,7 +32,7 @@ function finalized({ callMethod = method, callArgs = args, ...changes } = {}) {
     from_address: sender,
     to_address: address,
     data: { calldata: { raw: [...encode(callMethod, callArgs)] } },
-    statusName: 'FINALIZED',
+    statusName: 'FINALIZED', result: 6, result_name: 'MAJORITY_AGREE',
     leader_only: false,
     consensus_data: {
       leader_receipt: [{ execution_result: 'SUCCESS' }],

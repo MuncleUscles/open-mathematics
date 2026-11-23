@@ -22,6 +22,11 @@ const terminal=new Set(['invalid','expired']);
 const secrets=()=>[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean);
 const safeError=error=>secrets().reduce((text,key)=>text.split(key).join('[redacted]'),String(error.message));
 
+export function blockedOpenConsensus(error,failure=String(error.message)){
+ return ['WORKER_ATTESTATION_MISMATCH','STUDIO_FINALIZED_OUTCOME_INVALID'].includes(error.code)||
+  /UNDETERMINED|CANCELED|LEADER_TIMEOUT|VALIDATORS_TIMEOUT|Finalized execution failed|failed receipt verification|corrected attribution requires|attribution changed before impact/.test(failure);
+}
+
 export async function openEvidenceJSON({attestation,problem,candidate,authorId,cached}){
  const {claim,id,commentId,createdAt}=candidate;
  const {evidence:e,submission:s}=await verifyOpenAttestation(attestation,{problem,claim,authorId,commentId,createdAt});
@@ -389,8 +394,7 @@ async function main(){
    report.completedAt=new Date().toISOString();
    delete report.blockedConsensus;
   }else{
-   report.blockedConsensus=error.code==='WORKER_ATTESTATION_MISMATCH'||
-    /UNDETERMINED|CANCELED|LEADER_TIMEOUT|Finalized execution failed|failed receipt verification|corrected attribution requires|attribution changed before impact/.test(failure);
+   report.blockedConsensus=blockedOpenConsensus(error,failure);
   }
   report.error=failure;
   await save();
