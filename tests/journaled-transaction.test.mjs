@@ -22,7 +22,7 @@ function historyRow(transaction = hash) {
 
 function finalized(changes = {}) {
   return {
-    hash, from_address: sender, to_address: address, statusName: 'FINALIZED', leader_only: false,
+    hash, from_address: sender, to_address: address, statusName: 'FINALIZED', result: 6, result_name: 'MAJORITY_AGREE', leader_only: false,
     data: { calldata: { raw: [...encode()] } },
     consensus_data: {
       leader_receipt: [{ execution_result: 'SUCCESS' }],

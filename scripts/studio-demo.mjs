@@ -3,7 +3,7 @@ import {createAccount,generatePrivateKey} from 'genlayer-js';
 import {createStudioClient} from '../src/studio-client.mjs';
 import {studionet} from 'genlayer-js/chains';
 import {digest,message} from '../src/security.mjs';
-import {normalize} from '../src/studio.mjs';
+import {normalize,verifyFinalizedOutcome} from '../src/studio.mjs';
 import {randomBytes} from 'node:crypto';
 const out='public/studio-evidence.json';
 const account=createAccount(generatePrivateKey()); // ephemeral operator, never a contributor key
@@ -11,11 +11,9 @@ const client=createStudioClient({account});
 const stringify=x=>JSON.stringify(x,(_,v)=>v instanceof Map?Object.fromEntries(v):typeof v==='bigint'?String(v):v,2);
 const report={mode:'live-studio-with-fixture-inputs',network:'studionet',chainId:studionet.id,authority:account.address,startedAt:new Date().toISOString(),transactions:{},records:{},limitations:['GitHub PRs and merge confirmations are fixtures.','Points are nontransferable records on the IC; no token or bridge.','Operator key exists only in process memory. Re-run deploys a new demonstration.']};
 function save(){fs.writeFileSync(out,stringify(report));}
-async function wait(stage,hash){report.transactions[stage]={hash,status:'submitted'};save();console.log(stage,hash);let receipt;for(let i=0;i<240;i++){receipt=await client.getTransaction({hash});const status=receipt.status_name||receipt.statusName||receipt.status;if(status==='FINALIZED')break;if(['UNDETERMINED','CANCELED','LEADER_TIMEOUT'].includes(status))throw Error(`${stage}: ${status}`);await new Promise(r=>setTimeout(r,2500));}
-  report.transactions[stage]={hash,receipt:JSON.parse(stringify(receipt), (k,v)=>["node_config","contract_state","execution_stats"].includes(k)?undefined:v)};save();const status=receipt.status_name||receipt.statusName||receipt.status;
-  const leaders=receipt.consensus_data?.leader_receipt;const leader=Array.isArray(leaders)?leaders[0]:leaders;
-  if(status!=='FINALIZED'||leader?.execution_result!=='SUCCESS')throw Error(`${stage}: not finalized successful execution`);
-  if(receipt.leader_only!==false)throw Error(`${stage}: leader-only result is not consensus`);
+async function wait(stage,hash){report.transactions[stage]={hash,status:'submitted'};save();console.log(stage,hash);let receipt;for(let i=0;i<240;i++){receipt=await client.getTransaction({hash});const status=receipt.status_name||receipt.statusName||receipt.status;if(status==='FINALIZED')break;if(['UNDETERMINED','CANCELED','LEADER_TIMEOUT','VALIDATORS_TIMEOUT'].includes(status))throw Error(`${stage}: ${status}`);await new Promise(r=>setTimeout(r,2500));}
+  report.transactions[stage]={hash,receipt:JSON.parse(stringify(receipt), (k,v)=>["node_config","contract_state","execution_stats"].includes(k)?undefined:v)};save();
+  verifyFinalizedOutcome(receipt);
   return receipt;}
 try{
 if(await client.getChainId()!==studionet.id)throw Error('Wrong Studio chain');

@@ -7,12 +7,13 @@ import path from 'node:path';
 import {privateKeyToAccount} from 'viem/accounts';
 import {canonical,digest,message} from '../src/security.mjs';
 import {sha256} from '../src/open-research.mjs';
+import {verifyFinalizedOutcome} from '../src/studio.mjs';
 import {readOpenClaimComment,requireClaimAuthor,exactOpenReport,eligibleOpenClaim,selectOpenClaim,readOpenRecoveryClaim} from '../github/open-select.mjs';
 import {
  noteResult,openVerifierFailure,readOpenBlobs,requireOpenNative,resolveOpenDependencies,validateOpenResult,
  verifyOpenAttestation,writeOpenDependencyManifest,
 } from '../github/open-verify.mjs';
-import {openEvidenceJSON,requireOpenRecord,expireUnregisteredOpenReport,openClaimFailureOutcome,adjudicateOpenRecord,recoverStaleOpenRegistration,bindOpenRegistration} from '../github/open-worker.mjs';
+import {blockedOpenConsensus,openEvidenceJSON,requireOpenRecord,expireUnregisteredOpenReport,openClaimFailureOutcome,adjudicateOpenRecord,recoverStaleOpenRegistration,bindOpenRegistration} from '../github/open-worker.mjs';
 
 const commit=x=>x.repeat(40);
 const hash=x=>x.repeat(64);
@@ -466,4 +467,19 @@ test('report reconciliation requires the post-reserve native contribution snapsh
  const final={...upfront,credited_points:'260',reserve_returned:'20',reserve_settled:true};
  assert.equal(requireOpenRecord(final,raw,{settledImpact:impact}).credited_points,'260');
  assert.throws(()=>requireOpenRecord(final,raw,{settledImpact:{...impact,source_digest:hash('e')}}),/reserve settlement do not agree/);
+});
+
+
+test('finalized unresolved consensus leaves a saved claim ineligible for automatic scheduling',async()=>{
+ const {problem,claim,candidate,pr}=await fixture();
+ const report={id:candidate.id,commentId:COMMENT,commentCreatedAt:CREATED,contract:claim.contract,chainId:claim.chainId,
+  repository:claim.repository,pr:PR,head:claim.head,base:claim.base,claim:candidate.envelope,status:'submitted'};
+ const observed=JSON.parse(fs.readFileSync(new URL('fixtures/studio-consensus-outcomes.json',import.meta.url))).modernUndetermined;
+ let error;try{verifyFinalizedOutcome(observed);}catch(caught){error=caught;}
+ assert.equal(error.code,'STUDIO_FINALIZED_OUTCOME_INVALID');
+ report.blockedConsensus=blockedOpenConsensus(error);
+ assert.equal(report.blockedConsensus,true);
+ assert.equal(eligibleOpenClaim({candidate,pr,deployment:problem.deployment,canonicalHead:claim.base,report}),false);
+ assert.equal(blockedOpenConsensus(Error('Transaction VALIDATORS_TIMEOUT: hash')),true);
+ assert.equal(blockedOpenConsensus(Error('Temporary RPC outage')),false);
 });

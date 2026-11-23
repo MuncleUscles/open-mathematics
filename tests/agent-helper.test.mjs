@@ -68,7 +68,7 @@ function nativeSendFixture(t){
  const sender={account};
  const invokeNative=(args,reader=sender)=>run(['--worktree',root,...args],{clientFor:suppliedKey=>suppliedKey?sender:reader});
  const receipt=(method,args)=>({
-  hash,to_address:details.contract,statusName:'FINALIZED',leader_only:false,
+  hash,to_address:details.contract,statusName:'FINALIZED',result:6,result_name:'MAJORITY_AGREE',leader_only:false,
   data:{calldata:{raw:[...abi.calldata.encode({method,args})]}},
   consensus_data:{leader_receipt:[{execution_result:'SUCCESS'}]},
  });

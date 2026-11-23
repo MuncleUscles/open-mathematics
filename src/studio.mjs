@@ -2,14 +2,34 @@ import {digest,canonical} from './security.mjs';
 import {abi} from 'genlayer-js';
 export const normalize=x=>x instanceof Map?Object.fromEntries([...x].map(([k,v])=>[k,normalize(v)])):Array.isArray(x)?x.map(normalize):typeof x==='bigint'?String(x):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).map(([k,v])=>[k,normalize(v)])):x;
 const eq=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.toLowerCase()===b.toLowerCase();
+export function verifyFinalizedOutcome(r,{execution='SUCCESS'}={}){
+  const invalid=()=>{throw Object.assign(Error('Invalid finalized consensus outcome or execution receipt'),{code:'STUDIO_FINALIZED_OUTCOME_INVALID'});};
+  if(!r||typeof r!=='object'||Array.isArray(r))invalid();
+  const statuses=['status_name','statusName','status'].filter(k=>Object.hasOwn(r,k));
+  const names=['result_name','resultName'].filter(k=>Object.hasOwn(r,k));
+  const leaders=r.consensus_data?.leader_receipt,leader=Array.isArray(leaders)?leaders[0]:leaders;
+  if(!['SUCCESS','ERROR'].includes(execution)||!statuses.length||
+    statuses.some(k=>r[k]!=='FINALIZED'&&!(k==='status'&&r[k]===7))||
+    !names.length||names.some(k=>r[k]!=='MAJORITY_AGREE')||
+    r.leader_only!==false||leader?.execution_result!==execution)invalid();
+  // SDK 0.18.9 / historical Studio used result=6 for MAJORITY_AGREE.
+  // Accept that exact legacy shape only, never infer it from missing fields.
+  const modern=['lifecycle','txExecutionResult','txExecutionResultName'].some(k=>Object.hasOwn(r,k));
+  if(r.result===6&&!modern)return true;
+  // SDK 2.0 / Studio v0.123 uses result=1. A successful leader return alone
+  // is insufficient: C returned normally while consensus finalized undetermined.
+  if(r.result!==1||r.txExecutionResult!==(execution==='SUCCESS'?1:2)||
+    r.txExecutionResultName!==(execution==='SUCCESS'?'FINISHED_WITH_RETURN':'FINISHED_WITH_ERROR'))invalid();
+  if(Object.hasOwn(r,'lifecycle')&&(r.lifecycle?.state!=='finalized'||r.lifecycle?.outcome!=='accepted'))invalid();
+  return true;
+}
 export function verifyReceiptCall(r,{hash,address,method,id,args}){
   if(!eq(r.hash,hash)||!eq(r.to_address,address))throw Error('Invalid finalized execution receipt');
   let call,decoded;try{decoded=abi.calldata.decode(Uint8Array.from(r.data?.calldata?.raw||[]));call=normalize(decoded);}catch{throw Error('Invalid calldata');}
   if((call.method??call[''])!==method||(args?!Buffer.from(abi.calldata.encode(decoded instanceof Map?decoded.get('args'):decoded.args)).equals(Buffer.from(abi.calldata.encode(args))):call.args?.[0]!==id))throw Error('Wrong contract method or contribution');
 }
 export function verifyReceipt(r,{independent=false,...expected}){
-  const leaders=r.consensus_data?.leader_receipt;const leader=Array.isArray(leaders)?leaders[0]:leaders;
-  if((r.status_name||r.statusName)!=='FINALIZED'||leader?.execution_result!=='SUCCESS'||r.leader_only!==false)throw Error('Invalid finalized execution receipt');
+  verifyFinalizedOutcome(r);
   verifyReceiptCall(r,expected);
   if(independent&&!r.consensus_data?.validators?.some(v=>v.mode==='validator'&&v.vote==='agree'&&v.execution_result==='SUCCESS'))throw Error('Independent adjudication required');
   return true;
