@@ -27,6 +27,35 @@ test('Pages waits for exact uploaded artifact visibility and a second consistent
  await waitPagesArtifact(g.options);assert.equal(g.calls.length,4);
 });
 
+test('Pages retries bounded count mismatches and requires two new complete observations',async()=>{
+ for(const incomplete of [{total_count:1,artifacts:[]},{total_count:0,artifacts:[artifact]}]){
+  const f=fixture([page([artifact]),incomplete,page([artifact]),page([artifact])]);
+  assert.deepEqual(await waitPagesArtifact(f.options),{artifactId:123,name:'github-pages',runId:456,headSha:head,observations:2,readOnly:true});
+  assert.equal(f.calls.length,4);assert.deepEqual(f.waits,[5000,5000,5000]);
+ }
+});
+
+test('Pages fails persistent count mismatches within the existing visibility bound',async()=>{
+ const f=fixture([{total_count:1,artifacts:[]}]);
+ await assert.rejects(waitPagesArtifact(f.options),/did not become stably visible.*response=object, total_count=1, artifacts=array\(0\)/);
+ assert.equal(f.calls.length,12);assert.deepEqual(f.waits,Array(11).fill(5000));
+});
+
+test('Pages rejects malformed or oversized listings immediately with sanitized diagnostics',async()=>{
+ const marker='https://untrusted.example/private?token=do-not-log';
+ for(const malformed of [null,[],{}, {total_count:0}, {artifacts:[]},
+  {total_count:marker,artifacts:[]},{total_count:-1,artifacts:[]},
+  {total_count:0.5,artifacts:[]},{total_count:101,artifacts:[]},
+  {total_count:0,artifacts:marker},{total_count:100,artifacts:Array(101).fill({name:marker})}]){
+  const f=fixture([malformed]);
+  await assert.rejects(waitPagesArtifact(f.options),error=>{
+   assert.match(error.message,/bounded artifact listing required \(response=/);
+   assert.doesNotMatch(error.message,/untrusted|do-not-log/);return true;
+  });
+  assert.equal(f.calls.length,1);assert.equal(f.waits.length,0);
+ }
+});
+
 test('Pages refuses substituted, expired, foreign or ambiguous artifacts without retrying deployment',async()=>{
  for(const change of [{id:124},{name:'other'},{expired:true},{expires_at:'2026-11-22T22:00:00Z'},
   {size_in_bytes:0},{workflow_run:{...artifact.workflow_run,id:457}},
@@ -47,7 +76,6 @@ test('Pages visibility wait is bounded and does not retry API or permission fail
   const g=fixture([]);g.options.github.request=async()=>{g.calls.push('failed');throw Error('GitHub '+status);};
   await assert.rejects(waitPagesArtifact(g.options),new RegExp('GitHub '+status));assert.equal(g.calls.length,1);assert.equal(g.waits.length,0);
  }
- const malformed=fixture([{total_count:101,artifacts:[]}]);await assert.rejects(waitPagesArtifact(malformed.options),/bounded artifact listing/);
  const invalid=fixture([]);invalid.options.artifactId='123\nother=value';await assert.rejects(waitPagesArtifact(invalid.options),/identifiers/);assert.equal(invalid.calls.length,0);
  await assert.rejects(run({GITHUB_ACTIONS:'true',GITHUB_REF:'refs/heads/research'}),/reviewed main/);
 });
