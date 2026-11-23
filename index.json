@@ -2,6 +2,22 @@
   "mode": "live-github-studio",
   "entries": [
     {
+      "id": "pr-5-5d1b90aaf87e-56a602db558c",
+      "pr": 5,
+      "head": "5d1b90aaf87e9066593726d665acf45001d55891",
+      "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+      "title": "Satisfiability is preserved by injective CNF variable renaming",
+      "status": "verifying",
+      "points": "0",
+      "impact": null,
+      "dependencies": [],
+      "report": "reports/pr-5-5d1b90aaf87e-56a602db558c.json",
+      "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093778539",
+      "updatedAt": "2026-11-23T01:19:05.500Z",
+      "commentId": 7089033764,
+      "needsResume": true
+    },
+    {
       "id": "pr-6-f7f0a493ce6e-f256d5e30de3",
       "pr": 6,
       "head": "f7f0a493ce6e9fadfd3d1527d6bfe9107956b0c2",
