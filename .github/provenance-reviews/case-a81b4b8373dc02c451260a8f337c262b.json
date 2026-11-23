@@ -1,0 +1,24 @@
+{
+  "case_id": "case-a81b4b8373dc02c451260a8f337c262b",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chain_id": 61999,
+  "payload_hash": "c6f846e4994e45b0242e2dbcabac10fdbefd746db14a3805783f8f132f040567",
+  "round": 0,
+  "review_basis": "Controlled negative source-admission test. The repository owner MuncleUscles is GitHub account ID 2372232, as verified through the authenticated GitHub repository and PR API. The exact raw file is published by that same pilot repository. This establishes the named pilot controller only; it proves no academic identity, discovery priority, mathematical result or external entitlement. The quote explicitly denies a P vs NP solution. No formal target is enrolled and no allocation is justified.",
+  "sources": [
+    {
+      "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+      "content_hash": "ad990d7a8462126cc3f0247eddd904a9968537bf2cf0ca08d73ee35cbdf91b63",
+      "quote": "Author identity for this document: Open Mathematics pilot (MuncleUscles).\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\n\nThis document was written for a controlled protocol test by the Open Mathematics pilot and its development agents. It makes no claim of solving P vs NP, discovering new mathematics, or owning the work of an external researcher. The pilot's complete P vs NP target is not enrolled. A documentary report referencing this source must not resolve the flagship problem merely because the source is public.\n\nThis is a test of source-specific author identity and wallet binding, not proof that an external academic identity has been verified. It does not establish discovery priority and does not justify an external-author point allocation. Any native case and its result remain inspectable in the public audit.",
+      "verified_authors": [
+        {
+          "name": "Open Mathematics pilot (MuncleUscles)",
+          "subject": "github:user:2372232"
+        }
+      ]
+    }
+  ],
+  "priority_verified": false,
+  "authorship_verified": false,
+  "priority_basis": []
+}
