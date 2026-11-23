@@ -36,4 +36,4 @@ Contributor-defined statements and definitions are untrusted semantic input. Lea
 
 The pilot trusts reviewed verifier/executor identities and protected repository configuration. Free keys do not solve Sybil identity. Semantic duplicate review is bounded, challenge windows are short, and v5 post-settlement corrections and cross-ledger impact are not implemented.
 
-[Architecture and operating guide](docs/OPEN-RESEARCH.md) · [Historical pilots](docs/HISTORICAL-PILOTS.md) · [Reference projects actually inspected](docs/REFERENCES.md)
+[GitHub account identity and native credit](docs/GITHUB-ACCOUNTS.md) · [Architecture and operating guide](docs/OPEN-RESEARCH.md) · [Historical pilots](docs/HISTORICAL-PILOTS.md) · [Reference projects actually inspected](docs/REFERENCES.md)
