@@ -5,7 +5,12 @@
   "payloadHash": "c6f846e4994e45b0242e2dbcabac10fdbefd746db14a3805783f8f132f040567",
   "reporter": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
   "transactions": {},
-  "rounds": {},
+  "rounds": {
+    "0": {
+      "configHash": "b525c0ef77d6f2fcd09ea445f69f55b44a1d30f21d23c3cfe03378ea2b47a97d",
+      "evidenceJSON": "{\"sources\":[{\"reference\":\"https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md\",\"content_hash\":\"ad990d7a8462126cc3f0247eddd904a9968537bf2cf0ca08d73ee35cbdf91b63\",\"retrieved_at\":1795401175,\"excerpt\":\"Author identity for this document: Open Mathematics pilot (MuncleUscles).\\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\\n\\nThis document was written for a controlled protocol test by the Open Mathematics pilot and its development agents. It makes no claim of solving P vs NP, discovering new mathematics, or owning the work of an external researcher. The pilot's complete P vs NP target is not enrolled. A documentary report referencing this source must not resolve the flagship problem merely because the source is public.\\n\\nThis is a test of source-specific author identity and wallet binding, not proof that an external academic identity has been verified. It does not establish discovery priority and does not justify an external-author point allocation. Any native case and its result remain inspectable in the public audit.\",\"verified_authors\":[{\"name\":\"Open Mathematics pilot (MuncleUscles)\",\"subject\":\"github:user:2372232\"}]}],\"priority_verified\":false,\"priority_basis\":[],\"identity_subject\":\"\",\"identity_challenge\":\"\",\"identity_author_id\":\"\",\"identity_source\":\"\",\"authorship_verified\":false,\"formal_verified\":false,\"statement_hash\":\"\",\"artifact_hash\":\"\",\"policy\":\"\"}"
+    }
+  },
   "startedAt": "2026-11-23T02:32:50.846Z",
   "case": {
     "attestation": null,
@@ -38,6 +43,6 @@
     "target": "p-vs-np",
     "verdict": null
   },
-  "updatedAt": "2026-11-23T02:32:51.915Z",
+  "updatedAt": "2026-11-23T02:32:55.186Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45100799950"
 }
