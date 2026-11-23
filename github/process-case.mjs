@@ -4,14 +4,14 @@ import {journaledTransaction} from './journaled-transaction.mjs';
 import {createAccount} from 'genlayer-js';
 import {GitHub} from '../src/github.mjs';import {digest} from '../src/security.mjs';
 import {clientFor,read,clean,sleep} from './runtime.mjs';import {verifyCaseDocumentary} from './verify-case.mjs';
+import {isStaleCase,isTerminalCase,reconcileV3CaseExpiration,requireV3CaseCanProceed,staleCaseDiagnostic} from './case-expiration.mjs';
 const d=JSON.parse(fs.readFileSync('public/deployment.json'));
 if(d.protocolVersion!==3||d.codeHash!==digest(fs.readFileSync('contracts/research.py'))||d.policy!==digest(fs.readFileSync('lean/policy.json')))throw Error('Exact reviewed v3 deployment required');
 if(process.env.GITHUB_REF!=='refs/heads/protocol'||process.env.GITHUB_REPOSITORY!==d.repository)throw Error('Trusted protocol branch required');
 const gh=new GitHub({repository:d.repository,token:process.env.GITHUB_TOKEN}),verifier=clientFor(process.env.VERIFIER_SIGNING_KEY),executor=clientFor(process.env.EXECUTOR_SIGNING_KEY);
 if(createAccount(process.env.VERIFIER_SIGNING_KEY).address.toLowerCase()!==d.verifier.toLowerCase()||createAccount(process.env.EXECUTOR_SIGNING_KEY).address.toLowerCase()!==d.executor.toLowerCase())throw Error('Wrong enrolled operators');
 const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)),requested=event.inputs?.case_id||'';
-const terminal=new Set(['settled','expired','withdrawn']);
-const expirationReason='The target allocation, author binding or problem resolution changed, or the identity challenge expired. This stale case remains in the audit history.';
+const readView=(method,args)=>read(executor,d.contract,method,args);
 const files=fs.readdirSync('.github/provenance-reviews').filter(x=>/^case-[a-f0-9]{32}\.json$/.test(x)).sort();
 const admitted=requested?[]:await read(executor,d.contract,'list_review_cases',[]);
 const admissions=new Set(admitted.slice(0,100));
@@ -21,24 +21,15 @@ const candidates=requested?[requested]:[...configured,...admissions];
 async function getFile(file){try{const r=await gh.request(`/contents/${file}?ref=evidence`);return {sha:r.sha,data:JSON.parse(Buffer.from(r.content,'base64'))};}catch(e){if(e.message==='GitHub 404')return null;throw e;}}
 async function put(file,value){const old=await getFile(file);return gh.request(`/contents/${file}`,{method:'PUT',body:{branch:'evidence',message:'Record native provenance case',content:Buffer.from(JSON.stringify(clean(value),null,2)+'\n').toString('base64'),...(old?{sha:old.sha}:{})}});}
 function admission(id){const file=`.github/provenance-reviews/${id}.json`;return fs.existsSync(file)?fs.readFileSync(file):null;}
-async function staleCase(c){
- if(terminal.has(c.status))return false;
- if(c.kind==='attribution')return Number((await read(executor,d.contract,'get_provenance',[c.target])).version)!==Number(c.revision);
- if(c.kind==='authorship'){
-  const author=(await read(executor,d.contract,'get_external_authors',[])).find(a=>a.id===c.target);
-  return !!author?.claimed_wallet||Number(author?.binding_version)!==Number(c.revision)||Date.now()>=Number(c.identity_expiry)*1000;
- }
- return (await read(executor,d.contract,'get_problem',[])).status==='resolved';
-}
 let selected,saved,admissionBytes,configHash;
 for(const id of candidates){
  if(!/^case-[a-f0-9]{32}$/.test(id))throw Error('Invalid case ID');
  const c=await read(executor,d.contract,'get_case',[id]);
  const prior=(await getFile(`cases/${id}.json`))?.data;
- if(!requested&&terminal.has(c.status)&&(!prior||prior.completedAt))continue;
+ if(!requested&&isTerminalCase(c.status)&&(!prior||prior.completedAt))continue;
  const bytes=admission(id),hash=bytes?digest(bytes):null;
  const repeated=prior?.error&&Number(prior.failedRound)===Number(c.round)&&prior.failedConfigHash===hash&&prior.case?.status===c.status;
- if(!requested&&repeated&&!await staleCase(c))continue;
+ if(!requested&&repeated&&(prior.error===staleCaseDiagnostic||!await isStaleCase(c,readView)))continue;
  selected=c;saved=prior;admissionBytes=bytes;configHash=hash;break;
 }
 if(!selected){console.log('No admitted provenance work or unfinished terminal journal.');process.exit(0);}
@@ -59,9 +50,7 @@ async function reconcileAttestation(c){
 }
 try{
  let c=await state();
- if(await staleCase(c)){
-  await tx('expire',executor,'expire_case',[id,expirationReason]);c=await state();
- }
+ await requireV3CaseCanProceed(c,readView);
  if(['submitted','challenged'].includes(c.status)){
   const round=Number(c.round),stage=`attest-r${round}`;
   const journaled=Object.hasOwn(report.transactions,stage);
@@ -101,12 +90,10 @@ try{
   const round=Number(c.round);
   await tx(`review-r${round}`,executor,'review_case',[id,round,c.attestation_hash],true,true);
   await tx(`settle-r${round}`,executor,'settle_case',[id,round,c.attestation_hash],false,true);
- }else if(c.status==='expired'){
-  const reason=c.history?.findLast(item=>item.event==='expired')?.reason;
-  if(typeof reason!=='string')throw Error('Exact native case expiration reason is unavailable');
-  await tx('expire',executor,'expire_case',[id,reason],false,true);
+ }else{
+  await reconcileV3CaseExpiration(c,executor,tx);
  }
- if(terminal.has(c.status))report.completedAt=new Date().toISOString();
+ if(isTerminalCase(c.status))report.completedAt=new Date().toISOString();
  else delete report.completedAt;
  delete report.error;delete report.failedRound;delete report.failedConfigHash;delete report.blockedConsensus;
  await save();console.log('Provenance case:',id,c.status);
