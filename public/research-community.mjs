@@ -62,7 +62,7 @@ export async function mountResearchCommunity({chainRead,container=document.query
  if(!container)return;
  let deployment;
  const unavailable=(version,reason)=>{container.innerHTML=inactive(version,reason,{temporary:true});const button=container.querySelector?.('[data-retry-community]');if(button)button.onclick=()=>mountResearchCommunity({chainRead,container});const badge=typeof document==='undefined'?null:document.querySelector('[data-problem-status]');if(badge)badge.textContent='STATUS UNAVAILABLE';};
- try{const r=await fetch('deployment.json',{cache:'no-store'});if(!r.ok)throw Error();deployment=await r.json();}
+ try{const r=await fetch('deployment-metadata.json',{cache:'no-store'});if(!r.ok)throw Error();deployment=await r.json();}
  catch{unavailable(null,'Deployment metadata could not be loaded.');return;}
  if(deployment.protocolVersion!==3){container.innerHTML=inactive(deployment.protocolVersion,'This presentation is ready for protocol v3; the deployed protocol does not expose these native records.');const badge=typeof document==='undefined'?null:document.querySelector('[data-problem-status]');if(badge)badge.textContent='STATUS UNAVAILABLE';return;}
  container.innerHTML=shell('Reading finalized native records…')+'<p class="community-empty">Loading affiliations, accepted work, source attribution and correction cases.</p>';

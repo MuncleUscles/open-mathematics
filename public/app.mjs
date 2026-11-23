@@ -3,7 +3,7 @@ import {initial,transition,wallet} from '../src/demo.mjs';
 import {recoverMessageAddress,toHex} from 'viem';
 import {generatePrivateKey,privateKeyToAccount} from 'viem/accounts';
 let state=initial(),filter='all',graphFilter='all',selected=null,busy=false,studio=null,lean=null;
-const activeDeployment=fetch('deployment.json',{cache:'no-store',signal:AbortSignal.timeout(8000)}).then(r=>{if(!r.ok)throw Error('Deployment metadata unavailable');return r.json();}).then(d=>/^0x[0-9a-f]{40}$/i.test(d.contract)?d:null).catch(()=>null);
+const activeDeployment=fetch('deployment-metadata.json',{cache:'no-store',signal:AbortSignal.timeout(8000)}).then(r=>{if(!r.ok)throw Error('Deployment metadata unavailable');return r.json();}).then(d=>/^0x[0-9a-f]{40}$/i.test(d.contract)?d:null).catch(()=>null);
 const $=s=>document.querySelector(s);const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const short=x=>x.slice(0,6)+'…'+x.slice(-4);const statuses={submitted:'Awaiting claim',claimed:'Wallet bound',verified:'Evidence ready',provisional:'Challenge window',challenged:'Challenged',approved:'Approved',merged:'Merged',credited:'Accepted',rejected:'Rejected',invalid:'Invalid evidence'};
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('visible');setTimeout(()=>$('#toast').classList.remove('visible'),3500);}

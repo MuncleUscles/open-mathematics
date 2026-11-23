@@ -14,7 +14,7 @@ async function inspect(entry){
  const body=document.querySelector('#modal-body');body.innerHTML='<h2>Reading the evidence…</h2>';dialog.showModal();
  try{
   const r=await fetch(entry.local?'live-example.json':root+entry.report).then(r=>{if(!r.ok)throw Error('Evidence unavailable');return r.json();});
-  const deployment=await fetch('deployment.json',{cache:'no-store'}).then(r=>r.json()).catch(()=>null);
+  const deployment=await fetch('deployment-metadata.json',{cache:'no-store'}).then(r=>r.json()).catch(()=>null);
   const address=deployment?.contract||latest?.deployment?.contract||r.contract;
   const view=await readContributionInspection({read:chainRead,address,report:r,deployment,loadSnapshot:async()=>{
    const response=await fetch('community-snapshot.json',{cache:'no-store'});if(!response.ok)throw Error('Snapshot unavailable');return response.json();
@@ -25,7 +25,7 @@ async function inspect(entry){
 async function refresh(){if(refreshing)return;refreshing=true;try{
  const r=await fetch(root+'index.json?refresh='+Math.floor(Date.now()/30000));if(!r.ok)throw Error();latest=await r.json();
  const entries=latest.entries||[];
- const active=await fetch('deployment.json',{cache:'no-store'}).then(r=>r.json());
+ const active=await fetch('deployment-metadata.json',{cache:'no-store'}).then(r=>r.json());
  const published=await fetch('community-snapshot.json').then(r=>r.ok?r.json():null).catch(()=>null);
  const snapshot=validatedCommunitySnapshot(published,active);
  if(snapshot){
