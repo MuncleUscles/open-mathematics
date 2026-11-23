@@ -1,0 +1,5 @@
+# Native receipts and captured state remain downloadable; collapse their large
+# machine-generated calldata arrays in GitHub's default code review.
+public/*evidence.json linguist-generated=true
+public/deployment*.json linguist-generated=true
+public/ledger-snapshot*.json linguist-generated=true
