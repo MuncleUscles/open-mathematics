@@ -2,6 +2,22 @@
   "mode": "live-github-studio",
   "entries": [
     {
+      "id": "pr-6-f7f0a493ce6e-f256d5e30de3",
+      "pr": 6,
+      "head": "f7f0a493ce6e9fadfd3d1527d6bfe9107956b0c2",
+      "wallet": "0xE325C3DC47C08100806f7c19559EA8D3aA0325cF",
+      "title": "Submission PR #6",
+      "status": "invalid",
+      "points": "0",
+      "impact": null,
+      "dependencies": [],
+      "report": "reports/pr-6-f7f0a493ce6e-f256d5e30de3.json",
+      "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45093536890",
+      "updatedAt": "2026-11-23T01:16:30.646Z",
+      "commentId": 7089000882,
+      "needsResume": false
+    },
+    {
       "id": "pr-2-ae390bee15b1-28fd3ab1cf7f",
       "pr": 2,
       "head": "ae390bee15b1dbc1e2602c772dc8ab2010bb8f38",
@@ -25,5 +41,15 @@
       "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45084777412",
       "updatedAt": "2026-11-22T23:47:39.839Z"
     }
-  ]
+  ],
+  "deployment": {
+    "protocolVersion": 2,
+    "contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+    "repository": "MuncleUscles/open-mathematics",
+    "branch": "research",
+    "sourceBranch": "protocol",
+    "chainId": 61999,
+    "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+    "windowSeconds": 300
+  }
 }
