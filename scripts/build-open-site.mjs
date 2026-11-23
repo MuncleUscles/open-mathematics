@@ -1,7 +1,8 @@
-import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {build} from 'esbuild';
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath,pathToFileURL} from 'node:url';import {build} from 'esbuild';
 import {execFileSync} from 'node:child_process';
 import {loadOpenProblem,verifyOpenCheckout,readProblemFile,parseProblemJSON} from '../src/open-research.mjs';
 import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot} from '../src/github-accounts.mjs';
+import {validateFederationDeployment,validateFederationSnapshot} from '../src/federation-snapshot.mjs';
 import {clientFor,read} from '../github/runtime.mjs';
 import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -39,7 +40,11 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  const p=loadOpenProblem(directory),protocolRoot=protocolCheckout===undefined?rendererRoot:fs.realpathSync(protocolCheckout);
  if(!preview)verifyOpenCheckout(p,protocolRoot);
  const commit=rendererCommit(rendererRoot,{preview});
+ const federationPath='.open-math/federation.json';
+ const federation=fs.existsSync(path.join(p.root,federationPath));
+ if(federation)validateFederationDeployment(parseProblemJSON(readProblemFile(p.root,federationPath)),p);
  fs.mkdirSync(destination,{recursive:true});
+ fs.rmSync(path.join(destination,'federation-snapshot.json'),{force:true});
  fs.rmSync(path.join(destination,'ledger-snapshot.json'),{force:true});
  if(snapshot)execFileSync(process.execPath,[path.join(protocolRoot,'scripts/capture-open-ledger.mjs'),path.resolve(directory),path.resolve(destination,'ledger-snapshot.json')],{cwd:protocolRoot,stdio:'inherit'});
  let githubAccounts;
@@ -53,11 +58,19 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
    fs.writeFileSync(path.join(destination,'github-accounts-snapshot.json'),JSON.stringify(accounts)+'\n');
   }
  }
+ if(snapshot&&federation){
+  const {collectFederationSnapshot}=await import(pathToFileURL(path.join(protocolRoot,'src/federation-snapshot.mjs')).href);
+  const client=withStudioBatchPacing(clientFor());if(Number(await client.getChainId())!==p.deployment.chainId)throw Error('Wrong federation ledger chain');
+  const problem={...p,federation:true};
+  const captured=await collectFederationSnapshot({problem,read:(method,args=[])=>read(client,p.deployment.contract,method,args)});
+  validateFederationSnapshot(captured,problem);
+  fs.writeFileSync(path.join(destination,'federation-snapshot.json'),JSON.stringify(captured)+'\n');
+ }
  fs.copyFileSync(path.join(rendererRoot,'public/open/index.html'),path.join(destination,'index.html'));
  for(const name of ['style.css','favicon.svg'])fs.copyFileSync(path.join(rendererRoot,'public/open',name),path.join(destination,name));
  fs.cpSync(path.join(rendererRoot,'public/open/assets'),path.join(destination,'assets'),{recursive:true});
  const presentation={commit,protocolCommit:p.descriptor.protocol.commit,readOnly:true};
- fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,...(githubAccounts?{githubAccounts}:{})},null,2)+'\n');
+ fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,...(githubAccounts?{githubAccounts}:{}),...(federation?{federation:true}:{})},null,2)+'\n');
  fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify({version:5,objective:p.policy.objective,admission:'open',guide:`https://github.com/${p.descriptor.repository}/blob/main/AGENTS.md`,protocol:p.descriptor.protocol,rewards:'Native nontransferable contribution and later-impact points',wallet:'Contributor-owned; signatures only',liveContract:p.deployment.contract},null,2)+'\n');fs.writeFileSync(path.join(destination,'.nojekyll'),'');
  await build({entryPoints:[path.join(rendererRoot,'public/open/app.mjs')],outfile:path.join(destination,'app.js'),bundle:true,format:'esm',platform:'browser',minify:true});
  return {directory:destination,mode:preview?'local-layout-preview':'live-native-read',admission:'open',contract:p.deployment.contract,presentation};
