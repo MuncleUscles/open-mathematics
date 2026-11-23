@@ -1,0 +1,24 @@
+Federation examples derived from brilliant-hq/pequalnp-proofs
+Snapshot: 42765bad82112b0ea3e275713780ab49db8074ec
+License: Apache License 2.0; the complete license is in upstream/LICENSE.
+The upstream snapshot has no NOTICE file. This notice is supplied locally.
+
+Unmodified source evidence is retained in upstream/L_gct_126.lean,
+upstream/L_meta_253.lean and upstream/L_meta_727.lean.
+
+A: L-gct-126, formal source contributor brilliant-hq, upstream PR #2.
+B: L-meta-253, formal source contributor lshhhhhhh, upstream PR #130.
+C: L-meta-727, formal source contributor fededevi, upstream PR #979.
+Source contribution records do not establish original mathematical discovery,
+priority, real-world identity, or a receiving wallet. Those remain unestablished.
+
+Modifications: unused PEqualNP.Defs imports removed; Mathlib imports narrowed;
+source placed under protocol-generated bundle namespaces. A's theorem and
+proof are unchanged. B adds an explicit graph-to-list-CNF compatibility proof.
+C adds a downstream minimum-true-variable model application using B.
+Modified source files carry corresponding notices. The original upstream
+theorem statements and proof bodies remain present in each respective bundle.
+
+Lean and Mathlib pins match upstream. No toolchain migration is claimed.
+No new mathematical discovery is claimed for these demonstrations.
+No external contributor wallet or live award is asserted by these fixtures.

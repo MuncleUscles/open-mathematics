@@ -1,0 +1,76 @@
+/- Modified for pnp.fun: remove unused project import and transport the
+   vertex-cover forcing theorem into list-CNF minimum-true-variable semantics.
+   Upstream L-meta-727: PR #979, formal contributor fededevi, Apache-2.0.
+   This is a standard downstream formalization, not a claim of new discovery.
+   __B_NAMESPACE__ is replaced only after pinning exact bundle B bytes. -/
+
+theorem PEqualNP.Outside.L_meta_727 : ∀ (n t : ℕ) (G : SimpleGraph (Fin n)) [DecidableRel G.Adj] (v : Fin n), (∃ S : Finset (Fin n), (∀ a b : Fin n, G.Adj a b → a ∈ S ∨ b ∈ S) ∧ S.card = t) → (∀ T : Finset (Fin n), (∀ c d : Fin n, G.Adj c d → c ∈ T ∨ d ∈ T) → t ≤ T.card) → t < (Finset.univ.filter (fun u : Fin n => G.Adj v u)).card → ∀ U : Finset (Fin n), (∀ e f : Fin n, G.Adj e f → e ∈ U ∨ f ∈ U) → U.card = t → v ∈ U := by
+  intro n t G _ v _ _ hdeg U hU hUc
+  by_contra hv
+  have hsub : Finset.univ.filter (fun u : Fin n => G.Adj v u) ⊆ U := by
+    intro u hu
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hu
+    rcases hU v u hu with h | h
+    · exact absurd h hv
+    · exact h
+  have := Finset.card_le_card hsub
+  omega
+
+open __B_NAMESPACE__.Federation
+
+namespace FederationDownstream
+
+def trueVars {n : ℕ} (a : Nat → Bool) : Finset (Fin n) :=
+  Finset.univ.filter (fun u => a u.val = true)
+
+def assignmentOf {n : ℕ} (S : Finset (Fin n)) (k : Nat) : Bool :=
+  if h : k < n then decide ((⟨k, h⟩ : Fin n) ∈ S) else false
+
+theorem assignmentOf_at {n : ℕ} (S : Finset (Fin n)) (u : Fin n) :
+    assignmentOf S u.val = decide (u ∈ S) := by
+  simp [assignmentOf, u.isLt]
+
+theorem trueVars_assignmentOf {n : ℕ} (S : Finset (Fin n)) :
+    trueVars (assignmentOf S) = S := by
+  ext u
+  simp [trueVars, assignmentOf_at]
+
+/-- A vertex of degree above the minimum number of true variables must be
+    true in every minimum model. Bundle B then removes its incident clauses.
+    The cardinality is only over the graph's finite vertex set. -/
+theorem forced_vertex_reduction {n : ℕ} (G : SimpleGraph (Fin n))
+    [DecidableRel G.Adj] (v : Fin n) (a : Nat → Bool)
+    (hsat : evalCNF a (relationCNF G.Adj) = true)
+    (hmin : ∀ b : Nat → Bool, evalCNF b (relationCNF G.Adj) = true →
+      (trueVars (n := n) a).card ≤ (trueVars (n := n) b).card)
+    (hdeg : (trueVars (n := n) a).card <
+      (Finset.univ.filter (fun u : Fin n => G.Adj v u)).card) :
+    a v.val = true ∧
+      evalCNF a (relationCNF (fun u w => u ≠ v ∧ w ≠ v ∧ G.Adj u w)) = true := by
+  have hcover : ∀ u w : Fin n, G.Adj u w →
+      u ∈ trueVars (n := n) a ∨ w ∈ trueVars (n := n) a := by
+    intro u w hR
+    simpa [trueVars] using (relationCNF_semantics G.Adj a).mp hsat u w hR
+  have hminimal : ∀ T : Finset (Fin n),
+      (∀ u w : Fin n, G.Adj u w → u ∈ T ∨ w ∈ T) →
+      (trueVars (n := n) a).card ≤ T.card := by
+    intro T hT
+    have ht : evalCNF (assignmentOf T) (relationCNF G.Adj) = true := by
+      apply (relationCNF_semantics G.Adj (assignmentOf T)).mpr
+      intro u w huw
+      simpa [assignmentOf_at] using hT u w huw
+    simpa [trueVars_assignmentOf] using hmin (assignmentOf T) ht
+  have hv_mem := PEqualNP.Outside.L_meta_727 n (trueVars (n := n) a).card G v
+    ⟨trueVars a, hcover, rfl⟩ hminimal hdeg (trueVars a) hcover rfl
+  have hv : a v.val = true := by simpa [trueVars] using hv_mem
+  have hfix : Function.update a v.val true = a := by
+    funext k
+    by_cases hk : k = v.val
+    · subst k
+      simp [hv]
+    · simp [Function.update_of_ne hk]
+  have reduced := __B_NAMESPACE__.Federation.graphCNF_delete_vertex G v a
+  rw [hfix, hsat] at reduced
+  exact ⟨hv, reduced.symm⟩
+
+end FederationDownstream

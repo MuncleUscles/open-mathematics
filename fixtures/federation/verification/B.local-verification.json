@@ -1,0 +1,146 @@
+{
+  "scope": "LOCAL UNPUBLISHED PROOF FIXTURE",
+  "ledger_accepted": false,
+  "external_wallet_bound": false,
+  "native_consensus_observed": false,
+  "commit_binding_note": "head/base identify the verifier checkout only; candidate bytes are uncommitted fixture inputs.",
+  "dependency_note": "C uses an explicit local fixture ID. Bind the actual accepted B ID and reverify before submission.",
+  "case": "B",
+  "verifier_checkout_commit": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+  "trusted_image": "sha256:ed38c58fa384f045ab5d7cbbb9e49a6996aa75bef766374aa55f1235793bfe45",
+  "verifier_report": {
+    "result": "pass",
+    "mode": "isolated",
+    "verified": true,
+    "production_verified": true,
+    "verification": "verified",
+    "checker": "open-mathematics-v5",
+    "problem": "p-vs-np",
+    "repository": "MuncleUscles/p-vs-np",
+    "head": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "base": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "protocol_commit": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "policy": "7ed4f1cd0079f4affc9120d61d31c59946f52bb9a1c025983ffa18389712c485",
+    "toolchain": "lean4:4.36.0",
+    "image": "sha256:ed38c58fa384f045ab5d7cbbb9e49a6996aa75bef766374aa55f1235793bfe45",
+    "bundle_hash": "dd8e844ea24178cf06ed26a50bb2f4b1a253fd25ec68dc0c55e415c8d52cfd70",
+    "artifact_hash": "dd8e844ea24178cf06ed26a50bb2f4b1a253fd25ec68dc0c55e415c8d52cfd70",
+    "assembly_hash": "a97172c061fbdb6f21084ad822b61d5ef95a186a1e3b0a2d6af2d6036df498fd",
+    "proof_hash": "d16124d6e940aa6f1751c5c45cc1bcefc05dd0f66296313ff975c77c4f562a32",
+    "statement_hash": "6db1c55a3883cfeca4e24449e7b1bd496a0d532cecd8e874beaa399490c475f2",
+    "proposition_hash": "30e8ab72762b89d4861c91f9d72cdfad15efcdf4ac802b878ffb87925f36928c",
+    "formal_statement": "theorem : (forall Nat (forall (app SimpleGraph.{0} (app Fin #0)) (forall (app (app (app DecidableRel.{(succ 0),(succ 0)} (app Fin #1)) (app Fin #1)) (app (app SimpleGraph.Adj.{0} (app Fin #1)) #0)) (forall (app Fin #2) (forall (forall Nat Bool) (app (app (app Eq.{(succ 0)} Bool) (app (app SELF.Federation.evalCNF (app (app (app (app (app (app Function.update.{(succ 0),(succ 0)} Nat) (lambda Nat Bool)) instDecidableEqNat) #0) (app (app Fin.val #4) #1)) Bool.true)) (app (app (app SELF.Federation.relationCNF #4) (app (app SimpleGraph.Adj.{0} (app Fin #4)) #3)) #2))) (app (app SELF.Federation.evalCNF #0) (app (app (app SELF.Federation.relationCNF #4) (lambda (app Fin #4) (lambda (app Fin #5) (app (app And (app (app (app Ne.{(succ 0)} (app Fin #6)) #1) #3)) (app (app And (app (app (app Ne.{(succ 0)} (app Fin #6)) #0) #3)) (app (app (app (app SimpleGraph.Adj.{0} (app Fin #6)) #5) #1) #0)))))) (lambda (app Fin #4) (lambda (app Fin #5) (app (app (app (app instDecidableAnd (app (app (app Ne.{(succ 0)} (app Fin #6)) #1) #3)) (app (app And (app (app (app Ne.{(succ 0)} (app Fin #6)) #0) #3)) (app (app (app (app SimpleGraph.Adj.{0} (app Fin #6)) #5) #1) #0))) (app (lambda (app Fin #6) (app (app instDecidableNot (app (app (app Eq.{(succ 0)} (app Fin #7)) #0) #4)) (app (app (app instDecidableEqFin #7) #0) #4))) #1)) (app (app (app (app instDecidableAnd (app (app (app Ne.{(succ 0)} (app Fin #6)) #0) #3)) (app (app (app (app SimpleGraph.Adj.{0} (app Fin #6)) #5) #1) #0)) (app (app instDecidableNot (app (app (app Eq.{(succ 0)} (app Fin #6)) #0) #3)) (app (app (app instDecidableEqFin #6) #0) #3))) (app (app #4 #1) #0)))))))))))))\ndef SELF.Federation.evalCNF : (forall (forall Nat Bool) (forall SELF.Federation.CNF Bool)) := (lambda (forall Nat Bool) (lambda SELF.Federation.CNF (app (app (app List.all.{0} SELF.Federation.Clause) #0) (app SELF.Federation.evalClause #1))))\ndef SELF.Federation.CNF : (Sort (succ 0)) := (app List.{0} SELF.Federation.Clause)\ndef SELF.Federation.Clause : (Sort (succ 0)) := (app List.{0} (app (app Prod.{0,0} Nat) Bool))\ndef SELF.Federation.evalClause : (forall (forall Nat Bool) (forall SELF.Federation.Clause Bool)) := (lambda (forall Nat Bool) (lambda SELF.Federation.Clause (app (app (app List.any.{0} (app (app Prod.{0,0} Nat) Bool)) #0) (app SELF.Federation.evalLiteral #1))))\ndef SELF.Federation.evalLiteral : (forall (forall Nat Bool) (forall (app (app Prod.{0,0} Nat) Bool) Bool)) := (lambda (forall Nat Bool) (lambda (app (app Prod.{0,0} Nat) Bool) (app (app (app (app BEq.beq.{0} Bool) (app (app instBEqOfDecidableEq.{0} Bool) instDecidableEqBool)) (app #1 (app (app (app Prod.fst.{0,0} Nat) Bool) #0))) (app (app (app Prod.snd.{0,0} Nat) Bool) #0))))\ndef SELF.Federation.relationCNF : (forall Nat (forall (forall (app Fin #0) (forall (app Fin #1) (Sort 0))) (forall (app (app (app DecidableRel.{(succ 0),(succ 0)} (app Fin #1)) (app Fin #1)) #0) SELF.Federation.CNF))) := (lambda Nat (lambda (forall (app Fin #0) (forall (app Fin #1) (Sort 0))) (lambda (app (app (app DecidableRel.{(succ 0),(succ 0)} (app Fin #1)) (app Fin #1)) #0) (app (app (app (app List.map.{0,0} (app (app Prod.{0,0} (app Fin #2)) (app Fin #2))) SELF.Federation.Clause) (lambda (app (app Prod.{0,0} (app Fin #2)) (app Fin #2)) (app (app (app List.cons.{0} (app (app Prod.{0,0} Nat) Bool)) (app (app (app (app Prod.mk.{0,0} Nat) Bool) (app (app Fin.val #3) (app (app (app Prod.fst.{0,0} (app Fin #3)) (app Fin #3)) #0))) Bool.true)) (app (app (app List.cons.{0} (app (app Prod.{0,0} Nat) Bool)) (app (app (app (app Prod.mk.{0,0} Nat) Bool) (app (app Fin.val #3) (app (app (app Prod.snd.{0,0} (app Fin #3)) (app Fin #3)) #0))) Bool.true)) (app List.nil.{0} (app (app Prod.{0,0} Nat) Bool)))))) (app (app Finset.toList.{0} (app (app Prod.{0,0} (app Fin #2)) (app Fin #2))) (app (app (app (app Finset.filter.{0} (app (app Prod.{0,0} (app Fin #2)) (app Fin #2))) (lambda (app (app Prod.{0,0} (app Fin #2)) (app Fin #2)) (app (app #2 (app (app (app Prod.fst.{0,0} (app Fin #3)) (app Fin #3)) #0)) (app (app (app Prod.snd.{0,0} (app Fin #3)) (app Fin #3)) #0)))) (lambda (app (app Prod.{0,0} (app Fin #2)) (app Fin #2)) (app (app #1 (app (app (app Prod.fst.{0,0} (app Fin #3)) (app Fin #3)) #0)) (app (app (app Prod.snd.{0,0} (app Fin #3)) (app Fin #3)) #0)))) (app (app Finset.univ.{0} (app (app Prod.{0,0} (app Fin #2)) (app Fin #2))) (app (app (app (app instFintypeProd.{0,0} (app Fin #2)) (app Fin #2)) (app Fin.fintype #2)) (app Fin.fintype #2)))))))))",
+    "canonical_semantics": {
+      "definitions": [
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "evalCNF"
+          ],
+          "type": "546f37513aa541c5fe584f32f0af5d91912d5b2bf8bea30d6837b0e6a15efb87",
+          "value": "b0af4619f3f173ca5a17fa26586bd81b530d8ce0aab45ebcbc024faf1b19968d"
+        },
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "CNF"
+          ],
+          "type": "733e2514046449c42d66e7059d7c0a5fb207a617be198f02230a265f24f85a7c",
+          "value": "079af85d42853fc413e38f640f38e7ac16fc21d3004f0ba0b9457eb1e5d8d7b0"
+        },
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "Clause"
+          ],
+          "type": "733e2514046449c42d66e7059d7c0a5fb207a617be198f02230a265f24f85a7c",
+          "value": "30098fcc67865f11ef4cf88f2bbea198b04d78a39b194d06f9d8ba5d78ac75fa"
+        },
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "evalClause"
+          ],
+          "type": "fd67d0937dab51ebdc7d095e856469ee846e1bb09b2467f5df16762c7552c7f2",
+          "value": "8352208bb12bcbbd4a5b0352e623f28738e3e5acb1e94008375d2ef8b8adcd98"
+        },
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "evalLiteral"
+          ],
+          "type": "a5fbda274837b78072a7a17c960a66bec52d826a3d6cdb5019337c008b4c9aee",
+          "value": "cde578eed8fff7e4d58f0bbabae8d9e8f741982e1418678b68bab0677e1592bf"
+        },
+        {
+          "kind": "def",
+          "levelParams": [],
+          "name": [
+            "SELF",
+            "Federation",
+            "relationCNF"
+          ],
+          "type": "54a40c9f6e0d5e2dce9db8f38785ac0deaf555ee05f6c4fb7e7561fc95df68c5",
+          "value": "56059cdbaf17743496fb8925e90065a7661cdab575c0e63fd86580e6297d840e"
+        }
+      ],
+      "levelParams": [],
+      "type": "4a1ca35bc278c1f939a78a7227bef09579a2bde07a4d14b5f62cd4365de43fea",
+      "version": 1
+    },
+    "theorem": "B_dd8e844ea24178cf06ed26a50bb2f4b1a253fd25ec68dc0c55e415c8d52cfd70.Federation.graphCNF_delete_vertex",
+    "axioms": [
+      "Classical.choice",
+      "Quot.sound",
+      "propext"
+    ],
+    "declaration_axioms": {
+      "B_dd8e844ea24178cf06ed26a50bb2f4b1a253fd25ec68dc0c55e415c8d52cfd70.Federation.graphCNF_delete_vertex": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    "sorry": false,
+    "proof_body_uses": [],
+    "verified_dependencies": [],
+    "dependency_bundle_hashes": {},
+    "dependency_artifact_hashes": {},
+    "dependency_theorems": {},
+    "definition_closure_hash": "ed24e2a3db68ceba749ce7f3b5b6b74b4106c6d6bd2259bb30dfba672c6a8596",
+    "full_kernel": {
+      "version": 1,
+      "lean_commit": "611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9",
+      "mathlib_commit": "fc4f59e577feb1a4956671bc04ac18aaaf8cd842",
+      "export_hash": "0b61fdf6bf2e83e969d76e280ba6ed1964842c6e2e45c3dfe7b51cbd5e692d40",
+      "baseline_hash": "4c169e74f1b75e2345816f52a08592d35d15dc131e4d521bcc248b3f5363dbd7",
+      "checker_set": [
+        "leanchecker",
+        "leanchecker-paranoid",
+        "lean4lean",
+        "nanoda",
+        "con-leche",
+        "con-ron"
+      ]
+    },
+    "log": "",
+    "legacy_adapters": {},
+    "reuse_limit": "Direct references after bounded beta/zeta/constructor-projection reduction; not necessity, novelty, independence or allocation.",
+    "commit_binding": "Trusted caller resolves immutable accepted records and exact Git commits; checker binds identifiers and bytes."
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "repository": "brilliant-hq/pequalnp-proofs",
+  "snapshot_commit": "42765bad82112b0ea3e275713780ab49db8074ec",
+  "upstream_lean": "leanprover/lean4:v4.36.0",
+  "upstream_mathlib": "fc4f59e577feb1a4956671bc04ac18aaaf8cd842",
+  "license_spdx": "Apache-2.0",
+  "license_blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "notice_files": [],
+  "attribution_caveat": "PR authorship identifies the upstream formal contribution; original discovery, identity and priority are not established. No wallet is bound.",
+  "candidates": [
+    {
+      "case": "A",
+      "theorem": "PEqualNP.Outside.L_gct_126",
+      "path": "lean/PEqualNP/Outside/L_gct_126.lean",
+      "blob_sha": "9bfcd84732773c3c963d8e749fdc50ce3a609621",
+      "content": "import Mathlib\nimport PEqualNP.Defs\n\ntheorem PEqualNP.Outside.L_gct_126 : ∀ (R : Type) [CommRing R] (x y z : R), 24 * x * y * z = (x + y + z) ^ 3 - (x + y - z) ^ 3 - (x - y + z) ^ 3 + (x - y - z) ^ 3 := by\n  intro R _ x y z\n  ring\n",
+      "immutable_url": "https://github.com/brilliant-hq/pequalnp-proofs/blob/42765bad82112b0ea3e275713780ab49db8074ec/lean/PEqualNP/Outside/L_gct_126.lean",
+      "pr_url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/2",
+      "pr_number": 2,
+      "pr_author": "brilliant-hq",
+      "pr_author_id": 264814072,
+      "pr_head": "110a3a1ec7ae00a30d50525aeed0dc057dc33a72",
+      "merge_commit": "7dc6cc25b24617be89c4b5895a4897773e80bbaf",
+      "pr_body": null,
+      "merged_at": "2026-11-23T05:04:53Z",
+      "check_comments": [
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/2#issuecomment-7090775140",
+          "body": "Checked on the base repository at commit `110a3a1ec7`.\n\n**FAULT (the run ended without a log: the runner was lost; this says nothing about the proof)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45101124339\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        },
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/2#issuecomment-7092005971",
+          "body": "Checked on the base repository at commit `110a3a1ec7`.\n\n**ACCEPTED (checker exit 0)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45114263567\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        },
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/2#issuecomment-7092006494",
+          "body": "Checked on the base repository at commit `110a3a1ec7`.\n\n**ACCEPTED (checker exit 0)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45114263567\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        }
+      ],
+      "original_discovery_status": "not established",
+      "wallet": null,
+      "source_sha256": "14105e1883e64456248e1f64f2f355241bbfe4a8f6016b76d274b5a645c2b9af"
+    },
+    {
+      "case": "B",
+      "theorem": "PEqualNP.Outside.L_meta_253",
+      "path": "lean/PEqualNP/Outside/L_meta_253.lean",
+      "blob_sha": "7e5ba19a1d145ab1f12f754454f67be11f9205f6",
+      "content": "import Mathlib\nimport PEqualNP.Defs\n\ntheorem PEqualNP.Outside.L_meta_253 :\n    ∀ (n : ℕ) (G : SimpleGraph (Fin n)) [DecidableRel G.Adj] (v : Fin n)\n      (x : Fin n → Bool),\n      decide (∃ u w : Fin n, G.Adj u w ∧\n        Function.update x v false u = true ∧ Function.update x v false w = true) =\n      decide (∃ u w : Fin n, u ≠ v ∧ w ≠ v ∧ G.Adj u w ∧\n        x u = true ∧ x w = true) := by\n  intro n G _ v x\n  have updated (u : Fin n) :\n      Function.update x v false u = true ↔ u ≠ v ∧ x u = true := by\n    by_cases h : u = v\n    · simp [h]\n    · simp [h]\n  rw [decide_eq_decide]\n  simp_rw [updated]\n  constructor\n  · rintro ⟨u, w, hadj, ⟨huv, hu⟩, ⟨hwv, hw⟩⟩\n    exact ⟨u, w, huv, hwv, hadj, hu, hw⟩\n  · rintro ⟨u, w, huv, hwv, hadj, hu, hw⟩\n    exact ⟨u, w, hadj, ⟨huv, hu⟩, ⟨hwv, hw⟩⟩\n",
+      "immutable_url": "https://github.com/brilliant-hq/pequalnp-proofs/blob/42765bad82112b0ea3e275713780ab49db8074ec/lean/PEqualNP/Outside/L_meta_253.lean",
+      "pr_url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/130",
+      "pr_number": 130,
+      "pr_author": "lshhhhhhh",
+      "pr_author_id": 11421571,
+      "pr_head": "eb8374a65ffb0ae390a258ba893e9af45b3c6936",
+      "merge_commit": "b270e7a8fccf3561e314d35dbb50a7beed270403",
+      "pr_body": "Proves L-meta-253: fixing a vertex input to false leaves exactly the edges whose two endpoints differ from that vertex, with all other input values unchanged.\n\nAdds only the assigned Lean file. The proof establishes the pointwise update equivalence, then rearranges the edge witnesses.\n\nValidation: built with the pinned Lean 4.36.0 and Mathlib; passed the official plain-file/import guard; the unmodified CheckLemma verifier returned ACCEPTED (check), with axioms [propext, Quot.sound].\n",
+      "merged_at": "2026-11-23T08:45:33Z",
+      "check_comments": [
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/130#issuecomment-7095359163",
+          "body": "Checked on the base repository at commit `eb8374a65f`.\n\n**ACCEPTED (checker exit 0)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45134054233\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        }
+      ],
+      "original_discovery_status": "not established",
+      "wallet": null,
+      "dependencies_used": [
+        "Mathlib"
+      ],
+      "adaptation": "Remove unused import PEqualNP.Defs; preserve exact original source separately and mark modified local file.",
+      "source_sha256": "85e90f9eab972f297bcdbd5f7f260511a2f7caf5415a1b76d232a8a4ccea8874"
+    },
+    {
+      "case": "C",
+      "theorem": "PEqualNP.Outside.L_meta_727",
+      "path": "lean/PEqualNP/Outside/L_meta_727.lean",
+      "blob_sha": "1c18ed25ca0fb25ff80c031eccc4b0af5c8ce088",
+      "content": "import Mathlib\nimport PEqualNP.Defs\n\ntheorem PEqualNP.Outside.L_meta_727 : ∀ (n t : ℕ) (G : SimpleGraph (Fin n)) [DecidableRel G.Adj] (v : Fin n), (∃ S : Finset (Fin n), (∀ a b : Fin n, G.Adj a b → a ∈ S ∨ b ∈ S) ∧ S.card = t) → (∀ T : Finset (Fin n), (∀ c d : Fin n, G.Adj c d → c ∈ T ∨ d ∈ T) → t ≤ T.card) → t < (Finset.univ.filter (fun u : Fin n => G.Adj v u)).card → ∀ U : Finset (Fin n), (∀ e f : Fin n, G.Adj e f → e ∈ U ∨ f ∈ U) → U.card = t → v ∈ U := by\n  intro n t G _ v _ _ hdeg U hU hUc\n  by_contra hv\n  have hsub : Finset.univ.filter (fun u : Fin n => G.Adj v u) ⊆ U := by\n    intro u hu\n    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hu\n    rcases hU v u hu with h | h\n    · exact absurd h hv\n    · exact h\n  have := Finset.card_le_card hsub\n  omega\n",
+      "immutable_url": "https://github.com/brilliant-hq/pequalnp-proofs/blob/42765bad82112b0ea3e275713780ab49db8074ec/lean/PEqualNP/Outside/L_meta_727.lean",
+      "pr_url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/979",
+      "pr_number": 979,
+      "pr_author": "fededevi",
+      "pr_author_id": 5583580,
+      "pr_head": "490d09f799f5086954913600bef2a1654a7e266b",
+      "merge_commit": "d3fb537150dae7b398abf7be338d21695f4029ab",
+      "pr_body": "L-meta-727",
+      "merged_at": "2026-11-23T16:24:15Z",
+      "check_comments": [
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/979#issuecomment-7106335545",
+          "body": "Checked on the base repository at commit `2a20eae3ee`.\n\n**REFUSED before any build: the gap is not posted (it may be checked already, or withdrawn)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45210601679\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        },
+        {
+          "url": "https://github.com/brilliant-hq/pequalnp-proofs/pull/979#issuecomment-7106971109",
+          "body": "Checked on the base repository at commit `490d09f799`.\n\n**ACCEPTED (checker exit 0)**\n\nRun: https://github.com/brilliant-hq/pequalnp-proofs/actions/runs/45213598126\n\nThis is an automatic message. A new commit on this pull request is checked again.",
+          "author": "LiorDagan"
+        }
+      ],
+      "original_discovery_status": "not established",
+      "wallet": null,
+      "dependencies_used": [
+        "Mathlib"
+      ],
+      "adaptation": "Remove unused import PEqualNP.Defs; preserve exact original source separately and mark modified local file.",
+      "source_sha256": "de4686e1cd14a8bb4d80974931fc158e66094e6db39c768ad6793520eef6d7e5"
+    }
+  ]
+}
