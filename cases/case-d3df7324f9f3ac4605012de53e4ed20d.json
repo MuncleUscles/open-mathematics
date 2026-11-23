@@ -8125,13 +8125,28 @@
     ],
     "challenges": [],
     "created_at": "1795401540",
-    "deadline": "0",
+    "deadline": "1795402493",
     "history": [
       {
         "at": "1795402151",
         "event": "documentary-verification",
         "hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
         "round": "0"
+      },
+      {
+        "at": "1795402193",
+        "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+        "event": "review",
+        "round": "0",
+        "verdict": {
+          "approve": true,
+          "evidence_refs": [
+            "case-d3df7324f9f3ac4605012de53e4ed20d",
+            "author-d76c65bded14d6d33865bc32651e4fee",
+            "source:0"
+          ],
+          "reason": "Case case-d3df7324f9f3ac4605012de53e4ed20d supports the limited source-controller authorship binding. The retrieved registered source publishes the exact case-specific, wallet-bound challenge, unexpired at the attested retrieval time. The trusted verifier corroborates control of the source author's identity and confirms that it matches the target's verified subject. Approval establishes only this identity binding, not discovery priority, mathematical authorship beyond the controlled source, formal resolution, or point entitlement."
+        }
       }
     ],
     "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
@@ -8157,9 +8172,17 @@
     "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
     "revision": "0",
     "round": "0",
-    "status": "verified",
+    "status": "provisional",
     "target": "author-d76c65bded14d6d33865bc32651e4fee",
-    "verdict": null,
+    "verdict": {
+      "approve": true,
+      "evidence_refs": [
+        "case-d3df7324f9f3ac4605012de53e4ed20d",
+        "author-d76c65bded14d6d33865bc32651e4fee",
+        "source:0"
+      ],
+      "reason": "Case case-d3df7324f9f3ac4605012de53e4ed20d supports the limited source-controller authorship binding. The retrieved registered source publishes the exact case-specific, wallet-bound challenge, unexpired at the attested retrieval time. The trusted verifier corroborates control of the source author's identity and confirms that it matches the target's verified subject. Approval establishes only this identity binding, not discovery priority, mathematical authorship beyond the controlled source, formal resolution, or point entitlement."
+    },
     "verified_authors": [
       {
         "authors": [
@@ -8172,6 +8195,6 @@
       }
     ]
   },
-  "updatedAt": "2026-11-23T02:51:39.425Z",
+  "updatedAt": "2026-11-23T02:51:42.516Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
 }
