@@ -24,6 +24,8 @@ Contract direct tests use `requirements.txt` and the pinned GenVM runner. `GENVM
 
 With a trusted problem checkout, `node scripts/build-open-site.mjs /path/to/problem dist/open` builds a static dashboard. GitHub Pages hosts it; the browser reads finalized Studio state. GitHub Actions is the asynchronous worker. No custom always-on backend is required for this pilot.
 
+Studio v0.123 requires fee-aware writes. This release pins `genlayer-js` **2.0.0-rc.3**; the corresponding CLI release family is **0.40**, not SDK 0.40. Trusted writers obtain a current SDK fee quote with a maximum deposit of 0.25 Studio GEN per transaction. These network fees are separate from research points. See the [fee and recovery operating notes](docs/OPEN-RESEARCH.md#studio-fees-and-transport-recovery).
+
 ## Status and boundaries
 
 v5 is the open-admission implementation. Release status, exact source/config pins and actual E2E results belong in the deployment record and public evidence, not in sample files. Earlier deployed contracts retain their own balances and audit history; v5 does not import or sum those points.

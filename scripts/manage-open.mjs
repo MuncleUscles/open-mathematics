@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Trusted operator tool. Preview by default; retain broadcast intent on failure.
 import fs from 'node:fs';import path from 'node:path';import {execFileSync} from 'node:child_process';import {pathToFileURL} from 'node:url';
-import {isAddress} from 'viem';import {createClient} from 'genlayer-js';import {studionet} from 'genlayer-js/chains';
+import {isAddress} from 'viem';
+import {createStudioClient,studioEnvelopeFailure} from '../src/studio-client.mjs';
 import {read,finalized,saveJSON} from '../github/runtime.mjs';
 import {parseProblemJSON,sha256,stableJSON,validateOpenConstructor,assertOpenConfiguration} from '../src/open-research.mjs';
 import {loadLocalSigner,toolRoot} from './problem-agent.mjs';
@@ -28,12 +29,14 @@ export async function run(argv=process.argv.slice(2)){
  const protocolCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:toolRoot,encoding:'utf8'}).trim(),intent=deploymentIntent(code,config,protocolCommit);
  if(!send){output({action:'deploy',network:'Studio',...intent,next:'Review the exact source/config. Repeat with --send and OPERATOR_KEY_FILE pointing to the dedicated deployment signer.'});return;}
  const account=loadLocalSigner(process.env.OPERATOR_KEY_FILE,[toolRoot]);if([config.verifier,config.executor].some(role=>role.toLowerCase()===account.address.toLowerCase()))throw Error('Use the dedicated deployment signer, separate from service roles');
- const client=createClient({chain:studionet,account});if(await client.getChainId()!==intent.chainId)throw Error('Wrong deployment chain');
+ const client=createStudioClient({account});if(await client.getChainId()!==intent.chainId)throw Error('Wrong deployment chain');
  const journal=fs.existsSync(selection)?JSON.parse(fs.readFileSync(selection,'utf8')):{...intent,sender:account.address,status:'prepared'};
  assertDeploymentJournal(journal,intent,account.address);
  if(!journal.hash){
   journal.status='broadcasting';journal.startedAt=new Date().toISOString();saveJSON(selection,journal);
-  journal.hash=await client.deployContract({code,args:[JSON.stringify(config)],leaderOnly:false});journal.status='broadcast';saveJSON(selection,journal);
+  try{journal.hash=await client.deployContract({code,args:[JSON.stringify(config)],leaderOnly:false});}
+  catch(error){const transportFailure=studioEnvelopeFailure(error);if(transportFailure){journal.transportFailure=transportFailure;saveJSON(selection,journal);}throw error;}
+  journal.status='broadcast';saveJSON(selection,journal);
  }
  const receipt=await finalized(client,journal.hash);
  if(receipt.hash?.toLowerCase()!==journal.hash.toLowerCase()||receipt.from_address?.toLowerCase()!==account.address.toLowerCase())throw Error('Deployment receipt binding mismatch');
