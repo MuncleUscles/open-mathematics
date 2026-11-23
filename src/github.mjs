@@ -1,9 +1,28 @@
-import {digest} from './security.mjs';
+import {canonical,digest} from './security.mjs';
 export class GitHub {
   constructor({repository,token,fetcher=fetch}){if(!/^[\w.-]+\/[\w.-]+$/.test(repository))throw Error('Repository enrollment required');this.repository=repository;this.token=token;this.fetcher=fetcher;}
   async request(path,{method='GET',body}={}){const r=await this.fetcher(`https://api.github.com/repos/${this.repository}${path}`,{method,headers:{Accept:'application/vnd.github+json',...(this.token?{Authorization:`Bearer ${this.token}`}:{ }),'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error(`GitHub ${r.status}`);return r.status===204?null:r.json();}
   pr(n){if(!Number.isSafeInteger(n)||n<1)throw Error('Invalid PR');return this.request(`/pulls/${n}`);}
-  async bindAuthor(n,claim){const pr=await this.pr(n);if(pr.head.sha!==claim.head||claim.repository!==this.repository||claim.pr!==n)throw Error('Stale claim');const marker=`Open-Mathematics-Claim: ${digest(claim)}`;for(let page=1;page<=10;page++){const comments=await this.request(`/issues/${n}/comments?per_page=100&page=${page}`);if(comments.some(c=>c.user.id===pr.user.id&&(c.body.trim()===marker||c.body.startsWith(marker+'\n'))))return pr;if(comments.length<100)break;}throw Error('PR author must post the signed claim digest');}
+  async bindAuthor({claim,signature},{commentId,createdAt}={}){
+    if(!Number.isSafeInteger(commentId)||commentId<1||typeof createdAt!=='string'||!Number.isFinite(Date.parse(createdAt)))
+      throw Error('Selected claim comment ID and original creation time required');
+    if(claim.repository!==this.repository)throw Error('Claim repository mismatch');
+    const [pr,comment]=await Promise.all([this.pr(claim.pr),this.request(`/issues/comments/${commentId}`)]);
+    if(pr?.number!==claim.pr||pr.base?.repo?.full_name!==this.repository||pr.head?.sha!==claim.head)throw Error('Stale claim');
+    if(comment?.id!==commentId||comment.issue_url!==`https://api.github.com/repos/${this.repository}/issues/${claim.pr}`||
+       !Number.isSafeInteger(pr.user?.id)||pr.user.id<1||comment.user?.id!==pr.user.id)
+      throw Error('Selected comment does not belong to this PR author');
+    if(comment.created_at!==createdAt||comment.updated_at!==createdAt||typeof comment.body!=='string'||comment.body.length>20000)
+      throw Error('Selected claim comment was edited or its original creation time does not match');
+    const match=comment.body.match(/^Open-Mathematics-Claim: ([a-f0-9]{64})\n```json\n([\s\S]+)\n```\s*$/);
+    if(!match||match[1]!==digest(claim))throw Error('Selected comment must contain the original signed claim');
+    let envelope;
+    try{envelope=JSON.parse(match[2]);}catch{throw Error('Selected comment has malformed signed claim JSON');}
+    if(!envelope||Object.keys(envelope).length!==2||!Object.hasOwn(envelope,'claim')||!Object.hasOwn(envelope,'signature')||
+       typeof signature!=='string'||envelope.signature!==signature||canonical(envelope.claim)!==canonical(claim))
+      throw Error('Selected comment signed claim has changed');
+    return pr;
+  }
   async protection(branch){
     // Ruleset reads need only metadata permission; no administration token in CI.
     const rules=await this.request(`/rules/branches/${encodeURIComponent(branch)}?per_page=100`);

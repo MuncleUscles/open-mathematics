@@ -4,15 +4,19 @@ import {recoverMessageAddress} from 'viem';import {privateKeyToAccount} from 'vi
 import {GitHub} from '../src/github.mjs';import {validateClaim,message,digest,canonical,enrolledSubmissionBlobs} from '../src/security.mjs';
 import {decodeSubmission} from '../src/submission.mjs';import {clientFor,read} from './runtime.mjs';
 const [claimFile]=process.argv.slice(2);if(!claimFile)throw Error('Usage: node github/verify-pr.mjs signed-claim.json');
+const rawCommentId=process.env.CLAIM_COMMENT_ID,commentId=Number(rawCommentId),createdAt=process.env.CLAIM_CREATED_AT;
+const claimAt=Date.parse(createdAt);
+if(!/^[1-9][0-9]*$/.test(rawCommentId||'')||!Number.isSafeInteger(commentId)||!Number.isFinite(claimAt))
+ throw Error('Selected claim comment ID and original creation time required');
 const deployment=JSON.parse(fs.readFileSync('public/deployment.json','utf8'));
 const policy=JSON.parse(fs.readFileSync('lean/policy.json','utf8'));
-if(deployment.protocolVersion!==3||digest(fs.readFileSync('lean/policy.json'))!==deployment.policy)throw Error('Reviewed v2 deployment required');
+if(deployment.protocolVersion!==3||digest(fs.readFileSync('lean/policy.json'))!==deployment.policy)throw Error('Reviewed v3 deployment required');
 const {claim,signature}=JSON.parse(fs.readFileSync(claimFile,'utf8'));
-validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contract:deployment.contract,policy:deployment.policy,branch:deployment.branch,now:Number(process.env.CLAIM_AT||Date.now())});
+validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contract:deployment.contract,policy:deployment.policy,branch:deployment.branch,now:claimAt});
 const signer=await recoverMessageAddress({message:message(claim),signature});if(signer.toLowerCase()!==claim.wallet.toLowerCase())throw Error('Invalid wallet claim');
 const gh=new GitHub({repository:process.env.GITHUB_REPOSITORY,token:process.env.GITHUB_TOKEN});
 if(gh.repository!==deployment.repository)throw Error('Wrong repository');
-const pr=await gh.bindAuthor(claim.pr,claim);
+const pr=await gh.bindAuthor({claim,signature},{commentId,createdAt});
 if(pr.state!=='open'||pr.base.ref!==deployment.branch||pr.base.sha!==claim.base||await gh.branchHead(deployment.branch)!==claim.base)throw Error('Canonical branch advanced; rebase and sign a new claim');
 const [tree,baseTree,head]=await Promise.all([gh.request(`/git/trees/${claim.head}?recursive=1`),gh.request(`/git/trees/${claim.base}?recursive=1`),gh.commit(claim.head)]);
 const entries=enrolledSubmissionBlobs({claim,tree,baseTree,head,proofPaths:Object.values(policy.goals).map(g=>g.path)});
