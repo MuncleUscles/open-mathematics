@@ -5170,6 +5170,15 @@
         "typeHex": 2,
         "statusName": "FINALIZED"
       }
+    },
+    "review-r0": {
+      "intent": {
+        "address": "0x6acf1e29790b2ee45c01184ffaa8f84f06ba9aac",
+        "sender": "0xa03915c6f804b85e6c038b3ce1cd8e18c59514a9",
+        "method": "review_case",
+        "argsSha256": "d8f508d9a6faafdf3a665ec9ecfc59cfed802d3968ecec41d3d6d6dd55ec1bc6",
+        "independent": true
+      }
     }
   },
   "rounds": {
@@ -5258,6 +5267,6 @@
       }
     ]
   },
-  "updatedAt": "2026-11-23T02:33:40.969Z",
+  "updatedAt": "2026-11-23T02:33:42.382Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45100799950"
 }
