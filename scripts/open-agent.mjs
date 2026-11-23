@@ -6,6 +6,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';import {recoverMessageAddre
 import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes} from '../src/open-research.mjs';
 import {digest,message} from '../src/security.mjs';import {GitHub} from '../src/github.mjs';
 import {fetchGitHubIdentity} from '../src/github-identity.mjs';
+import {readEvidenceFile} from '../github/evidence-file.mjs';
 import {clientFor,read,finalized} from '../github/runtime.mjs';
 import {loadLocalSigner,publicEnvelope} from './problem-agent.mjs';import {contributorPath} from './agent.mjs';
 import {createClient} from 'genlayer-js';import {studionet} from 'genlayer-js/chains';
@@ -110,7 +111,7 @@ export async function run(argv=process.argv.slice(2)){
    if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Wrong signature');process.stdout.write(publicEnvelope(claim,signature));
   }else if(command==='status'){
    const number=Number(rest[0]);if(!Number.isSafeInteger(number)||number<1)throw Error('PR number required');
-   const index=await gh.request('/contents/index.json?ref=evidence'),entry=currentOpenStatus(JSON.parse(Buffer.from(index.content,'base64')),number,d);
+   const index=await readEvidenceFile(gh,'index.json'),entry=currentOpenStatus(index?.data??{entries:[]},number,d);
    if(!entry){out({pr:number,status:'No indexed outcome',next:'Check Actions or ask the operator to resume the original signed comment. Do not edit or repost it.'});return;}
    let current=null;try{current=await native('get',[entry.id]);}catch{}
    out({archived:entry,native:current,contract:d.contract,next:'Native state is authoritative. Failed consensus is preserved, not rerolled.'});
