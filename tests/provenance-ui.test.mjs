@@ -115,13 +115,13 @@ test('native failure renders a dated snapshot with escaped native fields, no Liv
  const previousFetch=globalThis.fetch,previousDocument=globalThis.document;t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
  const {snapshot,deployment}=publishedFixture(),requests=[];
  snapshot.records[0].evidence.title='<img src=x onerror=alert(1)> accepted integration';
- globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url==='deployment.json'?deployment:snapshot};};
+ globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url==='deployment-metadata.json'?deployment:snapshot};};
  const badge={textContent:'OPEN'},buttons=new Map();globalThis.document={querySelector:()=>badge};
  const container={innerHTML:'',querySelector:selector=>{if(!buttons.has(selector))buttons.set(selector,{});return buttons.get(selector);}};
  let available=false;
  const views={get_affiliations:snapshot.affiliations,get_external_authors:snapshot.authors,get_problem:snapshot.problem,list_contributions:snapshot.records.map(r=>r.evidence.id),get:snapshot.records[0],get_provenance:snapshot.provenances[0].value,list_cases:snapshot.cases.map(c=>c.id),get_case:snapshot.cases[0]};
  await mountResearchCommunity({container,chainRead:async(_,method)=>{if(!available)throw Error('rate limited');return views[method];}});
- assert.deepEqual(requests,['deployment.json','community-snapshot.json']);
+ assert.deepEqual(requests,['deployment-metadata.json','community-snapshot.json']);
  assert.match(container.innerHTML,/Published snapshot · 2026-11-22T12:00:00.000Z/);assert.match(container.innerHTML,/Historical finalized views/);assert.match(container.innerHTML,/not current state/);assert.match(container.innerHTML,/PROBLEM STATUS · PUBLISHED SNAPSHOT/);
  assert.ok(!/\bLive\b|\bfresh\b/.test(container.innerHTML));assert.equal(badge.textContent,'SNAPSHOT · OPEN');
  assert.match(container.innerHTML,/Source Author/);assert.match(container.innerHTML,/Registered source/);assert.match(container.innerHTML,/Verified claim recorded/);assert.match(container.innerHTML,/Reviewed — not a resolution/);assert.match(container.innerHTML,/&lt;img/);assert.ok(!container.innerHTML.includes('<img'));assert.match(container.innerHTML,/side-counts/);
@@ -132,7 +132,7 @@ test('wrong-deployment and malformed snapshots fail closed without retaining pre
  const previousFetch=globalThis.fetch,previousDocument=globalThis.document;t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
  const {snapshot,deployment}=publishedFixture(),badge={textContent:'SNAPSHOT · OPEN'},button={};globalThis.document={querySelector:()=>badge};
  for(const bad of [{...snapshot,policy:'0'.repeat(64)},{...snapshot,cases:null}]){
-  globalThis.fetch=async url=>({ok:true,json:async()=>url==='deployment.json'?deployment:bad});
+  globalThis.fetch=async url=>({ok:true,json:async()=>url==='deployment-metadata.json'?deployment:bad});
   const container={innerHTML:'old counts',querySelector:()=>button};await mountResearchCommunity({container,chainRead:async()=>{throw Error('offline');}});
   assert.equal(badge.textContent,'STATUS UNAVAILABLE');assert.match(container.innerHTML,/no valid published snapshot/);assert.ok(!container.innerHTML.includes('side-counts'));assert.ok(!container.innerHTML.includes('Published snapshot ·'));assert.equal(typeof button.onclick,'function');
  }
