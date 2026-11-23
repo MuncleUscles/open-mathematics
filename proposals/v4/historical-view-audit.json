@@ -1,0 +1,39 @@
+{
+  "scope": "Internal consistency of a historical display bundle only",
+  "readyForMigration": false,
+  "consistent": true,
+  "issues": [],
+  "unverifiedRequirements": [
+    "A published sequential latest-final read bundle is not an atomic or authoritative migration cutoff.",
+    "Enumerate all case pages from offset zero; list_cases and list_review_cases expose only the latest 100.",
+    "Independently attest exact source code, roles, policy, dispute window, imported snapshot and storage indexes at the chosen cutoff.",
+    "Reconcile each reporter active-case counter and all wallet balances, including claimed external authors, against complete source state.",
+    "Preserve original record digests, evidence policies, case identities, source identities, histories and successful/failed receipt lineage.",
+    "Drain or explicitly transition in-flight proofs, reviews and cases; stop old verifier/executor writes and publish a policy for post-cutoff self-service writes.",
+    "Implement a separately reviewed one-time exact v3 importer and post-import equivalence checks; the existing fixed v2 importer is insufficient."
+  ],
+  "source": {
+    "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+    "chainId": 61999,
+    "codeHash": "00c3bbd3d4a4d075b20b4e8eb2da4636c97c2b77b558e623a349ef5d1f47bb8e",
+    "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+    "collectedAt": "2026-11-23T03:10:02.266Z"
+  },
+  "counts": {
+    "contributions": 2,
+    "cases": 3,
+    "authors": 1,
+    "affiliations": 1,
+    "walletViews": 2
+  },
+  "accounting": {
+    "historicalInitial": "700",
+    "retainedInitial": "700",
+    "externalAllocated": "0",
+    "unclaimed": "0",
+    "revoked": "0",
+    "laterImpact": "100",
+    "total": "800"
+  },
+  "inputSha256": "917ffdd69cba4e887f84c4c4a117a12db165c63b8e047bd605c88f55d3e4350d"
+}

@@ -1,0 +1,12 @@
+diff --git a/contracts/research.py b/contracts/research.py
+--- a/contracts/research.py
++++ b/contracts/research.py
+@@ -935,7 +935,7 @@ class Research(gl.Contract):
+         if gl.message.sender_address != self.executor:
+             fail("consensus executor required")
+         c = self.get_case(key)
+-        if c["status"] == "expired":
++        if c["status"] in ["expired", "withdrawn"]:
+             return
+         if c["status"] == "settled" or not 30 <= len(reason) <= 1000:
+             fail("settled case or invalid expiration reason")
