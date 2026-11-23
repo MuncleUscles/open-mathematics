@@ -1,0 +1,87 @@
+name: Propose a trusted mathematical goal
+description: Propose a precisely defined statement for separate review. No points or automatic enrollment.
+title: "[Goal proposal]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when proposing a new statement for the trusted verifier, including when all enrolled proof goals are closed.
+        A proposal earns no points, reserves no reward and does not enroll a statement. Reviewers must separately review the definitions, verification policy and implementation before a goal can become available.
+        Do not change the active policy through a research PR, submit duplicate closed goals, include private keys, or propose your own score. Existing proof submissions still use the normal signed PR path for an open enrolled goal.
+        Read [the goal proposal guide](https://github.com/MuncleUscles/open-mathematics/blob/protocol/docs/GOAL-PROPOSALS.md) and search existing proposals before creating another.
+  - type: textarea
+    id: availability
+    attributes:
+      label: Current goal availability and existing proposals
+      description: Record your finalized goals query and any related proposal so reviewers can distinguish a missing goal from a duplicate.
+      placeholder: "UTC query time; active contract and policy hash; goal IDs and returned open/closed status; related issue URLs or the search you performed."
+    validations:
+      required: true
+  - type: textarea
+    id: exact_statement
+    attributes:
+      label: Exact proposed theorem
+      description: Give the exact Lean theorem type, every quantified variable and all assumptions. State any remaining specification gap explicitly. Do not replace the proposition with an informal title or an assumed axiom.
+      placeholder: "Paste the proposed declaration and exact proposition. A proof is not required for a goal proposal."
+      render: lean
+    validations:
+      required: true
+  - type: textarea
+    id: definitions
+    attributes:
+      label: Definitions and mathematical meaning
+      description: Include the definitions needed to interpret the theorem, or immutable source URLs with exact commits and declarations. Explain their intended semantics and why they express the intended claim.
+      placeholder: "Types, functions and predicates; exact imports or pinned definition sources; assumptions; risk of vacuity, weakened definitions or an unintended theorem."
+    validations:
+      required: true
+  - type: textarea
+    id: toolchain
+    attributes:
+      label: Lean toolchain and dependencies
+      description: Specify the exact Lean version and all library revisions, including Mathlib if needed. Write none when no external library is required. Proposed new dependencies are not already supported by the pilot.
+      placeholder: "Lean release; exact library commits or lockfiles; required imports; permitted axioms; compatibility with the current restricted verifier."
+    validations:
+      required: true
+  - type: textarea
+    id: motivation_dependencies
+    attributes:
+      label: Motivation and research dependencies
+      description: Explain the concrete value of enrolling this statement and how it connects to accepted work or a useful next step. Do not assign points or imply progress toward a full P vs NP proof without evidence.
+      placeholder: "Why this statement; earlier contribution IDs and exact artifacts; how each dependency is used; expected downstream use and limits."
+    validations:
+      required: true
+  - type: textarea
+    id: prior_art_attribution
+    attributes:
+      label: Prior art and attribution
+      description: Name original authors and provide actual source references. Distinguish established mathematics, formalization, extension and integration from a justified discovery claim. If no equivalent work was located, describe the search and its limits.
+      placeholder: "Sources and named authors; exact result or component reused; relationship to the proposal; formalization/import work; prior-art search boundaries. Do not nominate author payout wallets."
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope, limitations and counterexamples
+      description: Bound the proposal to one reviewable statement or explain why a minimal family is inseparable. Identify what it does not establish and assumptions that exclude counterexamples.
+      placeholder: "Included and excluded claims; known edge cases; counterexamples without the assumptions; whether this is a component result rather than the complete P vs NP target."
+    validations:
+      required: true
+  - type: textarea
+    id: verification_notes
+    attributes:
+      label: Independent verification notes
+      description: Explain how a separately reviewed verifier could pin the statement and definitions, check the elaborated theorem and restricted axioms, and reject altered or vacuous statements. Distinguish checks actually run from checks merely proposed.
+      placeholder: "Exact artifacts or commands to review; expected theorem type and axiom closure; needed checker changes; resource/isolation considerations; negative checks; actual results or explicitly not run. No PR-supplied code may become trusted by being attached here."
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Proposal boundaries
+      options:
+        - label: This issue earns no points, promises no reward, reserves no allocation and does not enroll a goal.
+          required: true
+        - label: A separate reviewed protocol/policy/verifier release and deployment are required before I can submit a proof against a newly open enrolled goal.
+          required: true
+        - label: I have attributed prior work honestly and have not included private keys, payout instructions or self-assigned scores.
+          required: true
