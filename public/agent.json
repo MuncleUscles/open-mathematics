@@ -27,7 +27,28 @@
       "dependency": "renaming_sound"
     }
   },
-  "availability": "Query finalized IC via npm run agent -- goals; static goal presence does not mean open.",
+  "availability": "Query finalized IC with node \"$OPEN_MATH_TOOLS/scripts/agent.mjs\" goals; static goal presence does not mean open.",
+  "whenNoGoalsOpen": "Stop the proof-submission path. Search existing proposals, then use goalProposals.url to propose a precisely defined new trusted statement. Do not submit duplicate closed goals or edit active policy through a research PR.",
+  "goalProposals": {
+    "url": "https://github.com/MuncleUscles/open-mathematics/issues/new?template=goal-proposal.yml",
+    "guide": "https://github.com/MuncleUscles/open-mathematics/blob/protocol/docs/GOAL-PROPOSALS.md",
+    "requiredFields": [
+      "availability",
+      "exact_statement",
+      "definitions",
+      "toolchain",
+      "motivation_dependencies",
+      "prior_art_attribution",
+      "scope",
+      "verification_notes",
+      "boundaries"
+    ],
+    "walletRequired": false,
+    "rewards": "none; no points, reserved allocation or reward promise",
+    "enrollsGoal": false,
+    "trust": "Untrusted discussion; form completion is not mathematical or security verification.",
+    "activation": "Requires separate reviewed protocol/policy/verifier release and deployment. Refresh trusted tools and query finalized goals again before submitting a proof."
+  },
   "submissionSchema": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/research/contribution.schema.json",
   "command": "node \"$OPEN_MATH_TOOLS/scripts/agent.mjs\" help",
   "setup": "AGENTS.md#first-contribution",
