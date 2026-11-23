@@ -8,6 +8,15 @@ import {GitHub} from '../src/github.mjs';import {decodeSubmission,validateProven
 import {digest,message,validateClaim,enrolledSubmissionBlobs} from '../src/security.mjs';import {clientFor as studioClientFor,read,finalized} from '../github/runtime.mjs';
 import {rpcRateLimit} from '../src/rpc-errors.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+export function summarizeGoals(policy,records){
+ return Object.entries(policy.goals).map(([id,g])=>{
+  // The current verifier has one explicit dependency alias. Unknown future
+  // aliases must never silently point to an unrelated credited theorem.
+  const dependency=g.dependency==='renaming_sound'?policy.goals.renaming:null;
+  return {id,...g,status:records.some(r=>['approved','credited'].includes(r.status)&&r.evidence.statement_hash===g.statement_hash)?'closed':'open',
+   creditedDependency:dependency?records.find(r=>r.status==='credited'&&r.evidence.statement_hash===dependency.statement_hash)?.evidence.id||null:null};
+ });
+}
 export function contributorPath(worktree,file){
  if(typeof file!=='string'||!file||path.isAbsolute(file)||file.split(/[\\/]/).includes('..'))throw Error('Use a relative path inside the contributor worktree');
  const root=fs.realpathSync(worktree),target=path.resolve(root,file),inside=p=>p===root||p.startsWith(root+path.sep);
@@ -40,7 +49,7 @@ async function sendNative(sender,method,args){
  return hash;
 }
 const blob=async sha=>{const b=await gh.request(`/git/blobs/${sha}`);if(b.sha!==sha||b.encoding!=='base64'||b.size>12000)throw Error('Invalid proof blob');return Buffer.from(b.content,'base64');};
-async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,'list_contributions',[]),records=await Promise.all(ids.map(id=>read(c,deployment.contract,'get',[id])));return Object.entries(policy.goals).map(([id,g])=>({id,...g,status:records.some(r=>['approved','credited'].includes(r.status)&&r.evidence.statement_hash===g.statement_hash)?'closed':'open',creditedDependency:records.find(r=>r.status==='credited'&&r.evidence.statement_hash===policy.goals.renaming.statement_hash)?.evidence.id||null}));}
+async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,'list_contributions',[]),records=await Promise.all(ids.map(id=>read(c,deployment.contract,'get',[id])));return summarizeGoals(policy,records);}
  if(!command||command==='help'){
   out({start:'Read AGENTS.md. Run this helper from its trusted protocol checkout; --worktree DIR selects contributor files (defaults to your current directory).',toolRoot,worktree,commands:{authors:'Read native external-author IDs, verified identities and unclaimed points.',affiliations:'Read current wallet affiliations and their history.',affiliation:'affiliation SIDE [--send] — preview/change your own native affiliation; points and merit are unaffected.', 'case-report':'case-report KIND TARGET FILE [--send] — report specific provenance evidence or claim your external-author identity from your own wallet.', 'case-withdraw':'case-withdraw ID REASON_FILE [--send] — release your unadmitted case slot; preserves the report history.', 'case-status':'case-status ID — show the native case, history and exact identity challenge if applicable.', 'case-challenge':'case-challenge ID FILE [--send] — challenge a provisional attribution/identity/solution case.',goals:'Query finalized contract state for available enrolled goals.',init:'init GOAL SLUG WALLET — create a required record to fill in.',format:'format research/submissions/SLUG.json — normalize before committing.',check:'check RECORD [--lean] — validate record and proof; --lean requires TRUSTED_LEAN_IMAGE and Docker.',sign:'sign PR RECORD — verify immutable GitHub blobs and emit a public signed comment. Requires local CONTRIBUTOR_KEY_FILE, no local PR checkout.',prepare:'prepare PR RECORD PUBLIC_WALLET — emit the exact claim and message for an external signer.',envelope:'envelope CLAIM_FILE SIGNATURE_FILE — verify signature and format the public comment; public input files may be outside the worktree.',challenge:'challenge ID EVIDENCE_FILE [--impact] [--send] — preview or submit a challenge with a local signer.',status:'status PR — print latest public outcome, reason, initial/later points and recovery action.'},canonicalBranch:deployment.branch,repository:deployment.repository,keyRule:'Never put a private key in chat, GitHub, a PR, the manifest, or a command-line argument.'});
  }else if(command==='goals')out({deployment:Object.fromEntries(['contract','repository','branch','chainId','policy','windowSeconds'].map(k=>[k,deployment[k]])),goals:await goals()});
