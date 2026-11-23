@@ -3,6 +3,7 @@ import {studionet} from 'genlayer-js/chains';
 import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,readOpenRecordInheritance,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT,normalizeOpenRead} from '../../src/open-snapshot.mjs';
 import {buildResearchView} from '../../src/open-research-view.mjs';
 import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot,validateGitHubAccountsSnapshot,githubAccountsCoverage,githubAccountsSnapshotLabel,chooseGitHubAccountsView,GITHUB_ACCOUNTS_BYTE_LIMIT} from '../../src/github-accounts.mjs';
+import {collectFederationSnapshot,validateFederationSnapshot,federationCoverage,federationSnapshotLabel,chooseFederationView,FEDERATION_BYTE_LIMIT} from '../../src/federation-snapshot.mjs';
 const $=id=>document.getElementById(id);
 const el=(tag,value,cls)=>{const node=document.createElement(tag);if(value!==undefined)node.textContent=value;if(cls)node.className=cls;return node;};
 const link=(label,href,cls)=>{const node=el('a',label,cls);node.href=href;return node;};
@@ -12,16 +13,16 @@ const detailUrl=id=>'#/contributions/'+encodeURIComponent(id);
 const identities=new Map();
 function contributorName(id){const user=identities.get(id);return user?'@'+user.login:id?'GitHub user #'+id:'Unidentified contributor';}
 function contributorLink(id){const user=identities.get(id);if(!user)return el('span',contributorName(id));const node=link('@'+user.login,'https://github.com/'+user.login,'github-user');node.title=`GitHub account #${id}. Name verified on chain ${new Date(Number(user.username_checked_at)*1000).toLocaleString()}.`;return node;}
-function renderIdentities(){if(model){renderFeed();renderLeaderboard();if(location.hash.startsWith('#/contributions/'))route();}}
-let data,repository,read,accountRead,currentView=null,accountView=null,nextEnd=0,busy=false,accountBusy=false,records=[],impacts=[],model=null;
-const viewMap={'/':['home','problem','research','graph','leaderboard','how','agent'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/leaderboard':['leaderboard'],'/how-it-works':['how'],'/agent':['agent']};
+function renderIdentities(){if(model){renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}}
+let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
+const viewMap={'/':['home','problem','research','graph','federation','leaderboard','how','agent'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
  const isDetail=name.startsWith('/contributions/'),views=isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
- document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view','')));
+ document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
  if(isDetail){let id='';try{id=decodeURIComponent(name.slice('/contributions/'.length));}catch{}renderDetail(id);}
- const names={'/':'Apes together prove.','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/leaderboard':'The contributors','/how-it-works':'How it works','/agent':'Send an agent'};
+ const names={'/':'Apes together prove.','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The contributors','/how-it-works':'How it works','/agent':'Send an agent'};
  document.title='pnp.fun — '+(isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(names[name]||names['/']));
 }
 window.addEventListener('hashchange',()=>{route();window.scrollTo(0,0);});
@@ -32,7 +33,8 @@ function recordRow(c){
  state.append(badge(c),el('span',c.evidenceKind==='formal'?'Formal proof':'Research note','record-type'));
  const title=el('h3');title.append(link(c.title,detailUrl(c.id)));body.append(title,el('p',c.claim.length>210?c.claim.slice(0,207)+'…':c.claim));
  const meta=el('div',undefined,'record-meta');meta.append(el('span',c.evidenceLabel),el('span',c.researchDirection),contributorLink(c.githubAuthorId));body.append(meta);
- points.append(el('strong',fmt(c.authorPoints)),el('span','author PNP'),link('PR #'+c.pr,repository+'/pull/'+c.pr));
+ points.append(el('strong',fmt(c.authorPoints)),el('span',data?.federation?'original author PNP':'author PNP'),link('PR #'+c.pr,repository+'/pull/'+c.pr));
+ if(data?.federation&&c.status==='credited'){const a=currentAttribution(c.id),local=a?.initial_allocations.find(row=>row.subject==='contributor');points.append(el('span',a?`${fmt(local?.points||'0')} currently attributed to local contributor`:'Current attribution not loaded','attribution-note'));}
  row.append(state,body,points);return row;
 }
 function renderFeed(){
@@ -58,15 +60,16 @@ function renderDetail(id){
  if(!edges.length)connections.append(el('p','No declared dependencies or loaded downstream references.'));
  for(const edge of edges){const other=edge.source===id?edge.target:edge.source,otherNode=model.graph.nodes.find(n=>n.id===other),p=el('p',edge.source===id?'Builds on: ':'Used by: ');p.append(link(otherNode?.title||other,detailUrl(other)),el('span',` · ${edge.kind==='verified'?'verified direct proof use':'declared reference'}`));if(BigInt(edge.settledPoints)>0n)p.append(el('span',` · ${fmt(edge.settledPoints)} settled upstream PNP`));connections.append(p);}
  left.append(connections);
- const award=block('The point record');award.append(el('p',fmt(c.authorPoints)+' author PNP','detail-score'));
+ const award=block('The point record');award.append(el('p',fmt(c.authorPoints)+(data?.federation?' original author PNP':' author PNP'),'detail-score'));
  award.append(el('p',c.awardBudget===null?'No settled award budget.':`${fmt(c.awardBudget)} PNP fixed result budget. ${fmt(c.returnedPoints)} unused reserved points returned to the author, already included above. ${fmt(c.settledImpactPoints)} allocated to earlier work. ${fmt(c.reservePoints)} remain reserved.`));
  if(impact?.reason)award.append(el('p',impact.reason));right.append(award);
+ if(data?.federation){award.append(el('p','This is the original award record. Later attribution corrections preserve its fixed pool and keep their own public history.'));right.append(attributionBlock(c.id));}
  const timeline=block('Evidence trail'),list=el('ol',undefined,'timeline');
  const steps=[['Signed submission',`Wallet bound to PR #${c.pr} at exact commit ${short(c.head)}.`],['Independent verification',c.evidenceKind==='formal'?'The submitted formal statement passed the pinned proof checker recorded in its evidence.':'Research note: no formal proof verification.'],['GenLayer review',raw.verdict?c.reason:'No agreed merit verdict recorded.'],['Merge & points',c.status==='credited'?`Exact merge confirmed; ${fmt(c.authorPoints)} author points recorded.`:c.status==='expired'?'Unmerged claim withdrawn or expired. No points awarded.':c.status==='rejected'?'Research rejected. No points awarded.':'Not yet credited; no completed merge is asserted.']];
  for(const [title,description] of steps){const item=el('li');item.append(el('strong',title),el('span',description));list.append(item);}timeline.append(list);right.append(timeline);
  const provenance=block('Exact evidence'),dl=el('dl',undefined,'provenance');
  for(const [label,value,href] of [['GitHub account ID',c.githubAuthorId],['Contributor wallet',e.wallet],['Head commit',e.head,repository+'/commit/'+e.head],['Bundle hash',e.bundle_hash||e.artifact_hash],['Statement hash',e.statement_hash],['Decision evidence digest',raw.digest],['Original protocol release',e.protocol_commit],['Contribution ID',c.id]])if(value){const pair=el('div'),dd=el('dd');pair.append(el('dt',label));dd.append(href?link(value,href):el('span',value));pair.append(dd);dl.append(pair);}
- provenance.append(dl,el('p','Original evidence stays bound to its original release, including carried records.'),link('Browse public evidence reports',repository+'/tree/evidence'));right.append(provenance);
+ provenance.append(dl,el('p','Original evidence stays bound to its original release.'),link('Browse public evidence reports',repository+'/tree/evidence'));right.append(provenance);
  columns.append(left,right);target.replaceChildren(head,el('h1',c.title),el('p',c.claim,'detail-summary'),columns);
 }
 function svgNode(tag,attributes,text){const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attributes||{}))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;return node;}
@@ -86,7 +89,55 @@ function renderGraph(){
  for(const edge of model.graph.edges){const from=nodes.find(n=>n.id===edge.target),to=nodes.find(n=>n.id===edge.source),p=el('p');p.append(link(to.title,detailUrl(to.id)),el('span',edge.kind==='verified'?' uses a verified proof from ':' references '),link(from.title,detailUrl(from.id)));$('graph-connections').append(p);}
  $('graph-coverage').textContent=`${model.coverage.loaded} of ${model.coverage.total} registered records loaded. ${model.graph.edges.length} dependency connections. Only declared references and verified direct proof use are shown. Other relationships are not inferred.`;
 }
+function currentAttribution(id){return federationView?.snapshot?.contributions.rows.find(row=>row.record.evidence.id===id)?.attribution;}
+function subjectName(subject,id){return subject==='contributor'?'Local contributor':contributorName(subject.slice(7));}
+function attributionBlock(id){
+ const section=block('Current attribution'),a=currentAttribution(id);
+ if(!a){section.append(el('p','Current attribution is unavailable for this contribution in the bounded federation view. The original award is not substituted as its current allocation.'));return section;}
+ section.append(el('p',`Revision ${a.revision} · ${fmt(a.initial_pool)} PNP fixed author pool. View dated ${federationView.snapshot.completedAt}.`));
+ for(const row of a.initial_allocations)section.append(el('p',`${subjectName(row.subject,id)}: ${fmt(row.points)} PNP currently attributed.`));
+ section.append(el('h3','Future incoming impact'));
+ for(const row of a.impact_bands)section.append(el('p',`${subjectName(row.subject,id)}: ${Number(row.band)*10}% of future incoming impact.`));
+ section.append(el('p','This route applies only to later incoming impact. Settled historical impact is unchanged.','fine'));
+ const history=el('details',undefined,'disclosure');history.append(el('summary',`${a.corrections.length} settled attribution correction${a.corrections.length===1?'':'s'}`));
+ if(!a.corrections.length)history.append(el('p','No settled corrections in this contribution’s attribution history.'));
+ for(const c of a.corrections){const row=el('div',undefined,'correction-entry');row.append(el('h4',`Revision ${c.revision} · ${new Date(Number(c.at)*1000).toLocaleString()}`),el('p',c.reason),el('p','Before: '+c.before.map(x=>`${subjectName(x.subject,id)} ${fmt(x.points)}`).join('; ')),el('p','After: '+c.after.map(x=>`${subjectName(x.subject,id)} ${fmt(x.points)}`).join('; ')),el('p','Future impact: '+c.impact_bands.map(x=>`${subjectName(x.subject,id)} ${Number(x.band)*10}%`).join('; ')),link(c.case,'#/federation'));history.append(row);}
+ section.append(history);return section;
+}
+function renderFederation(){
+ if(!data?.federation)return;const snapshot=federationView?.snapshot;
+ if(!snapshot){$('federation-coverage').textContent=federationView?.mode==='unavailable'?'Federation views and a validated published copy are unavailable. No source registrations or attribution outcomes are inferred.':'Reading source registrations and current attribution…';return;}
+ const coverage=federationCoverage(snapshot,currentView?.snapshot);
+ $('federation-coverage').textContent=`${snapshot.sources.rows.length} of ${snapshot.sources.total} sources · ${snapshot.authors.rows.length} of ${snapshot.authors.total} external authors · ${snapshot.cases.rows.length} of ${snapshot.cases.total} attribution cases · ${snapshot.contributions.rows.length} of ${snapshot.contributions.total} local records. ${coverage.label}`;
+ $('federation-points').textContent=`${fmt(snapshot.state.total_points)} PNP currently attributed: ${fmt(snapshot.state.wallet_points)} associated with wallets and ${fmt(snapshot.state.unclaimed_points)} explicitly unclaimed. Registration itself awards zero points.`;
+ const sourceRows=snapshot.sources.rows.map(source=>{
+  const e=source.evidence,row=el('article',undefined,'federation-card');row.id=source.id;
+  row.append(el('span','Registered source · not locally verified','badge'),el('h3',e.theorem),el('p',e.statement));
+  const who=el('p',e.origin==='formalization'?'Upstream formal contributor: ':e.origin==='discovery'?'Declared discovery contributor: ':'Source account; contribution role unknown: ');who.append(contributorLink(String(e.github_author_id)));row.append(who,el('p','Original mathematical discovery and priority are not established by GitHub account identity.','fine'),el('p',e.attribution_basis));
+  const links=el('p',undefined,'source-links');links.append(link('Immutable source',e.source_url),link('Upstream PR #'+e.pr,`https://github.com/${e.repository}/pull/${e.pr}`));row.append(links,el('p',`License: ${e.license} · Registration award: 0 PNP`,'fine'));
+  const integrations=snapshot.contributions.rows.filter(({record})=>record.evidence.provenance.sources.some(s=>s.reference===e.source_url));
+  row.append(el('h4','Declared local integrations'));
+  if(!integrations.length)row.append(el('p','No matching integration in the loaded local page. This is not a claim that none exists.','fine'));
+  for(const {record} of integrations){const p=el('p');p.append(link(record.evidence.id,detailUrl(record.evidence.id)),el('span',` · ${record.status} · declared ${record.evidence.provenance.mode}`),el('span',' · '),link('Local PR #'+record.evidence.pr,repository+'/pull/'+record.evidence.pr));row.append(p);}
+  const details=el('details',undefined,'source-pins');details.append(el('summary','Exact provenance'),el('code',`Repository ID ${e.repository_id}; GitHub author ID ${e.github_author_id}`),el('code',`Commit ${e.commit}`),el('code',`File ${e.path}`),el('code',`Blob ${e.blob_sha}`),el('code',`Content SHA256 ${e.content_sha256}`),el('code',`Registration ${source.id}`),el('code',`Source hash ${source.source_hash}`));row.append(details);return row;
+ });
+ $('federation-sources').replaceChildren(...(sourceRows.length?sourceRows:[el('p','No external sources registered in this native view.','empty')]));
+ const authors=snapshot.authors.rows.map(a=>{const row=el('article',undefined,'federation-card'),heading=el('h3');heading.append(contributorLink(String(a.github_author_id)));row.append(heading,el('p',`${fmt(a.initial_points)} initial attribution · ${fmt(a.impact_points)} later impact · ${fmt(a.unclaimed_points)} unclaimed PNP`));row.append(el('p',a.claimed_wallet?`Claimed wallet: ${a.claimed_wallet}`:'No wallet bound. Credit remains unclaimed; no wallet is inferred.','author-wallet'));row.append(el('p',`${a.sources.length} registered source${a.sources.length===1?'':'s'} · stable GitHub account ID ${a.github_author_id}`,'fine'));return row;});
+ $('federation-authors').replaceChildren(...(authors.length?authors:[el('p','No external author identities registered in this native view.','empty')]));
+ const cases=snapshot.cases.rows.map(c=>{const row=el('article',undefined,'federation-card');const label=c.status==='settled'?(c.verdict?.apply?'Correction settled':'Reviewed · no attribution change'):`Attribution ${c.status}`;row.append(el('span',label,'badge'),el('h3',c.id),link('Local contribution '+c.target,detailUrl(c.target)),el('p',c.request.claim),el('p',c.verdict?.reason||'No agreed attribution verdict recorded.'),el('p',`Round ${c.round} · proposed against revision ${c.revision}`,'fine'));if(c.verdict?.apply){row.append(el('p','Initial pool: '+c.verdict.initial_bands.map(x=>`${subjectName(x.subject,c.target)} ${Number(x.band)*10}%`).join('; ')),el('p','Future incoming impact: '+c.verdict.impact_bands.map(x=>`${subjectName(x.subject,c.target)} ${Number(x.band)*10}%`).join('; ')));}for(const s of c.request.sources){const found=snapshot.sources.rows.find(row=>row.id===s.id);row.append(found?link(found.evidence.theorem,found.evidence.source_url):el('p',`Source ${s.id} is outside this source page.`));}const history=el('details',undefined,'source-pins');history.append(el('summary','Case history'));for(const h of c.history)history.append(el('p',`${h.event} · ${new Date(Number(h.at)*1000).toLocaleString()}`));row.append(history);return row;});
+ $('federation-cases').replaceChildren(...(cases.length?cases:[el('p','No attribution cases registered in this native view.','empty')]));
+ const corrected=snapshot.contributions.rows.filter(row=>row.attribution&&Number(row.attribution.revision)>0);
+ $('federation-corrections').replaceChildren(...(corrected.length?corrected.map(row=>{const box=attributionBlock(row.record.evidence.id);box.prepend(link(row.record.evidence.id,detailUrl(row.record.evidence.id)));return box;}):[el('p','No corrected contributions in the loaded local page. Earlier corrections may lie outside this page.','empty')]));
+}
+function renderFederationLeaderboard(){
+ const snapshot=federationView?.snapshot,coverage=snapshot?federationCoverage(snapshot,currentView?.snapshot):null,tbody=$('leaderboard');tbody.replaceChildren();
+ const rows=[...(snapshot?.accounts.rows||[])].filter(row=>BigInt(row.points)>0n).sort((a,b)=>BigInt(a.points)===BigInt(b.points)?a.github_author_id.localeCompare(b.github_author_id):BigInt(a.points)>BigInt(b.points)?-1:1);let rank=0,previous;
+ rows.forEach((row,index)=>{if(row.points!==previous)rank=index+1;previous=row.points;const tr=el('tr'),person=el('td',undefined,'contributor'),profile=identities.get(row.github_author_id);person.append(contributorLink(row.github_author_id),el('span',profile?`Username checked ${new Date(Number(profile.username_checked_at)*1000).toLocaleString()}`:`Stable GitHub account #${row.github_author_id}; username not loaded`,'identity-date'));if(BigInt(row.unclaimed_points)>0n)person.append(el('span','Includes unclaimed external author credit','identity-date'));tr.append(el('td',coverage.ranked?String(rank):'—'),person,el('td',fmt(row.initial_points),'numeric'),el('td',fmt(row.impact_points),'numeric'),el('td',fmt(row.points),'numeric'),el('td',fmt(row.unclaimed_points),'numeric'));tbody.append(tr);});
+ if(!rows.length){const tr=el('tr'),td=el('td',snapshot?'No positive current attribution in this account page.':'Current native attribution is unavailable. Original companion awards are not used as current balances.');td.colSpan=6;tr.append(td);tbody.append(tr);}
+ $('ranking-status').textContent=coverage?`${coverage.label} Attribution view dated ${snapshot.completedAt}.`:'Current attribution must be read and reconciled before rankings appear.';
+}
 function renderLeaderboard(){
+ if(data?.federation){renderFederationLeaderboard();return;}
  const coverage=accountView?.snapshot?githubAccountsCoverage(accountView.snapshot,currentView.snapshot):null;
  const rows=(accountView?.snapshot?.accounts||[]).filter(row=>BigInt(row.points)>0n).sort((a,b)=>BigInt(a.points)===BigInt(b.points)?a.github_author_id.localeCompare(b.github_author_id):BigInt(a.points)>BigInt(b.points)?-1:1),tbody=$('leaderboard');tbody.replaceChildren();
  let rank=0,previous;
@@ -101,8 +152,17 @@ function renderLeaderboard(){
 function renderAll(){
  const snapshot=currentView.snapshot;model=buildResearchView({records,impacts,count:snapshot.count,points:snapshot.points});
  $('count').textContent=fmt(snapshot.count);$('total').textContent=fmt(snapshot.points.total_awarded);$('impact').textContent=fmt(snapshot.points.total_impact_points);
- $('reserve-status').textContent=`${fmt(snapshot.points.total_award_budgets)} PNP in accepted result budgets; ${fmt(snapshot.points.total_reserved_points)} PNP awaiting attribution settlement. Carried points are counted once.`;
- renderFeed();renderGraph();renderLeaderboard();route();$('older').hidden=nextEnd===0;
+ $('reserve-status').textContent=`${fmt(snapshot.points.total_award_budgets)} PNP in accepted result budgets; ${fmt(snapshot.points.total_reserved_points)} PNP awaiting attribution settlement.${data.deployment.predecessor?' Carried points are counted once.':''}`;
+ renderFeed();renderGraph();renderLeaderboard();renderFederation();route();$('older').hidden=nextEnd===0;
+}
+async function publishedFederation(){const response=await fetch('./federation-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>FEDERATION_BYTE_LIMIT)throw Error('Published federation snapshot unavailable');const text=await response.text();if(new TextEncoder().encode(text).length>FEDERATION_BYTE_LIMIT)throw Error('Published federation snapshot too large');return validateFederationSnapshot(JSON.parse(text),data);}
+async function refreshFederation(){
+ if(federationBusy||!data?.federation||data.preview)return;federationBusy=true;
+ try{federationView=await chooseFederationView({loadLive:()=>collectFederationSnapshot({problem:data,read}),loadPublished:publishedFederation,current:federationView});
+  $('federation-status').textContent=federationView.mode==='published'?federationSnapshotLabel(federationView.snapshot):federationView.mode==='live'?`${federationView.unavailable?'Live refresh unavailable. Keeping the prior federation view from':'Finalized federation views checked'} ${federationView.snapshot.completedAt}. Read interval ${federationView.snapshot.startedAt}–${federationView.snapshot.completedAt}; not an atomic snapshot.`:'Federation ledger and validated published copy unavailable.';
+  renderIdentities();renderFederation();renderLeaderboard();
+ }catch(error){console.warn('Federation view failed',error);$('federation-status').textContent='Could not validate the federation view. Any previously displayed attribution may be stale.';}
+ finally{federationBusy=false;}
 }
 async function publishedAccounts(){const response=await fetch('./github-accounts-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot unavailable');const text=await response.text();if(new TextEncoder().encode(text).length>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot too large');return validateGitHubAccountsSnapshot(JSON.parse(text),data.githubAccounts);}
 async function refreshAccounts(){
@@ -122,7 +182,7 @@ async function refresh(){
   if(view.mode==='published')$('status').textContent=openSnapshotLabel(view.snapshot);
   else if(view.mode==='live')$('status').textContent=view.unavailable?`Live refresh unavailable. Keeping the last successful view from ${view.snapshot.completedAt}; these records may be stale.`:`Live finalized views · checked ${new Date(view.snapshot.completedAt).toLocaleString()} · read interval ${view.snapshot.startedAt}–${view.snapshot.completedAt}. Not an atomic snapshot.`;
   else $('status').textContent='Live ledger and validated published snapshot unavailable. No example records have been substituted.';
- }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;void refreshAccounts();}
+ }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;await refreshAccounts();await refreshFederation();}
 }
 async function earlier(){
  if(busy||!nextEnd||currentView?.mode!=='live')return;busy=true;$('older').disabled=true;$('refresh').disabled=true;
@@ -144,7 +204,9 @@ try{
  for(const h of d.legacyLedgers){const p=el('p',h.description+' ');p.append(link('Historical contract',`https://studio.genlayer.com/contracts?import-contract=${h.address}`));$('history').append(p);}
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;
+ if(data.federation===true){$('federation-nav').hidden=false;$('unclaimed-heading').hidden=false;$('author-points-heading').textContent='Current initial';$('earned-heading').textContent='Current PNP';$('leaderboard-intro').textContent='Current native attribution by stable GitHub account, including unclaimed external authors. Names come from dated on-chain profile checks; names and wallet claims do not establish original mathematical discovery.';$('correction-rule').textContent='Evidence-backed attribution cases can redistribute the existing settled author pool and explicitly set a separate future incoming-impact route. They do not create a new budget or rewrite settled historical impact.';}
+ route();
  const client=createClient({chain:studionet});read=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:d.contract,functionName:method,args,transactionHashVariant:'latest-final'}));
  if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);accountRead=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:data.githubAccounts.contract,functionName:method,args,transactionHashVariant:'latest-final'}));$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
- if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;}else await refresh();
+ if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;route();}else await refresh();
 }catch(error){console.warn('Configuration failed',error);$('status').textContent='Reviewed configuration unavailable. The contribution guide is still available; live records cannot be displayed.';$('refresh').disabled=true;}

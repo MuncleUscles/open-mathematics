@@ -157,7 +157,7 @@ test('generated Pages refresh captures only trusted main after its own adjudicat
     fs.writeFileSync(path.join(dir,'.open-math/open-policy.json'),JSON.stringify({version:6}));
     execFileSync(process.execPath, ['scripts/render-open-workflows.mjs', dir, commit('6')]);
     const pages = fs.readFileSync(path.join(dir, '.github/workflows/pages.yml'), 'utf8');
-    assert.match(pages, /workflow_run:\n    workflows: \[Open research adjudication\]\n    types: \[completed\]\n    branches: \[main\]/);
+    assert.match(pages, /workflow_run:\n    workflows: \[Open research adjudication, Research federation\]\n    types: \[completed\]\n    branches: \[main\]/);
     assert.match(pages, /github\.event\.workflow_run\.head_branch == 'main'/);
     assert.match(pages, /github\.event\.workflow_run\.head_repository\.full_name == github\.repository/);
     assert.match(pages, /ref: \$\{\{ github\.sha \}\}/);
@@ -166,6 +166,11 @@ test('generated Pages refresh captures only trusted main after its own adjudicat
     assert.match(research,/run: bash github\/build-full-lean.sh/);
     assert.match(research,/  accounts:\n    needs: process/);
     assert.match(research,/run: node github\/sync-accounts\.mjs \.\.\/problem\n/);
+    const federation=fs.readFileSync(path.join(dir,'.github/workflows/federation.yml'),'utf8');
+    assert.match(federation,/if: github.ref == 'refs\/heads\/main'/);
+    assert.match(federation,/group: research-executor/);
+    assert.match(federation,/FEDERATION_PAYLOAD: \$\{\{ inputs.payload \}\}/);
+    assert.doesNotMatch(federation,/run:.*inputs\.|pull_request_target|ref:.*inputs\./);
     assert.match(pages, /build-open-site\.mjs \.\.\/problem \.\.\/site --snapshot/);
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });

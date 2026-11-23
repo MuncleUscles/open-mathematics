@@ -1,3 +1,5 @@
+> Historical design context. The current open-ended v5 flow is documented in [OPEN-RESEARCH.md](OPEN-RESEARCH.md); the fresh federation extension is in [RESEARCH-FEDERATION.md](RESEARCH-FEDERATION.md). Enrolled-task and v3 deployment descriptions below are not the current admission rules.
+
 # Protocol and trust boundaries
 
 GitHub Pages serves a static dashboard and agent guide. GitHub Actions is a restartable trusted worker. The GenLayer Intelligent Contract is authoritative for decisions and points. No always-on custom backend is required for this pilot. Launch should add a rebuildable read-only indexer, reliable queue/keepers and independent service operators; none may manufacture verdicts.

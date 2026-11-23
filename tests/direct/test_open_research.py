@@ -143,7 +143,7 @@ def test_fixed_policy_has_no_task_gate_and_no_balance_import(open_protocol, dire
     assert open_protocol.get_points(address(direct_owner))["total_awarded"] == "0"
     problem = open_protocol.get_problem()
     assert problem["admission"] == "open" and problem["status"] == "open"
-    assert problem["post_settlement_corrections"] is False
+    assert problem["post_settlement_corrections"] is True
     for removed in ["enroll_policy", "get_goal", "list_goals", "close_goal", "import_snapshot", "transfer", "report_case"]:
         assert not hasattr(open_protocol, removed)
 
@@ -232,7 +232,7 @@ def test_notes_are_admitted_as_arguments_and_never_formal_proof(open_protocol, d
     direct_vm.clear_mocks()
     impact = open_protocol.review_impact(data["id"], 0)
     assert impact["status"] == "settled" and impact["paid_points"] == "0"
-    assert open_protocol.get_provenance(data["id"])["post_settlement_corrections"] is False
+    assert open_protocol.get_provenance(data["id"])["post_settlement_corrections"] is True
 
 
 @pytest.mark.parametrize("change", [

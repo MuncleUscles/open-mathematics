@@ -104,7 +104,7 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_run:
-    workflows: [Open research adjudication]
+    workflows: [Open research adjudication, Research federation]
     types: [completed]
     branches: [main]
 permissions:
@@ -149,5 +149,50 @@ ${checkouts}      - name: Build dashboard with a dated finalized-native snapshot
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
 `;
-fs.mkdirSync(path.join(directory,'.github/workflows'),{recursive:true});for(const [name,value]of Object.entries({'research.yml':research,'pages.yml':pages}))fs.writeFileSync(path.join(directory,'.github/workflows',name),value);
-console.log(JSON.stringify({protocolCommit,files:['research.yml','pages.yml']}));
+const federation=`name: Research federation
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Native federation operation
+        required: true
+        type: choice
+        options: [register, attribution, reconcile-impact, verify-author, settle-author]
+      payload:
+        description: Exact native ID, or bounded source/author JSON request
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  process:
+    if: github.ref == 'refs/heads/main'
+    environment: protocol
+    concurrency:
+      group: research-executor
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: protocol
+    env:
+      OPEN_MATH_PROBLEM_DIR: \${{ github.workspace }}/problem
+    steps:
+${checkouts}      - name: Process exact federation evidence and native decision
+        run: node github/run-federation.mjs
+        env:
+          FEDERATION_OPERATION: \${{ inputs.operation }}
+          FEDERATION_PAYLOAD: \${{ inputs.payload }}
+          GITHUB_TOKEN: \${{ github.token }}
+          VERIFIER_SIGNING_KEY: \${{ secrets.VERIFIER_SIGNING_KEY }}
+          EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
+      - name: Refresh registered native account identities
+        if: always() && !cancelled()
+        run: node github/sync-accounts.mjs ../problem
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
+          EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
+`;
+fs.mkdirSync(path.join(directory,'.github/workflows'),{recursive:true});for(const [name,value]of Object.entries({'research.yml':research,'pages.yml':pages,'federation.yml':federation}))fs.writeFileSync(path.join(directory,'.github/workflows',name),value);
+console.log(JSON.stringify({protocolCommit,files:['research.yml','pages.yml','federation.yml']}));

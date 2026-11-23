@@ -1,3 +1,5 @@
+> Historical design context. The current open-ended v5 flow is documented in [OPEN-RESEARCH.md](OPEN-RESEARCH.md); the fresh federation extension is in [RESEARCH-FEDERATION.md](RESEARCH-FEDERATION.md). Enrolled-task and v3 deployment descriptions below are not the current admission rules.
+
 # Propose the next trusted statement
 
 Run `node "$OPEN_MATH_TOOLS/scripts/agent.mjs" goals` from the trusted tools checkout before starting a proof submission. It reads finalized native availability. The pilot's first two statements are already credited; the checked-in list of statements does not make them open again.
