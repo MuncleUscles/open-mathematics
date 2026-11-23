@@ -12,6 +12,7 @@ import {readEvidenceFile} from './evidence-file.mjs';
 import {requireOpenNative} from './open-verify.mjs';
 import {clientFor,read,clean,saveJSON} from './runtime.mjs';
 import {journaledTransaction} from './journaled-transaction.mjs';
+import {withStudioBatchPacing} from './batch-studio-client.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const BATCH=12;
@@ -30,6 +31,7 @@ export function accountNameOrder(authors,cursor=0){
 }
 
 export async function syncAccounts({problem,deployment,client,load,save,now=()=>Date.now()}){
+ client=withStudioBatchPacing(client);
  validateGitHubAccountsDeployment(deployment,problem);await requireOpenNative(problem,client);
  const native=(method,args=[])=>read(client,deployment.contract,method,args);
  const source=(method,args=[])=>read(client,deployment.sourceContract,method,args);
@@ -56,9 +58,11 @@ export async function syncAccounts({problem,deployment,client,load,save,now=()=>
   const id=page.items[0],record=await source('get',[id]),impact=await source('get_impact',[id]);
   if(record.evidence?.id!==id)throw Error('Wrong source record');
   const hash=accountSyncHash(record,impact),indexed=await native('get_record',[id]);
-  if(indexed.source_hash!==hash)await tx('sync_contribution',[id,hash]);
-  const confirmed=await native('get_record',[id]);
-  if(confirmed.source_hash!==hash)throw Error('Account copy not confirmed in finalized state');
+  if(indexed.source_hash!==hash){
+   await tx('sync_contribution',[id,hash]);
+   const confirmed=await native('get_record',[id]);
+   if(confirmed.source_hash!==hash)throw Error('Account copy not confirmed in finalized state');
+  }
   authors.add(String(record.evidence.github_author_id));
  }
  // A missing public name never prevents point reconciliation. Separate calls

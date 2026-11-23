@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {loadOpenProblem,verifyOpenCheckout,readProblemFile,parseProblemJSON} from '../src/open-research.mjs';
 import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot} from '../src/github-accounts.mjs';
 import {clientFor,read} from '../github/runtime.mjs';
+import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const usage='Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only] [--protocol-checkout PATH]';
 
@@ -47,7 +48,7 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  if(fs.existsSync(path.join(p.root,'.open-math/github-accounts.json'))){
   githubAccounts=validateGitHubAccountsDeployment(parseProblemJSON(readProblemFile(p.root,'.open-math/github-accounts.json')),p);
   if(snapshot){
-   const client=clientFor();if(await client.getChainId()!==githubAccounts.chainId)throw Error('Wrong account ledger chain');
+   const client=withStudioBatchPacing(clientFor());if(await client.getChainId()!==githubAccounts.chainId)throw Error('Wrong account ledger chain');
    const accounts=await collectGitHubAccountsSnapshot({deployment:githubAccounts,read:(method,args=[])=>read(client,githubAccounts.contract,method,args)});
    fs.writeFileSync(path.join(destination,'github-accounts-snapshot.json'),JSON.stringify(accounts)+'\n');
   }
