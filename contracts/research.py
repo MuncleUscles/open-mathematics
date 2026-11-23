@@ -2,7 +2,6 @@
 from genlayer import *
 import json
 import hashlib
-from genlayer.py.public_abi import StorageType
 from datetime import datetime, timezone
 
 
@@ -400,10 +399,17 @@ class Research(gl.Contract):
 
 
     @gl.public.write
-    def import_legacy(self):
-        """Carry forward the one frozen v1 result, verified by a finalized chain read.
+    def import_legacy(self, record_json: str):
+        """Verifier-attested import of one immutable, publicly archived v1 record.
+        The bootstrap verifier checks finalized source state and original receipts.
         This replaces that pilot ledger; consumers must not sum both versions.
         """
+        if gl.message.sender_address != self.verifier:
+            fail("trusted verifier required")
+        if not self.legacy_required:
+            fail("legacy migration disabled")
+        if len(record_json) > 12000 or hashlib.sha256(record_json.encode()).hexdigest() != "7fd204e013c81962c19776134d123df21669e647baed96b46497a337fa1b9584":
+            fail("exact frozen legacy snapshot required")
         key = "pr-1-ee4678fc76d9-5c22de45baf0"
         origin = "0x8981C4fc15024752702e0851e4e063adebc40C7C"
         expected = "86a7f754b717c46f2d160d9508244a5b3e99dd1a67ad73ff42d70a9259c02685"
@@ -411,7 +417,7 @@ class Research(gl.Contract):
             if self._load(key).get("migration", {}).get("source_contract") != origin:
                 fail("legacy identity conflict")
             return
-        old = gl.get_contract_at(Address(origin)).view(state=StorageType.LATEST_FINAL).get(key)
+        old = json.loads(record_json)
         if not isinstance(old, dict) or old.get("status") != "credited" or old.get("digest") != expected or old.get("credited_points") != "400" or old.get("merge_commit") != "5ea768475ae512f554c71041fa299900fbe01083":
             fail("finalized frozen legacy record required")
         if len(self.order) >= 100 or int(self.total_points) + 400 > 1000000:
@@ -422,7 +428,7 @@ class Research(gl.Contract):
         wallet = Address(old["evidence"]["wallet"])
         self.points[wallet] = u256(int(self.points.get(wallet, u256(0))) + 400)
         self.total_points = u256(int(self.total_points) + 400)
-        old["migration"] = {"source_contract": origin, "source_digest": expected, "initial_points_carried": "400", "github_author_id": 2372232}
+        old["migration"] = {"source_contract": origin, "source_digest": expected, "initial_points_carried": "400", "github_author_id": 2372232, "trust": "verifier-attested-frozen-snapshot", "snapshot_hash": "7fd204e013c81962c19776134d123df21669e647baed96b46497a337fa1b9584"}
         self.fingerprints[fingerprint] = key
         self.order.append(key)
         self._save(key, old)

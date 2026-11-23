@@ -26,7 +26,7 @@ export function verifyEvidence(e,policy){
   return true;
 }
 export async function verifyAttestation(envelope,policy,verifier){
-  const signer=await recoverMessageAddress({message:`Open Mathematics proof attestation v1\n${canonical(envelope.evidence)}`,signature:envelope.signature});
+  const signer=await recoverMessageAddress({message:`Open Mathematics proof attestation v${policy.checker==='open-mathematics-v2'?2:1}\n${canonical(envelope.evidence)}`,signature:envelope.signature});
   if(signer.toLowerCase()!==verifier.toLowerCase())throw Error('Unknown proof verifier');
   verifyEvidence(envelope.evidence,policy);return digest(envelope.evidence);
 }

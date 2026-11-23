@@ -3,7 +3,9 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';i
 import {createAccount} from 'genlayer-js';import {recoverMessageAddress} from 'viem';
 import {GitHub,executeDecision} from '../src/github.mjs';import {StudioAuthority,verifyReceipt} from '../src/studio.mjs';
 import {digest,canonical,message,validateClaim,verifyAttestation} from '../src/security.mjs';
-import {validateSubmission} from '../src/submission.mjs';import {clientFor,finalized,read,clean,sleep} from './runtime.mjs';
+import {validateSubmission} from '../src/submission.mjs';
+import {expireStaleUnmergedClaim} from './claim-recovery.mjs';
+import {clientFor,finalized,read,clean,sleep} from './runtime.mjs';
 const deployment=JSON.parse(fs.readFileSync('public/deployment.json','utf8'));
 const proofPolicy=JSON.parse(fs.readFileSync('lean/policy.json','utf8'));
 const gh=new GitHub({repository:process.env.GITHUB_REPOSITORY,token:process.env.GITHUB_TOKEN});
@@ -21,13 +23,13 @@ validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contrac
 if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Invalid signature');
 if(claim.repository!==gh.repository||comment.issue_url!==`https://api.github.com/repos/${gh.repository}/issues/${claim.pr}`)throw Error('Claim repository/PR mismatch');
 const pr=await gh.pr(claim.pr);
-if(comment.user.id!==pr.user.id||pr.base.ref!==deployment.branch)throw Error('PR author and canonical branch binding required');
+if(comment.user.id!==pr.user.id||pr.base?.repo?.full_name!==gh.repository)throw Error('PR author and repository binding required');
 const id=`pr-${claim.pr}-${claim.head.slice(0,12)}-${digest(claim).slice(0,12)}`;
 async function getFile(file){try{const r=await gh.request(`/contents/${file}?ref=evidence`);return {sha:r.sha,data:JSON.parse(Buffer.from(r.content,'base64'))};}catch(e){if(e.message==='GitHub 404')return null;throw e;}}
 async function putFile(file,data){const old=await getFile(file);return gh.request(`/contents/${file}`,{method:'PUT',body:{message:`Record ${id} research evidence`,branch:'evidence',content:Buffer.from(JSON.stringify(clean(data),null,2)+'\n').toString('base64'),...(old?{sha:old.sha}:{})}});}
 const reportPath=`reports/${id}.json`;
 let report=(await getFile(reportPath))?.data||{id,mode:'live-github-studio',contract:deployment.contract,chainId:deployment.chainId,repository:gh.repository,pr:claim.pr,head:claim.head,base:claim.base,claim:envelope,commentId,transactions:{},startedAt:new Date().toISOString(),status:'verifying'};
-if(report.contract!==deployment.contract||report.base!==claim.base||canonical(report.claim)!==canonical(envelope))throw Error('Report binding mismatch');
+if(report.id!==id||report.commentId!==commentId||report.repository!==gh.repository||report.pr!==claim.pr||report.head!==claim.head||report.contract!==deployment.contract||report.base!==claim.base||canonical(report.claim)!==canonical(envelope))throw Error('Report binding mismatch');
 async function save(){
  report.updatedAt=new Date().toISOString();report.run=`https://github.com/${gh.repository}/actions/runs/${process.env.GITHUB_RUN_ID}`;
  await putFile(reportPath,report);
@@ -46,12 +48,22 @@ async function tx(stage,client,method,args){
 }
 async function check(name,conclusion,title,summary,externalId){const c=await gh.request('/check-runs',{method:'POST',body:{name,head_sha:claim.head,status:'completed',conclusion,external_id:externalId,output:{title,summary:summary.slice(0,60000)}}});if(c.app.id!==(name==='open-mathematics/lean'?deployment.verifierAppId:deployment.appId))throw Error('Wrong check publisher');return c;}
 async function waitWindow(record){while(Date.now()<=Number(record.deadline)*1000+1500)await sleep(Math.min(5000,Math.max(500,Number(record.deadline)*1000+1500-Date.now())));}
-async function recordState(){report.record=await read(executor,deployment.contract,'get',[id]);report.status=report.record.status;await save();return report.record;}
+async function recordState(){
+ const record=await read(executor,deployment.contract,'get',[id]);
+ if(record.evidence.claim_digest!==digest(claim))throw Error('Contract record does not match the signed claim');
+ report.record=record;report.status=record.status;await save();return record;
+}
+function expireIfStale(current){
+ return expireStaleUnmergedClaim({
+  pr:current,claim,branchHead:branch=>gh.branchHead(branch),
+  registered:!!report.transactions.register,expirationStarted:!!report.transactions.expire,
+  confirmRegistration:()=>tx('register',verifier,'register',[report.evidenceJSON]),
+  readRecord:recordState,release:reason=>tx('expire',executor,'release_unmerged',[id,reason]),
+ });
+}
 try{
- if((!pr.merged&&(pr.state!=='open'||pr.head.sha!==claim.head||await gh.branchHead(deployment.branch)!==claim.base))||(pr.merged&&pr.head.sha!==claim.head)){
-  if(report.transactions.register){const old=await recordState();if(['submitted','provisional','challenged','approved'].includes(old.status)){await tx('expire',executor,'release_unmerged',[id,'The PR head or canonical base changed before this exact approved change merged; reservation released.']);await recordState();}}
+ if(await expireIfStale(pr)||(pr.merged&&(pr.head.sha!==claim.head||pr.base.ref!==deployment.branch)))
   throw Error('PR changed; rebase and sign a new claim');
- }
  if(!report.attestation){
   if(pr.state!=='open'||pr.base.sha!==claim.base||await gh.branchHead(deployment.branch)!==claim.base)throw Error('Canonical base changed; rebase and sign a new claim');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-claim-'));
@@ -64,7 +76,7 @@ try{
  }
  const e=report.attestation.evidence,meta=validateSubmission(e.submission,{wallet:claim.wallet,goals:proofPolicy.goals}),goal=proofPolicy.goals[meta.evidence.goal];
  await verifyAttestation(report.attestation,{repository:gh.repository,head:claim.head,base:claim.base,policy:deployment.policy,statement_hash:goal.statement_hash,checker:'open-mathematics-v2',toolchain:proofPolicy.toolchain,allowedAxioms:proofPolicy.allowed_axioms,theorem:goal.theorem},deployment.verifier);
- if(e.contract!==deployment.contract||e.branch!==deployment.branch||e.submission_hash!==claim.submission_hash||e.claim_digest!==digest(claim)||e.github_author_id!==pr.user.id||e.pr!==claim.pr||e.wallet.toLowerCase()!==claim.wallet.toLowerCase())throw Error('Attestation identity mismatch');
+ if(e.chainId!==deployment.chainId||e.contract!==deployment.contract||e.branch!==deployment.branch||e.submission_hash!==claim.submission_hash||e.claim_digest!==digest(claim)||e.github_author_id!==pr.user.id||e.pr!==claim.pr||e.wallet.toLowerCase()!==claim.wallet.toLowerCase())throw Error('Attestation identity mismatch');
  {
   const evidenceJSON=JSON.stringify({id,problem:'p-vs-np',policy:deployment.policy,repository:gh.repository,branch:deployment.branch,pr:claim.pr,head:claim.head,base:claim.base,wallet:claim.wallet,claim_digest:digest(claim),submission_hash:claim.submission_hash,github_author_id:e.github_author_id,statement_hash:e.statement_hash,artifact_hash:e.artifact_hash,verification:'verified',claim:meta.claim,kind:meta.kind,dependencies:meta.dependencies.map(d=>d.id),verified_dependencies:e.verified_dependencies,formal_statement:goal.statement,proof:e.proof,context:JSON.stringify({title:meta.title,novelty:meta.novelty,prior_art:meta.prior_art,dependencies:meta.dependencies,attribution:meta.attribution,limitations:meta.limitations})+'\nTrusted scope: established CNF infrastructure, not a P/NP breakthrough. Proof-body use demonstrates structural use of an exact prior artifact, not indispensability. Same GitHub author may control multiple agent wallets; this pilot provides no proof of distinct people.'});
   if(report.evidenceJSON&&report.evidenceJSON!==evidenceJSON)throw Error('Cached report differs from signed verifier evidence');
@@ -82,7 +94,9 @@ try{
  if(record.status==='provisional'){
   await waitWindow(record);record=await recordState();
   if(record.status==='challenged')throw Error('Challenge blocks merge; resume this signed comment to request a fresh review');
-  const fresh=await gh.pr(claim.pr);if(fresh.state!=='open'||fresh.head.sha!==claim.head||fresh.base.ref!==deployment.branch||await gh.branchHead(deployment.branch)!==claim.base){await tx('expire',executor,'release_unmerged',[id,'Exact PR or canonical branch changed before finalization; fresh verification and signing required.']);await recordState();throw Error('Stale PR expired without locking the statement');}
+  const fresh=await gh.pr(claim.pr);
+  if(await expireIfStale(fresh))throw Error('Stale PR expired without locking the statement');
+  if(fresh.merged)throw Error('PR merged before this claim was approved');
   await tx(`finalize-r${record.round}`,executor,'finalize',[id,Number(record.round)]);record=await recordState();
  }
  if(record.status==='rejected')await check('open-mathematics/finalized','failure','GenLayer rejected contribution',record.verdict.reason,report.transactions[`finalize-r${record.round}`].hash);
@@ -108,4 +122,12 @@ try{
   report.upstreamPoints={};for(const use of e.verified_dependencies){const prior=await read(executor,deployment.contract,'get',[use.id]);report.upstreamPoints[use.id]=await read(executor,deployment.contract,'get_points',[prior.evidence.wallet]);}
  }else throw Error('Contribution awaits a resolved contract decision');
  report.points=await read(executor,deployment.contract,'get_points',[claim.wallet]);report.completedAt=new Date().toISOString();delete report.error;await save();console.log('Contribution outcome:',report.status,report.record.credited_points,'Later impact:',report.impact?.paid_points||'0');
-}catch(e){if(report.record&&['submitted','provisional','challenged','approved'].includes(report.record.status)){const current=await gh.pr(claim.pr);if(!current.merged&&(current.state!=='open'||current.head.sha!==claim.head||current.base.ref!==deployment.branch||await gh.branchHead(deployment.branch)!==claim.base)){await tx('expire',executor,'release_unmerged',[id,'Exact PR or canonical branch changed; this unmerged decision expires and its statement reservation is released.']);await recordState();}}report.error=[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean).reduce((m,key)=>m.split(key).join('[redacted]'),String(e.message));report.status=report.record?.status||'invalid';await save();if(report.status!=='credited')await check(report.attestation?'open-mathematics/finalized':'open-mathematics/lean','failure','Contribution processing stopped',report.error,id);throw e;}
+}catch(e){
+ if(report.record&&['submitted','provisional','challenged','approved'].includes(report.record.status))
+  await expireIfStale(await gh.pr(claim.pr));
+ report.error=[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean).reduce((m,key)=>m.split(key).join('[redacted]'),String(e.message));
+ report.status=report.record?.status||'invalid';
+ await save();
+ if(report.status!=='credited')await check(report.attestation?'open-mathematics/finalized':'open-mathematics/lean','failure','Contribution processing stopped',report.error,id);
+ throw e;
+}

@@ -42,7 +42,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-proof-'));try{
  if(dependencyBytes){const file=path.join(dir,'dependency.proof');fs.writeFileSync(file,dependencyBytes);args.push('--dependency-file',file,'--dependency-artifact',dependencyRecord.evidence.artifact_hash);}
  const run=spawnSync('python3',args,{encoding:'utf8',timeout:60000,maxBuffer:100000,env:{PATH:process.env.PATH,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE}});
  if(run.status!==0)throw Error('Isolated verifier rejected: '+run.stderr);
- const evidence={...JSON.parse(run.stdout),claim_digest:digest(claim),wallet:claim.wallet,pr:claim.pr,contract:deployment.contract,branch:deployment.branch,submission_path:claim.submission_path,submission_hash:claim.submission_hash,github_author_id:pr.user.id,submission,proof:proofBytes.toString('utf8'),verified_dependencies:verifiedDependencies};
+ const evidence={...JSON.parse(run.stdout),claim_digest:digest(claim),wallet:claim.wallet,pr:claim.pr,chainId:deployment.chainId,contract:deployment.contract,branch:deployment.branch,submission_path:claim.submission_path,submission_hash:claim.submission_hash,github_author_id:pr.user.id,submission,proof:proofBytes.toString('utf8'),verified_dependencies:verifiedDependencies};
  const verifier=privateKeyToAccount(process.env.VERIFIER_SIGNING_KEY);
- console.log(JSON.stringify({evidence,claimDigest:digest(claim),verifier:verifier.address,signature:await verifier.signMessage({message:'Open Mathematics proof attestation v1\n'+canonical(evidence)})},null,2));
+ console.log(JSON.stringify({evidence,claimDigest:digest(claim),verifier:verifier.address,signature:await verifier.signMessage({message:'Open Mathematics proof attestation v2\n'+canonical(evidence)})},null,2));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

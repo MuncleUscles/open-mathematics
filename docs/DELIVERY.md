@@ -9,3 +9,5 @@ Required checks: Node security/claim/merge/schema tests, direct contract/impact/
 Current v1 E2E evidence: PR1 merged with400initial native points; PR2 incomplete proof rejected before registration. V2 must publish its own exact commit, deployment and run receipts. Browser scenarios and older fixture receipts remain explicitly separate. All contributor/operator keys, working files, installations and caches remain excluded from commits and source bundles.
 
 Research merges follow the IC final decision and branch checks. Protocol maintenance is separately reviewed code, not a mathematical submission. There is no authorized bypass of research protection. Keep the exact deployed source frozen during the v2 E2E. Any correctness change requires fresh validation/deployment before activation.
+
+Activation candidate: contract0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248; pinned policy9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965; five-minute application windows. Deployment and verifier-attested historical import both succeeded and finalized. The full native research/impact run remains pending.

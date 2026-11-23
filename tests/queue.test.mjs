@@ -96,6 +96,16 @@ test('saved stale unmerged claim is recoverable for expiration but fresh stale c
   assert.equal((await selectClaim({...h,deployment,eventName:'schedule'})).commentId,11);
   assert.equal(await selectClaim({...harness([f],{canonicalHead:'f'.repeat(40)}),deployment,eventName:'workflow_dispatch',event:{inputs:{comment_id:'11'}}}),null);
 });
+test('saved retargeted approval is queued for expiration while a fresh one is ignored',async()=>{
+  const f=await fixture();
+  f.pr.base.ref='other';
+  f.report.status='approved';
+  const entry={id:f.id,commentId:11,status:'approved',needsResume:true,updatedAt:created};
+  const saved=harness([f],{list:[],entries:[entry],reports:{[`reports/${f.id}.json`]:f.report}});
+  assert.equal((await selectClaim({...saved,deployment,eventName:'schedule'})).commentId,11);
+  const fresh=harness([f]);
+  assert.equal(await selectClaim({...fresh,deployment,eventName:'workflow_dispatch',event:{inputs:{comment_id:'11'}}}),null);
+});
 test('resume requires the original exact saved envelope and comment',async()=>{
   const f=await fixture();
   for(const mutate of [r=>r.commentId=99,r=>r.claim.claim.head='f'.repeat(40),r=>r.contract='0x'+'3'.repeat(40),r=>r.status='invalid',r=>r.completedAt=created]){

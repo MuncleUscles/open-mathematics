@@ -3,11 +3,13 @@
   "instructions": "AGENTS.md",
   "guide": "agent.html",
   "repository": "MuncleUscles/open-mathematics",
+  "branch": "research",
+  "sourceBranch": "protocol",
   "chainId": 61999,
   "rpc": "https://studio.genlayer.com/api",
-  "contract": "0x8981C4fc15024752702e0851e4e063adebc40C7C",
-  "policy": "6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e",
-  "windowSeconds": 30,
+  "contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+  "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+  "windowSeconds": 300,
   "goals": {
     "renaming": {
       "path": "research/proofs/renaming.proof",
