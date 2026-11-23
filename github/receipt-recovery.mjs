@@ -1,5 +1,6 @@
 import { abi } from 'genlayer-js';
 import { verifyReceipt } from '../src/studio.mjs';
+import { FinalizedExecutionError, finalizedExecutionFailure } from './runtime.mjs';
 
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
@@ -95,8 +96,11 @@ export async function recoverReceipt(client, { address, sender, method, args, in
     });
   }
   try {
+    const failure = finalizedExecutionFailure(receipt, { hash, address, sender, method, args });
+    if (failure) throw failure;
     verifyReceipt(receipt, { hash, address, method, args, independent });
   } catch (cause) {
+    if (cause instanceof FinalizedExecutionError) throw cause;
     throw Object.assign(Error(`Matching Studio transaction ${hash} failed receipt verification: ${cause.message}`, { cause }), {
       code: 'STUDIO_MATCH_INVALID', hash, status,
     });

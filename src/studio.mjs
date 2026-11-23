@@ -2,11 +2,15 @@ import {digest,canonical} from './security.mjs';
 import {abi} from 'genlayer-js';
 export const normalize=x=>x instanceof Map?Object.fromEntries([...x].map(([k,v])=>[k,normalize(v)])):Array.isArray(x)?x.map(normalize):typeof x==='bigint'?String(x):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).map(([k,v])=>[k,normalize(v)])):x;
 const eq=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.toLowerCase()===b.toLowerCase();
-export function verifyReceipt(r,{hash,address,method,id,args,independent=false}){
-  const leaders=r.consensus_data?.leader_receipt;const leader=Array.isArray(leaders)?leaders[0]:leaders;
-  if((r.status_name||r.statusName)!=='FINALIZED'||leader?.execution_result!=='SUCCESS'||!eq(r.hash,hash)||!eq(r.to_address,address)||r.leader_only!==false)throw Error('Invalid finalized execution receipt');
+export function verifyReceiptCall(r,{hash,address,method,id,args}){
+  if(!eq(r.hash,hash)||!eq(r.to_address,address))throw Error('Invalid finalized execution receipt');
   let call,decoded;try{decoded=abi.calldata.decode(Uint8Array.from(r.data?.calldata?.raw||[]));call=normalize(decoded);}catch{throw Error('Invalid calldata');}
   if((call.method??call[''])!==method||(args?!Buffer.from(abi.calldata.encode(decoded instanceof Map?decoded.get('args'):decoded.args)).equals(Buffer.from(abi.calldata.encode(args))):call.args?.[0]!==id))throw Error('Wrong contract method or contribution');
+}
+export function verifyReceipt(r,{independent=false,...expected}){
+  const leaders=r.consensus_data?.leader_receipt;const leader=Array.isArray(leaders)?leaders[0]:leaders;
+  if((r.status_name||r.statusName)!=='FINALIZED'||leader?.execution_result!=='SUCCESS'||r.leader_only!==false)throw Error('Invalid finalized execution receipt');
+  verifyReceiptCall(r,expected);
   if(independent&&!r.consensus_data?.validators?.some(v=>v.mode==='validator'&&v.vote==='agree'&&v.execution_result==='SUCCESS'))throw Error('Independent adjudication required');
   return true;
 }

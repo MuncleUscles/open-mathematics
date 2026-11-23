@@ -1,5 +1,23 @@
+import { FinalizedExecutionError } from './runtime.mjs';
+
 const RELEASABLE = new Set(['submitted', 'provisional', 'challenged', 'approved']);
 const EXPIRATION_REASON = 'The unmerged PR closed or no longer matches its signed head, target branch, or canonical base. This decision and its statement reservation expire.';
+
+export function claimFailureOutcome(report, error) {
+  const registration = report.transactions.register;
+  if (!report.record && error instanceof FinalizedExecutionError &&
+      error.stage === 'register' && error.receipt.method === 'register' &&
+      registration?.hash === error.hash && registration.failedReceipt?.hash === error.hash) {
+    return {
+      status: 'rejected',
+      registrationRejection: {
+        hash: error.hash,
+        reason: error.reason ?? 'The finalized registration transaction failed execution.',
+      },
+    };
+  }
+  return {status: report.record?.status ?? (registration ? 'registration-pending' : report.attestation ? 'verifying' : 'invalid')};
+}
 
 export async function expireStaleUnmergedClaim({
   pr, claim, branchHead, registered, expirationStarted, confirmRegistration, readRecord, release,

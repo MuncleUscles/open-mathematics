@@ -153,8 +153,10 @@ test('an observed finalized failure or ambiguous history cannot lead to another 
   const h = harness();
   h.state.history = [historyRow()];
   h.state.receipt = finalized({ consensus_data: { leader_receipt: [{ execution_result: 'ERROR' }] } });
-  await assert.rejects(h.run(), { code: 'STUDIO_MATCH_INVALID', hash, status: 'FINALIZED' });
+  await assert.rejects(h.run(), { code: 'STUDIO_FINALIZED_EXECUTION_ERROR', hash, status: 'FINALIZED', stage });
   assert.equal(h.state.saved[0][stage].hash, hash);
+  assert.equal(h.state.saved[0][stage].failedReceipt.consensus_data.leader_receipt[0].execution_result, 'ERROR');
+  assert.equal(h.state.saved[0][stage].receipt, undefined);
   const restarted = harness(h.state.saved[0]);
   restarted.state.receipt = h.state.receipt;
   await assert.rejects(restarted.run(), /Finalized execution failed/);

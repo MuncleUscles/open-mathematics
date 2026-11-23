@@ -5,7 +5,7 @@ import {createAccount} from 'genlayer-js';import {recoverMessageAddress} from 'v
 import {GitHub,executeDecision} from '../src/github.mjs';import {StudioAuthority} from '../src/studio.mjs';
 import {digest,canonical,message,validateClaim,verifyAttestation} from '../src/security.mjs';
 import {validateSubmission} from '../src/submission.mjs';
-import {expireStaleUnmergedClaim} from './claim-recovery.mjs';
+import {claimFailureOutcome,expireStaleUnmergedClaim} from './claim-recovery.mjs';
 import {clientFor,read,clean,sleep} from './runtime.mjs';
 const deployment=JSON.parse(fs.readFileSync('public/deployment.json','utf8'));
 const proofPolicy=JSON.parse(fs.readFileSync('lean/policy.json','utf8'));
@@ -36,7 +36,7 @@ async function save(){
  await putFile(reportPath,report);
  const index=(await getFile('index.json'))?.data||{entries:[]};index.mode='live-github-studio';index.deployment=Object.fromEntries(['protocolVersion','contract','repository','branch','sourceBranch','chainId','policy','windowSeconds'].map(k=>[k,deployment[k]]));
  index.entries=index.entries.filter(e=>e.id!==id);
- index.entries.unshift({id,pr:claim.pr,head:claim.head,wallet:claim.wallet,title:report.attestation?.evidence.submission.title||`Submission PR #${claim.pr}`,status:report.status,points:report.record?.credited_points||'0',impact:report.impact?Object.fromEntries(['downstream','status','paid_points','allocations','reason'].map(k=>[k,report.impact[k]])):null,dependencies:report.record?.evidence.dependencies||[],report:reportPath,run:report.run,updatedAt:report.updatedAt,commentId,needsResume:!report.completedAt&&!report.blockedConsensus&&!['rejected','invalid','expired'].includes(report.status)});
+ index.entries.unshift({id,pr:claim.pr,head:claim.head,wallet:claim.wallet,title:report.attestation?.evidence.submission.title||`Submission PR #${claim.pr}`,status:report.status,reason:report.registrationRejection?.reason,points:report.record?.credited_points||'0',impact:report.impact?Object.fromEntries(['downstream','status','paid_points','allocations','reason'].map(k=>[k,report.impact[k]])):null,dependencies:report.record?.evidence.dependencies||[],report:reportPath,run:report.run,updatedAt:report.updatedAt,commentId,needsResume:!report.completedAt&&!report.blockedConsensus&&!['rejected','invalid','expired'].includes(report.status)});
  await putFile('index.json',index);
 }
 const verifier=clientFor(process.env.VERIFIER_SIGNING_KEY),executor=clientFor(process.env.EXECUTOR_SIGNING_KEY);
@@ -139,10 +139,16 @@ try{
  if(report.record&&['submitted','provisional','challenged','approved'].includes(report.record.status)){
   try{await expireIfStale(await gh.pr(claim.pr));}catch(recovery){failure+=`\nStale-claim recovery: ${recovery.message}`;}
  }
- report.blockedConsensus=/UNDETERMINED|CANCELED|LEADER_TIMEOUT|Finalized execution failed|failed receipt verification|corrected attribution requires|attribution changed before impact/.test(failure);
+ const {status,registrationRejection}=claimFailureOutcome(report,e);
+ report.status=status;
+ if(registrationRejection){
+  report.registrationRejection=registrationRejection;
+  report.completedAt=new Date().toISOString();
+  delete report.blockedConsensus;
+ }else report.blockedConsensus=/UNDETERMINED|CANCELED|LEADER_TIMEOUT|Finalized execution failed|failed receipt verification|corrected attribution requires|attribution changed before impact/.test(failure);
  report.error=[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean).reduce((m,key)=>m.split(key).join('[redacted]'),failure);
- report.status=report.record?.status||(report.transactions.register?'registration-pending':report.attestation?'verifying':'invalid');
  await save();
- if(report.status!=='credited')await check(report.attestation?'open-mathematics/finalized':'open-mathematics/lean','failure','Contribution processing stopped',report.error,id);
+ if(registrationRejection)await check('open-mathematics/finalized','failure','GenLayer registration rejected',registrationRejection.reason,registrationRejection.hash);
+ else if(report.status!=='credited')await check(report.attestation?'open-mathematics/finalized':'open-mathematics/lean','failure','Contribution processing stopped',report.error,id);
  throw Error(report.error);
 }
