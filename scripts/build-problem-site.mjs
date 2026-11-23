@@ -1,0 +1,10 @@
+import fs from 'node:fs';import path from 'node:path';import {build} from 'esbuild';import {fileURLToPath} from 'node:url';
+import {loadProblem,readProblemFile,parseProblemJSON} from '../src/problem.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),[directory,destination]=process.argv.slice(2);
+if(!directory||!destination)throw Error('Usage: build-problem-site.mjs PROBLEM_CHECKOUT OUTPUT');
+const problem=loadProblem(directory,{requireDeployment:fs.existsSync(path.join(directory,'.open-math/deployment.json'))}),pack=parseProblemJSON(readProblemFile(directory,'pack.json'));
+const data={descriptor:problem.descriptor,deployment:problem.deployment,goals:[...problem.goals.values()].map(g=>{const info=pack.goals.find(x=>x.id===g.id);if(!info)throw Error('Task metadata missing');return {...g,title:info.title,description:info.description,role:info.status};})};
+fs.mkdirSync(destination,{recursive:true});for(const file of ['index.html','style.css'])fs.copyFileSync(path.join(root,'public/problem',file),path.join(destination,file));
+fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify(data,null,2)+'\n');fs.writeFileSync(path.join(destination,'.nojekyll'),'');
+await build({entryPoints:[path.join(root,'public/problem/app.mjs')],outfile:path.join(destination,'app.js'),bundle:true,format:'esm',platform:'browser',minify:true});
+console.log(JSON.stringify({directory:destination,mode:problem.deployment?'live-config-requires-native-read':'draft-unenrolled',goals:data.goals.length}));
