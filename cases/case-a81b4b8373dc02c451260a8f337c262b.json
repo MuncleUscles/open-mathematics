@@ -9348,6 +9348,12 @@
           "reason": "Case case-a81b4b8373dc02c451260a8f337c262b provides no support for resolving p-vs-np. The retrieved source describes a controlled documentary test and expressly disclaims a mathematical discovery or full solution. The attestation does not verify a formal proof of the exact enrolled full target, authorship, or discovery priority. Corroborated source-controller identity alone establishes neither mathematical priority nor wallet-bound author identity; no identity challenge is supplied. No priority-author IDs are eligible for external credit, so no recognition points are allocated.",
           "resolve": false
         }
+      },
+      {
+        "at": "1795401528",
+        "attestation_hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+        "event": "settlement",
+        "round": "0"
       }
     ],
     "id": "case-a81b4b8373dc02c451260a8f337c262b",
@@ -9371,7 +9377,7 @@
     "reporter": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
     "revision": "0",
     "round": "0",
-    "status": "provisional",
+    "status": "settled",
     "target": "p-vs-np",
     "verdict": {
       "evidence_refs": [
@@ -9395,6 +9401,6 @@
       }
     ]
   },
-  "updatedAt": "2026-11-23T02:39:25.648Z",
+  "updatedAt": "2026-11-23T02:39:28.176Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45100799950"
 }
