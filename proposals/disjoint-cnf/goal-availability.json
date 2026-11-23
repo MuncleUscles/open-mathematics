@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-11-23T03:46:13.700Z",
+  "scope": "one finalized read of goal availability, not enrollment or a reserved reward",
+  "deployment": {
+    "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+    "repository": "MuncleUscles/open-mathematics",
+    "branch": "research",
+    "chainId": 61999,
+    "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+    "windowSeconds": 300
+  },
+  "goals": [
+    {
+      "id": "renaming",
+      "status": "closed"
+    },
+    {
+      "id": "renaming_sat",
+      "status": "closed"
+    }
+  ]
+}
