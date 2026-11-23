@@ -2,6 +2,22 @@
   "mode": "live-github-studio",
   "entries": [
     {
+      "id": "pr-11-3eefc1bda3a6-4b8a6dd41ef8",
+      "pr": 11,
+      "head": "3eefc1bda3a6c21cacfa8d2e770f0a0fb3417e3d",
+      "wallet": "0xfF34428F5382dd9d9a02306a9cd956FEA7018EA8",
+      "title": "Controlled duplicate test of the accepted SAT renaming proof",
+      "status": "verifying",
+      "points": "0",
+      "impact": null,
+      "dependencies": [],
+      "report": "reports/pr-11-3eefc1bda3a6-4b8a6dd41ef8.json",
+      "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45103497940",
+      "updatedAt": "2026-11-23T03:02:30.507Z",
+      "commentId": 7090399721,
+      "needsResume": true
+    },
+    {
       "id": "pr-8-0fee4ace7180-bd78592931d5",
       "pr": 8,
       "head": "0fee4ace7180bd69029de5b86195b6fcc5c3ba8a",
