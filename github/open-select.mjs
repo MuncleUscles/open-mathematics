@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {recoverMessageAddress} from 'viem';
 import {GitHub} from '../src/github.mjs';
 import {readEvidenceFile} from './evidence-file.mjs';
+import {openBuildPlan} from './open-build-plan.mjs';
 import {canonical,digest,message} from '../src/security.mjs';
 import {loadOpenProblem,validateOpenClaim,verifyOpenCheckout} from '../src/open-research.mjs';
 
@@ -212,7 +213,8 @@ async function main(){
  async function readEvidence(file){return (await readEvidenceFile(github,file))?.data??null;}
  const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence});
  if(!process.env.GITHUB_OUTPUT)throw Error('GitHub output file required');
- fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\n`);
+ const plan=selected?await openBuildPlan({github,problem,candidate:selected}):{needs_lean:true};
+ fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\nneeds_lean=${plan.needs_lean===false?'false':'true'}\n`);
  console.log(selected?`Selected public claim comment ${selected.commentId}.`:'No eligible signed claims in the bounded queue.');
 }
 
