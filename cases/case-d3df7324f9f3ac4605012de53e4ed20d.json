@@ -5,7 +5,12 @@
   "payloadHash": "a75bdcb47ec482b2160b7533bda203fcfdf4f154638c6b6c84762fb0351b3d0c",
   "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
   "transactions": {},
-  "rounds": {},
+  "rounds": {
+    "0": {
+      "configHash": "a4e99d6628a69f974af605a9682a4c8e6fe0a3a8c7244685c7d44678f6168d93",
+      "evidenceJSON": "{\"sources\":[{\"reference\":\"https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md\",\"content_hash\":\"ecb5a2f1ec2eac177193bb588638b29697d7a38c7d83626bdb4975c468474afa\",\"retrieved_at\":1795402148,\"excerpt\":\"Author identity for this document: Open Mathematics pilot (MuncleUscles).\\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\\n\\nPublic wallet-bound challenge for the controlled pilot source identity:\\n\\nOpen Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940\",\"verified_authors\":[{\"name\":\"Open Mathematics pilot (MuncleUscles)\",\"subject\":\"github:user:2372232\"}]}],\"priority_verified\":false,\"priority_basis\":[],\"identity_subject\":\"github:user:2372232\",\"identity_challenge\":\"Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940\",\"identity_author_id\":\"author-d76c65bded14d6d33865bc32651e4fee\",\"identity_source\":\"https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md\",\"authorship_verified\":true,\"formal_verified\":false,\"statement_hash\":\"\",\"artifact_hash\":\"\",\"policy\":\"\"}"
+    }
+  },
   "startedAt": "2026-11-23T02:49:03.593Z",
   "case": {
     "attestation": null,
@@ -40,6 +45,6 @@
     "target": "author-d76c65bded14d6d33865bc32651e4fee",
     "verdict": null
   },
-  "updatedAt": "2026-11-23T02:49:04.695Z",
+  "updatedAt": "2026-11-23T02:49:08.142Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
 }
