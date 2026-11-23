@@ -8425,13 +8425,29 @@
     ],
     "challenges": [],
     "created_at": "1795400801",
-    "deadline": "0",
+    "deadline": "1795401523",
     "history": [
       {
         "at": "1795401177",
         "event": "documentary-verification",
         "hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
         "round": "0"
+      },
+      {
+        "at": "1795401223",
+        "attestation_hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+        "event": "review",
+        "round": "0",
+        "verdict": {
+          "evidence_refs": [
+            "case-a81b4b8373dc02c451260a8f337c262b",
+            "p-vs-np",
+            "source:0"
+          ],
+          "external_allocations": [],
+          "reason": "Case case-a81b4b8373dc02c451260a8f337c262b provides no support for resolving p-vs-np. The retrieved source describes a controlled documentary test and expressly disclaims a mathematical discovery or full solution. The attestation does not verify a formal proof of the exact enrolled full target, authorship, or discovery priority. Corroborated source-controller identity alone establishes neither mathematical priority nor wallet-bound author identity; no identity challenge is supplied. No priority-author IDs are eligible for external credit, so no recognition points are allocated.",
+          "resolve": false
+        }
       }
     ],
     "id": "case-a81b4b8373dc02c451260a8f337c262b",
@@ -8455,9 +8471,18 @@
     "reporter": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
     "revision": "0",
     "round": "0",
-    "status": "verified",
+    "status": "provisional",
     "target": "p-vs-np",
-    "verdict": null,
+    "verdict": {
+      "evidence_refs": [
+        "case-a81b4b8373dc02c451260a8f337c262b",
+        "p-vs-np",
+        "source:0"
+      ],
+      "external_allocations": [],
+      "reason": "Case case-a81b4b8373dc02c451260a8f337c262b provides no support for resolving p-vs-np. The retrieved source describes a controlled documentary test and expressly disclaims a mathematical discovery or full solution. The attestation does not verify a formal proof of the exact enrolled full target, authorship, or discovery priority. Corroborated source-controller identity alone establishes neither mathematical priority nor wallet-bound author identity; no identity challenge is supplied. No priority-author IDs are eligible for external credit, so no recognition points are allocated.",
+      "resolve": false
+    },
     "verified_authors": [
       {
         "authors": [
@@ -8470,6 +8495,6 @@
       }
     ]
   },
-  "updatedAt": "2026-11-23T02:34:49.135Z",
+  "updatedAt": "2026-11-23T02:34:51.394Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45100799950"
 }
