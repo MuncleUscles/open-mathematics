@@ -65,6 +65,20 @@ export async function syncAccounts({problem,deployment,client,load,save,now=()=>
   }
   authors.add(String(record.evidence.github_author_id));
  }
+ // Fresh federation deployments declare their capability in a reviewed file.
+ // Older pinned deployments never receive calls to methods they do not expose.
+ if(fs.existsSync(path.join(problem.root,'.open-math/federation.json'))){
+  const marker=parseProblemJSON(readProblemFile(problem.root,'.open-math/federation.json'));
+  if(marker.version!==1||marker.sourceContract!==problem.deployment.contract||marker.sourceCodeHash!==problem.deployment.codeHash)throw Error('Federation capability pin mismatch');
+  const page=await source('list_external_authors',[0,64]);
+  if(!Array.isArray(page.items)||page.items.length>64)throw Error('Bounded external author page required');
+  for(const subject of page.items){
+   const external=await source('get_external_author',[subject]);
+   if(external.subject!==subject)throw Error('Wrong external author');
+   await tx('sync_external_author',[subject,openMigrationHash(external)]);
+   authors.add(String(external.github_author_id));
+  }
+ }
  // A missing public name never prevents point reconciliation. Separate calls
  // retain terminal failures so an undetermined observation is not silently rerolled.
  const nameErrors=[];let refreshes=0,visited=0;

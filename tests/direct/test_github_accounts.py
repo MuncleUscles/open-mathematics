@@ -74,7 +74,8 @@ def deploy(vm, direct_deploy, state, **changes):
         state["calls"].append((method, args))
         values = {"get_config": lambda: state["config"], "get": lambda: state["records"][args[0]],
                   "get_impact": lambda: state["impacts"][args[0]], "get_points": lambda: global_points(state),
-                  "count_contributions": lambda: len(state["records"]), "get_inheritance": lambda: state["inheritances"][args[0]]}
+                  "count_contributions": lambda: len(state["records"]), "get_inheritance": lambda: state["inheritances"][args[0]],
+                  "get_external_author": lambda: state["external_authors"][args[0]]}
         assert method in values, "companion never calls source writes"
         return b"\x00" + calldata.encode(copy.deepcopy(values[method]()))
     vm._gl_call_hook = hook
@@ -84,6 +85,41 @@ def deploy(vm, direct_deploy, state, **changes):
 
 def sync(c, state, key):
     return c.sync_contribution(key, digest({"record": state["records"][key], "impact": state["impacts"][key]}))
+
+
+def test_external_account_metadata_never_copies_points_or_invents_wallet(direct_vm, direct_deploy):
+    state = source_state()
+    external = {"subject": "github:123", "github_author_id": 123, "sources": ["external-proof"],
+                "claimed_wallet": None, "initial_points": "240", "unclaimed_points": "240"}
+    state["external_authors"] = {external["subject"]: external}
+    c = deploy(direct_vm, direct_deploy, state)
+    before = c.get_state()
+    c.sync_external_author("github:123", digest(external))
+    row = c.get_account("123")
+    assert row["points"] == "0" and row["wallet_count"] == 0 and row["login"] is None
+    assert c.get_state()["indexed_totals"] == before["indexed_totals"]
+    c.sync_external_author("github:123", digest(external))
+    assert c.count_accounts() == 1
+    with pytest.raises(Exception, match="commitment"):
+        c.sync_external_author("github:123", "f" * 64)
+
+
+def test_historical_impact_follows_actual_settled_external_recipients(direct_vm, direct_deploy):
+    state = source_state([record("prior"), record("later", author=555)])
+    add_dependency(state, "later", "prior", True)
+    state["external_authors"] = {"github:123": {"subject": "github:123", "github_author_id": 123}}
+    state["impacts"]["later"]["recipient_allocations"] = [
+        {"id": "prior", "subject": "contributor", "wallet": "0x" + "a" * 40, "points": "6"},
+        {"id": "prior", "subject": "github:123", "wallet": None, "points": "20"}]
+    c = deploy(direct_vm, direct_deploy, state)
+    sync(c, state, "prior")
+    sync(c, state, "later")
+    assert c.get_account("2372232")["impact_points"] == "6"
+    assert c.get_account("123")["impact_points"] == "20"
+    assert c.get_account("123")["wallet_count"] == 0
+    assert c.get_state()["complete"] is True
+    sync(c, state, "later")
+    assert c.get_account("123")["impact_points"] == "20"
 
 
 def add_dependency(state, downstream, upstream, settled):

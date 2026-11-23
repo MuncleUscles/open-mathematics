@@ -133,18 +133,33 @@ class GitHubAccounts(gl.Contract):
 
     def _account(self, e: dict) -> dict:
         key = str(e["github_author_id"])
-        if key not in self.accounts:
-            self.accounts[key] = json.dumps({"github_author_id": key, "login": None, "username_checked_at": 0,
-                "contribution_count": 0, "credited_count": 0, "formal_count": 0, "wallet_count": 0,
-                "author_points": "0", "impact_points": "0", "returned_points": "0", "note_points": "0", "points": "0"}, sort_keys=True)
-            self.account_order.append(key)
-        row = json.loads(self.accounts[key])
+        row = self._ensure_account(key)
         wallet_key = key + ":" + e["wallet"].lower()
         if wallet_key not in self.account_wallets:
             self.account_wallets[wallet_key] = True
             row["wallet_count"] += 1
             self._save_account(row)
         return row
+
+    def _ensure_account(self, key: str) -> dict:
+        if key not in self.accounts:
+            self.accounts[key] = json.dumps({"github_author_id": key, "login": None, "username_checked_at": 0,
+                "contribution_count": 0, "credited_count": 0, "formal_count": 0, "wallet_count": 0,
+                "author_points": "0", "impact_points": "0", "returned_points": "0", "note_points": "0", "points": "0"}, sort_keys=True)
+            self.account_order.append(key)
+        return json.loads(self.accounts[key])
+
+    @gl.public.write
+    def sync_external_author(self, subject: str, expected_source_hash: str) -> dict:
+        require(match(subject, r"github:[1-9][0-9]{0,15}") and match(expected_source_hash, r"[a-f0-9]{64}"), "exact external author reference required")
+        external = self._source().get_external_author(subject)
+        require(isinstance(external, dict) and external.get("subject") == subject and
+                str(external.get("github_author_id")) == subject[7:] and
+                isinstance(external.get("sources"), list) and 1 <= len(external["sources"]) <= 32 and
+                source_hash(external) == expected_source_hash, "registered external author commitment mismatch")
+        # Account existence and username are documentary metadata only. Do not
+        # invent a receiving wallet or duplicate the source's attributed points.
+        return self._ensure_account(account_id(subject[7:]))
 
     def _save_account(self, row: dict):
         row["points"] = str(uint(row["author_points"]) + uint(row["impact_points"]))
@@ -210,6 +225,35 @@ class GitHubAccounts(gl.Contract):
                     paid += amount
                     bands += band
                 require(bands <= 3 and paid == uint(impact.get("paid_points")) and paid + returned == reserve, "source impact total mismatch")
+                if "recipient_allocations" in impact:
+                    routed = impact["recipient_allocations"]
+                    require(isinstance(routed, list) and len(routed) <= 40, "bounded settled impact recipients required")
+                    totals = {a["id"]: 0 for a in impact["allocations"]}
+                    seen_recipients = set()
+                    actual = []
+                    for share in routed:
+                        require(isinstance(share, dict) and set(share) == {"id", "subject", "wallet", "points"} and
+                                share.get("id") in totals and isinstance(share.get("subject"), str), "exact settled impact recipient required")
+                        identity = share["id"] + ":" + share["subject"]
+                        require(identity not in seen_recipients, "duplicate settled impact recipient")
+                        seen_recipients.add(identity)
+                        amount = uint(share["points"])
+                        totals[share["id"]] += amount
+                        if share["subject"] == "contributor":
+                            previous = self._read_record(share["id"])
+                            require(address(share["wallet"]) and share["wallet"].lower() == previous["evidence"]["wallet"].lower(), "settled contributor wallet mismatch")
+                            actual.append({"evidence": previous["evidence"], "points": amount})
+                        else:
+                            require(match(share["subject"], r"github:[1-9][0-9]{0,15}") and
+                                    (share["wallet"] is None or address(share["wallet"])), "settled external subject required")
+                            external = self._source().get_external_author(share["subject"])
+                            require(isinstance(external, dict) and external.get("subject") == share["subject"] and
+                                    str(external.get("github_author_id")) == share["subject"][7:], "registered settled external author required")
+                            actual.append({"account": share["subject"][7:], "points": amount})
+                    require(all(totals[a["id"]] == uint(a["points"]) for a in impact["allocations"]), "settled impact recipients must conserve each allocation")
+                    # These are historical recipients recorded at settlement,
+                    # not the target's potentially revised route today.
+                    recipients = actual
                 settled_hash = source_hash(impact)
             else:
                 require(not r["reserve_settled"] or reserve == 0, "settled reserve missing source attribution")
@@ -232,7 +276,7 @@ class GitHubAccounts(gl.Contract):
         self._save_account(row)
         if settled_hash is not None and (old is None or old["settled_impact_hash"] is None):
             for recipient in recipients:
-                upstream = self._account(recipient["evidence"])
+                upstream = self._ensure_account(recipient["account"]) if "account" in recipient else self._account(recipient["evidence"])
                 self._add(upstream, "impact_points", recipient["points"])
                 self._save_account(upstream)
         saved = {"indexed": True, "id": key, "source_hash": current_hash, "evidence_digest": r["digest"], "github_author_id": str(e["github_author_id"]),

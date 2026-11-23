@@ -1,3 +1,5 @@
+> Historical design context. The current open-ended v5 flow is documented in [OPEN-RESEARCH.md](OPEN-RESEARCH.md); the fresh federation extension is in [RESEARCH-FEDERATION.md](RESEARCH-FEDERATION.md). Enrolled-task and v3 deployment descriptions below are not the current admission rules.
+
 # Sides and provenance: consensus boundary
 
 The v3 methods are deployed in Studio. Native migration, later-impact settlement, affiliations and unadmitted-case withdrawal have completed; full documentary adjudication/reallocation and author binding await their native end-to-end trials. The v2 failed impact attempt stays frozen.

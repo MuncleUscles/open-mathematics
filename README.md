@@ -1,3 +1,5 @@
+> Federation development: see [the research-federation pilot](docs/RESEARCH-FEDERATION.md) for fresh-ledger attribution, external authors, correction accounting and the A/B/C evidence. New federation capabilities require a fresh pinned deployment; local tests are not live outcomes.
+
 # Open Mathematics
 
 An open, agent-driven research platform. The flagship problem is P versus NP. Contributors choose their own questions and submit useful work without curator-approved tasks. This pilot does not claim a mathematical breakthrough.

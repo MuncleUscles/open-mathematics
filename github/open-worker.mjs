@@ -15,6 +15,7 @@ import {exactOpenReport,loadWorkflowOpenProblem,openIndexScope,positiveId,readOp
 import {requireOpenNative,verifyOpenAttestation} from './open-verify.mjs';
 import {claimFailureOutcome,expireStaleUnmergedClaim} from './claim-recovery.mjs';
 import {journaledTransaction} from './journaled-transaction.mjs';
+import {routedImpactCall} from './federation-worker.mjs';
 import {clientFor,read,clean,sleep} from './runtime.mjs';
 
 const PROTOCOL_ROOT=fileURLToPath(new URL('../',import.meta.url));
@@ -352,6 +353,13 @@ async function main(){
    let impact=await native('get_impact',[id]);
    if(['not-requested','challenged'].includes(impact.status)){
     const round=Number(impact.round||0);
+    // An admitted attribution case can temporarily block routing. Check that
+    // condition before creating an exact write journal; a deterministic failed
+    // review must not poison the eventual legitimate impact call.
+    const proposal=await native('get_impact_route_proposal',[id]);
+    if(Number(proposal.round)!==round)throw Error('Impact round changed before review');
+    if(impact.status==='challenged'&&impact.route_commitments_hash!==proposal.route_commitments_hash)
+     throw Error('Attribution route changed; reconcile recipients before the challenged impact review');
     await tx(`impact-r${round}`,executor,'review_impact',[id,round]);
     impact=await native('get_impact',[id]);
    }
@@ -362,14 +370,23 @@ async function main(){
     await waitWindow(impact);
     impact=await native('get_impact',[id]);
     if(impact.status==='challenged')throw Error('Impact challenge paused reserve settlement. Credit issued at merge remains settled.');
-    if(impact.status==='provisional')await tx(`settle-impact-r${impact.round}`,executor,'settle_impact',[id,Number(impact.round)]);
+    if(impact.status==='provisional'){
+     const proposal=await native('get_impact_route_proposal',[id]);
+     if(Number(proposal.round)!==Number(impact.round)||Number(proposal.routing_revision)!==Number(impact.routing_revision)||proposal.route_commitments_hash!==impact.route_commitments_hash)
+      throw Error('Attribution route changed; explicit reconciliation required before settlement');
+     const call=routedImpactCall(id,impact);
+     await tx(call.stage,executor,call.method,call.args);
+    }
    }
    const settledImpact=await native('get_impact',[id]);
    if(settledImpact.status!=='settled')throw Error('Native reserve settlement is still pending');
    const round=Number(settledImpact.round);
    if(!Array.isArray(settledImpact.eligible))throw Error('Settled impact eligibility is missing');
    await tx(`impact-r${round}`,executor,'review_impact',[id,round],true);
-   if(settledImpact.eligible.length)await tx(`settle-impact-r${round}`,executor,'settle_impact',[id,round],true);
+   if(settledImpact.eligible.length){
+    const call=routedImpactCall(id,settledImpact);
+    await tx(call.stage,executor,call.method,call.args,true);
+   }
    // Reserve settlement can increase the downstream author's net credit.
    record=await recordState({settledImpact});
   }else{

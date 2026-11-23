@@ -88,7 +88,8 @@ function state(value,deployment){
 function account(value,id,completed){
  need(exact(value,accountKeys)&&value.github_author_id===id&&accountId(id),'account identity mismatch');
  need(['username_checked_at','contribution_count','credited_count','formal_count','wallet_count'].every(key=>safe(value[key]))&&
-  Number(value.formal_count)<=Number(value.credited_count)&&Number(value.credited_count)<=Number(value.contribution_count)&&Number(value.wallet_count)>0,'invalid account counters');
+  Number(value.formal_count)<=Number(value.credited_count)&&Number(value.credited_count)<=Number(value.contribution_count)&&
+  (Number(value.wallet_count)>0||Number(value.contribution_count)===0),'invalid account counters');
  const checked=Number(value.username_checked_at);
  need(value.login===null?checked===0:login(value.login)&&checked>0&&checked<=Math.floor(completed/1000)+60,'invalid on-chain username profile');
  points(Object.fromEntries(pointKeys.map(key=>[key,value[key]])));

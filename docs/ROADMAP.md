@@ -1,3 +1,5 @@
+> Historical design context. The current open-ended v5 flow is documented in [OPEN-RESEARCH.md](OPEN-RESEARCH.md); the fresh federation extension is in [RESEARCH-FEDERATION.md](RESEARCH-FEDERATION.md). Enrolled-task and v3 deployment descriptions below are not the current admission rules.
+
 # Research directions, provenance and future forecasts
 
 The platform pursues P vs NP through verifiable contributions. A research side is a declaration of direction, not evidence that a conjecture is true and not a factor in formal validity or contribution merit. No percentage-complete estimate is defined.
