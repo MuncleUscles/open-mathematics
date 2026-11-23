@@ -1,8 +1,11 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {build} from 'esbuild';
+import {execFileSync} from 'node:child_process';
 import {loadOpenProblem,verifyOpenCheckout} from '../src/open-research.mjs';
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),[directory,destination,option]=process.argv.slice(2),preview=option==='--preview';
-if(!directory||!destination||(option&&!preview)||(preview&&process.env.GITHUB_ACTIONS))throw Error('Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--preview for local layout only]');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),[directory,destination,option,...extra]=process.argv.slice(2),preview=option==='--preview',snapshot=option==='--snapshot';
+if(!directory||!destination||extra.length||(option&&!preview&&!snapshot)||(preview&&process.env.GITHUB_ACTIONS))throw Error('Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only]');
 const p=loadOpenProblem(directory);if(!preview)verifyOpenCheckout(p,root);fs.mkdirSync(destination,{recursive:true});
+fs.rmSync(path.join(destination,'ledger-snapshot.json'),{force:true});
+if(snapshot)execFileSync(process.execPath,[path.join(root,'scripts/capture-open-ledger.mjs'),path.resolve(directory),path.resolve(destination,'ledger-snapshot.json')],{stdio:'inherit'});
 fs.copyFileSync(path.join(root,'public/open/index.html'),path.join(destination,'index.html'));
 fs.writeFileSync(path.join(destination,'style.css'),fs.readFileSync(path.join(root,'public/problem/style.css'),'utf8')+'\n.metrics{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #34474f;border-radius:10px;padding:24px;gap:24px}.metrics strong{display:block;font-size:32px;color:#b5efc9}.metrics span{color:#aebdc0;font-size:14px}.research{padding-top:46px}.step{color:#a8e9c3;font-size:13px;display:block;margin-bottom:15px}.points{font-weight:700;color:#b5efc9!important}#older{margin-top:20px}.task details p{overflow-wrap:anywhere}#copy-status,.admission{font-size:14px;color:#aebdc0}@media(max-width:600px){.metrics{grid-template-columns:1fr;gap:12px}.metrics>div{display:flex;align-items:center;gap:16px}.metrics strong{min-width:70px}}\n');
 fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview},null,2)+'\n');
