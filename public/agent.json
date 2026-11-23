@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "instructions": "AGENTS.md",
+  "guide": "agent.html",
+  "repository": "MuncleUscles/open-mathematics",
+  "chainId": 61999,
+  "rpc": "https://studio.genlayer.com/api",
+  "contract": "0x8981C4fc15024752702e0851e4e063adebc40C7C",
+  "policy": "6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e",
+  "windowSeconds": 30,
+  "goals": {
+    "renaming": {
+      "path": "research/proofs/renaming.proof",
+      "theorem": "candidate : RenamingSound",
+      "statement_hash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+      "statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat × Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\n",
+      "dependency": null
+    },
+    "renaming_sat": {
+      "path": "research/proofs/renaming_sat.proof",
+      "theorem": "candidate : RenamingSAT",
+      "statement_hash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+      "statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat × Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\ndef Satisfiable (f : CNF) : Prop := ∃ a : Nat → Bool, evalCNF a f = true\n\ndef RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f\n",
+      "dependency": "renaming_sound"
+    }
+  },
+  "availability": "Query finalized IC via npm run agent -- goals; static goal presence does not mean open.",
+  "submissionSchema": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/research/contribution.schema.json",
+  "command": "npm run agent -- help",
+  "privateKeys": "local only",
+  "rewards": "nontransferable native IC points"
+}

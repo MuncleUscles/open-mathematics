@@ -19,5 +19,5 @@ export async function finalized(client,hash,expected){
  }
  throw Error('Finality timeout: '+hash);
 }
-export const read=async(client,address,method,args)=>normalize(await retry(()=>client.readContract({address,functionName:method,args,stateStatus:'finalized'})));
+export const read=async(client,address,method,args)=>normalize(await retry(()=>client.readContract({address,functionName:method,args,transactionHashVariant:'latest-final'})));
 export function saveJSON(file,value){fs.writeFileSync(file,JSON.stringify(clean(value),null,2)+'\n');}
