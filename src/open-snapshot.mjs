@@ -24,36 +24,55 @@ const exact = (value, keys) => object(value) && Object.keys(value).length === ke
 const sameAddress = (left, right) => address(left) && address(right) && left.toLowerCase() === right.toLowerCase();
 
 export function validateOpenPredecessor(predecessor, {contract, legacyLedgers = []} = {}) {
-  need(exact(predecessor, ['address', 'snapshot_hash']) && address(predecessor.address) && !/^0x0{40}$/i.test(predecessor.address) && hash(predecessor.snapshot_hash), 'invalid predecessor commitment');
+  const v2=predecessor?.version===2;
+  need(exact(predecessor, v2?['version','address','snapshot_hash','source_policy','source_config_hash','source_code_hash','records','credited_order','semantic_fences']:['address','snapshot_hash']) && address(predecessor.address) && !/^0x0{40}$/i.test(predecessor.address) && hash(predecessor.snapshot_hash), 'invalid predecessor commitment');
   need(!sameAddress(predecessor.address, contract) && !legacyLedgers.some(item => sameAddress(predecessor.address, item.address)), 'predecessor cannot be the current or a separate historical ledger');
+  if(v2){
+    need(['source_policy','source_config_hash','source_code_hash'].every(k=>hash(predecessor[k])),'invalid predecessor source commitment');
+    const rows=predecessor.records;
+    need(Array.isArray(rows)&&rows.length>=1&&rows.length<=16&&rows.every(r=>exact(r,['id','record_hash','impact_hash','inheritance_hash','origin_contract','origin_policy'])&&id(r.id)&&address(r.origin_contract)&&!/^0x0{40}$/i.test(r.origin_contract)&&['record_hash','impact_hash','inheritance_hash','origin_policy'].every(k=>hash(r[k])))&&new Set(rows.map(r=>r.id)).size===rows.length,'invalid reviewed predecessor records');
+    need(Array.isArray(predecessor.credited_order)&&predecessor.credited_order.length<=rows.length&&new Set(predecessor.credited_order).size===predecessor.credited_order.length&&predecessor.credited_order.every(key=>rows.some(r=>r.id===key)),'invalid reviewed credit order');
+    const aliases=predecessor.semantic_fences;
+    need(Array.isArray(aliases)&&aliases.length<=rows.length&&aliases.every(a=>exact(a,['id','statement_hash'])&&rows.some(r=>r.id===a.id)&&hash(a.statement_hash))&&new Set(aliases.map(a=>a.id)).size===aliases.length&&new Set(aliases.map(a=>a.statement_hash)).size===aliases.length,'invalid reviewed semantic fences');
+  }
   return predecessor;
 }
 
-// Only this successor's authenticated view can certify that an older record
-// was imported. A matching historical address by itself is never sufficient.
+// Only the pinned successor's finalized view can certify historical provenance.
 export function validateOpenRecordOrigin(record, contributionId, problem, inheritance) {
   const e = record?.evidence, d = problem.deployment;
-  need(object(record) && object(e) && e.id === contributionId && e.problem === d.problem && e.repository === d.repository && e.branch === d.branch && e.policy === problem.policyHash, 'record scope mismatch');
+  need(object(record) && object(e) && e.id === contributionId && e.problem === d.problem && e.repository === d.repository && e.branch === d.branch, 'record scope mismatch');
   if (sameAddress(e.contract, d.contract)) {
+    need(e.policy===problem.policyHash,'record policy mismatch');
     need(inheritance === undefined || exact(inheritance, ['inherited']) && inheritance.inherited === false, 'unexpected record inheritance');
     return {inherited: false};
   }
-  need(d.predecessor && sameAddress(e.contract, d.predecessor.address), 'record scope mismatch: foreign contract');
-  validateOpenPredecessor(d.predecessor, d);
-  need(exact(inheritance, ['inherited', 'predecessor', 'snapshot_hash', 'record_hash', 'original_record_hash']) && inheritance.inherited === true &&
-    sameAddress(inheritance.predecessor, d.predecessor.address) && inheritance.snapshot_hash === d.predecessor.snapshot_hash &&
-    hash(inheritance.record_hash) && hash(inheritance.original_record_hash) && inheritance.record_hash === openMigrationHash(record), 'record inheritance commitment mismatch');
+  need(d.predecessor,'record scope mismatch: foreign contract');
+  const p=validateOpenPredecessor(d.predecessor,d);
+  if(p.version===2){
+    const entry=p.records.find(r=>r.id===contributionId);
+    need(entry&&sameAddress(e.contract,entry.origin_contract)&&e.policy===entry.origin_policy,'record scope mismatch: unreviewed historical origin');
+    need(exact(inheritance,['inherited','version','predecessor','snapshot_hash','source_config_hash','source_code_hash','source_policy','original_record_hash','record_hash','origin_chain'])&&inheritance.inherited===true&&Number(inheritance.version)===2&&sameAddress(inheritance.predecessor,p.address)&&['snapshot_hash','source_config_hash','source_code_hash','source_policy'].every(k=>inheritance[k]===p[k])&&inheritance.original_record_hash===entry.record_hash&&inheritance.record_hash===openMigrationHash(record),'record policy inheritance commitment mismatch');
+    const chain=inheritance.origin_chain;
+    need(Array.isArray(chain)&&chain.length>=1&&chain.length<=4&&chain.every(h=>exact(h,['contract','policy','snapshot_hash','record_hash','original_record_hash'])&&address(h.contract)&&!/^0x0{40}$/i.test(h.contract)&&['policy','snapshot_hash','record_hash','original_record_hash'].every(k=>hash(h[k])))&&new Set(chain.map(h=>h.contract.toLowerCase())).size===chain.length,'invalid inherited origin chain');
+    need(sameAddress(chain[0].contract,p.address)&&chain[0].policy===p.source_policy&&chain[0].snapshot_hash===p.snapshot_hash&&chain[0].record_hash===entry.record_hash&&chain[0].original_record_hash===entry.record_hash&&sameAddress(chain.at(-1).contract,e.contract)&&chain.at(-1).policy===e.policy,'inherited chain does not reach original evidence');
+  }else{
+    need(e.policy===problem.policyHash&&sameAddress(e.contract,p.address),'record scope mismatch: foreign contract');
+    need(exact(inheritance, ['inherited', 'predecessor', 'snapshot_hash', 'record_hash', 'original_record_hash']) && inheritance.inherited === true &&
+      sameAddress(inheritance.predecessor, p.address) && inheritance.snapshot_hash === p.snapshot_hash &&
+      hash(inheritance.record_hash) && hash(inheritance.original_record_hash) && inheritance.record_hash === openMigrationHash(record), 'record inheritance commitment mismatch');
+  }
   return inheritance;
 }
 
 export async function readOpenRecordInheritance(record, contributionId, problem, readInheritance) {
   const e = record?.evidence, d = problem.deployment;
   if (sameAddress(e?.contract, d.contract)) return validateOpenRecordOrigin(record, contributionId, problem);
-  // Reject foreign contracts before asking the authenticated successor for data.
-  need(d.predecessor && sameAddress(e?.contract, d.predecessor.address), 'record scope mismatch: foreign contract');
+  need(d.predecessor,'record scope mismatch: foreign contract');
+  const p=validateOpenPredecessor(d.predecessor,d);
+  need(p.version===2?p.records.some(r=>r.id===contributionId&&sameAddress(r.origin_contract,e?.contract)&&r.origin_policy===e?.policy):sameAddress(e?.contract,p.address),'record scope mismatch: foreign contract');
   need(typeof readInheritance === 'function', 'authenticated predecessor record required');
-  const inheritance = normalizeOpenRead(await readInheritance(contributionId));
-  return validateOpenRecordOrigin(record, contributionId, problem, inheritance);
+  return validateOpenRecordOrigin(record, contributionId, problem, normalizeOpenRead(await readInheritance(contributionId)));
 }
 
 export function openSnapshotIdentity(problem) {

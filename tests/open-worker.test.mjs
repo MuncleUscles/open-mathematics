@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {privateKeyToAccount} from 'viem/accounts';
 import {canonical,digest,message} from '../src/security.mjs';
+import {FULL_LEAN,validateFullLeanBundle} from '../src/full-lean.mjs';
 import {sha256,openMigrationHash} from '../src/open-research.mjs';
 import {verifyFinalizedOutcome} from '../src/studio.mjs';
 import {readOpenClaimComment,requireClaimAuthor,exactOpenReport,eligibleOpenClaim,selectOpenClaim,readOpenRecoveryClaim} from '../github/open-select.mjs';
@@ -509,4 +510,31 @@ test('finalized unresolved consensus leaves a saved claim ineligible for automat
  assert.equal(eligibleOpenClaim({candidate,pr,deployment:problem.deployment,canonicalHead:claim.base,report}),false);
  assert.equal(blockedOpenConsensus(Error('Transaction VALIDATORS_TIMEOUT: hash')),true);
  assert.equal(blockedOpenConsensus(Error('Temporary RPC outage')),false);
+});
+
+
+test('full Lean evidence binds source, semantic statement, pins and every kernel',async()=>{
+ const f=await fixture();
+ const b={version:2,imports:['Mathlib.Data.Int.Basic'],source:'namespace Contribution\ntheorem result (n : Int) : n = n := rfl\nend Contribution\n',theorem:'Contribution.result',dependencies:[]};
+ validateFullLeanBundle(b);
+ const artifactText=json(b),bundleHash=sha256(artifactText),canonical_semantics={type:['forall','Int',['Eq','Int',0,0]],definitions:[]};
+ f.problem.policy={...f.problem.policy,version:6,toolchain:FULL_LEAN.toolchain,allowed_axioms:FULL_LEAN.axioms,mathlib:{repository:'leanprover-community/mathlib4',commit:FULL_LEAN.mathlibCommit},checker:FULL_LEAN.checker};
+ f.problem.policyHash=sha256(json(f.problem.policy));f.claim.policy=f.problem.policyHash;
+ const result={...f.result,policy:f.problem.policyHash,toolchain:FULL_LEAN.toolchain,bundle_hash:bundleHash,artifact_hash:bundleHash,proof_hash:sha256(b.source),theorem:`B_${bundleHash}.Contribution.result`,formal_statement:'forall (n : Int), Eq Int n n',canonical_semantics,statement_hash:sha256(canonical_semantics),proposition_hash:sha256('forall (n : Int), Eq Int n n'),full_kernel:{version:1,lean_commit:FULL_LEAN.leanCommit,mathlib_commit:FULL_LEAN.mathlibCommit,export_hash:hash('a'),baseline_hash:hash('b'),checker_set:['leanchecker','leanchecker-paranoid','lean4lean','nanoda','con-leche','con-ron']}};
+ const options={...f,artifactText};
+ assert.equal(validateOpenResult(result,options),result);
+ for(const mutate of [
+  r=>r.full_kernel.checker_set.pop(),r=>r.full_kernel.mathlib_commit=commit('0'),
+  r=>r.full_kernel.baseline_hash='',r=>r.canonical_semantics.type=['True'],
+  r=>r.formal_statement='False',r=>r.proof_hash=hash('c'),r=>r.theorem='True',
+  r=>r.axioms=['sorryAx'],r=>r.production_verified=false,
+ ]){const changed=structuredClone(result);mutate(changed);assert.throws(()=>validateOpenResult(changed,options));}
+ f.problem.policy.version=5;
+ assert.throws(()=>validateOpenResult(result,options),/activated Mathlib policy/);
+});
+
+test('full Lean bundle blocks path/config injection while allowing ordinary source syntax',()=>{
+ const base={version:2,imports:['Mathlib.Tactic.Ring'],source:'-- ordinary source\ninductive Bit where | zero | one\ntheorem result : True := by trivial',theorem:'result',dependencies:[]};
+ assert.equal(validateFullLeanBundle(base),base);
+ for(const override of [{imports:['Mathlib']},{imports:['Mathlib.../file']},{imports:['Mathlib.Tactic.Ring','Mathlib.Tactic.Ring']},{theorem:'result; command'},{source:''},{lakefile:'run me'},{dependencies:[{id:'x',bundle_hash:hash('a')},{id:'x',bundle_hash:hash('b')}]}])assert.throws(()=>validateFullLeanBundle({...base,...override}));
 });

@@ -84,6 +84,11 @@ def audit(log, root, artifacts, order, allowed, nonce):
 
 
 def verify(args):
+    # Policy identity selects the verification implementation. A v2 bundle must
+    # never fall through to the old, restricted-language stdout audit.
+    if parse_policy(bounded_file(args.policy, 65536)).get('version') == 6:
+        from verify_full_lean import verify as verify_full
+        return verify_full(args)
     for key in ['head', 'base', 'protocol_commit']:
         require(COMMIT.fullmatch(getattr(args, key)), 'Exact commit bindings required')
     require(REPOSITORY.fullmatch(args.repository), 'Repository binding required')

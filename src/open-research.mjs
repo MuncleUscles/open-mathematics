@@ -7,6 +7,7 @@ import {validateClaim} from './security.mjs';
 import {validateProvenance} from './submission.mjs';
 import {readProblemFile,parseProblemJSON,sha256,stableJSON,isHash,isCommit} from './problem.mjs';
 import {validateOpenPredecessor} from './open-snapshot.mjs';
+import {FULL_LEAN,validateFullLeanBundle} from './full-lean.mjs';
 export {readProblemFile,parseProblemJSON,sha256,stableJSON};
 export {openMigrationHash,validateOpenPredecessor,validateOpenRecordOrigin,readOpenRecordInheritance} from './open-snapshot.mjs';
 const need=(ok,msg)=>{if(!ok)throw Error('Open research: '+msg);};
@@ -26,9 +27,11 @@ export function loadOpenProblem(directory,{requireDeployment=true}={}){
  need(exact(descriptor.policy,['path','sha256'])&&descriptor.policy.path==='.open-math/open-policy.json'&&isHash(descriptor.policy.sha256),'immutable evaluation policy required');
  const policyBytes=readProblemFile(root,descriptor.policy.path),policyHash=sha256(policyBytes),policy=parseProblemJSON(policyBytes);
  need(policyHash===descriptor.policy.sha256,'evaluation policy bytes changed');
- need(exact(policy,['version','problem','repository','branch','objective','toolchain','allowed_axioms','admission','notes'])&&policy.version===5,'exact open policy required');
+ const modern=policy.version===6;
+ need(exact(policy,['version','problem','repository','branch','objective','toolchain','allowed_axioms','admission','notes',...(modern?['mathlib','checker']:[])])&&(modern||policy.version===5),'exact open policy required');
  need(policy.problem===descriptor.id&&policy.repository===descriptor.repository&&policy.branch===descriptor.branch&&policy.admission==='open','policy identity or admission mismatch');
- need(str(policy.objective,30,2000)&&str(policy.notes,30,2000)&&policy.toolchain==='lean4:4.19.0'&&stableJSON(policy.allowed_axioms)===stableJSON(['propext','Quot.sound']),'objective, pinned Lean and axiom policy required');
+ need(str(policy.objective,30,2000)&&str(policy.notes,30,2000)&&policy.toolchain===(modern?FULL_LEAN.toolchain:'lean4:4.19.0')&&stableJSON(policy.allowed_axioms)===stableJSON(modern?FULL_LEAN.axioms:['propext','Quot.sound']),'objective, pinned Lean and axiom policy required');
+ if(modern)need(exact(policy.mathlib,['repository','commit'])&&policy.mathlib.repository==='leanprover-community/mathlib4'&&policy.mathlib.commit===FULL_LEAN.mathlibCommit&&policy.checker===FULL_LEAN.checker,'reviewed Mathlib and serialized proof checker pins required');
  let deployment=null;
  if(requireDeployment){
   deployment=parseProblemJSON(readProblemFile(root,'.open-math/open-deployment.json'));
@@ -95,7 +98,7 @@ export function assertOpenConfiguration(actual,expected){
  normalized.legacy_ledgers=actual.legacy_ledgers.map(l=>{need(l&&typeof l==='object'&&typeof l.address==='string','historical ledger mismatch');return {...l,chain_id:integer(l.chain_id),address:l.address.toLowerCase()};});
  for(const key of ['verifier','executor']){need(typeof actual[key]==='string','native role mismatch');normalized[key]=actual[key].toLowerCase();}
  const wanted={...expected,verifier:expected.verifier.toLowerCase(),executor:expected.executor.toLowerCase(),legacy_ledgers:expected.legacy_ledgers.map(l=>({...l,address:l.address.toLowerCase()}))};
- if(Object.hasOwn(actual,'predecessor')){validateOpenPredecessor(actual.predecessor,{legacyLedgers:actual.legacy_ledgers});normalized.predecessor={...actual.predecessor,address:actual.predecessor.address.toLowerCase()};}
+ if(Object.hasOwn(actual,'predecessor')){const predecessor={...actual.predecessor,...(Object.hasOwn(actual.predecessor,'version')?{version:integer(actual.predecessor.version)}:{})};validateOpenPredecessor(predecessor,{legacyLedgers:actual.legacy_ledgers});normalized.predecessor={...predecessor,address:predecessor.address.toLowerCase()};}
  if(expected.predecessor)wanted.predecessor={...expected.predecessor,address:expected.predecessor.address.toLowerCase()};
  need(stableJSON(normalized)===stableJSON(wanted),'native configuration or role mismatch');return actual;
 }
@@ -112,6 +115,7 @@ export function validateOpenArtifactBytes(bytes,kind){
  need(text.trim().length>0&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text),'nonempty UTF-8 artifact without control characters required');
  if(kind==='formal'){
   const b=parseProblemJSON(bytes);
+  if(b.version===2){validateFullLeanBundle(b);return text;}
   need(exact(b,['version','definitions','statement','proof','dependencies'])&&b.version===1&&Array.isArray(b.definitions)&&b.definitions.length<=8&&typeof b.statement==='string'&&b.statement===b.statement.trim()&&Buffer.byteLength(b.statement)>0&&Buffer.byteLength(b.statement)<=4000&&typeof b.proof==='string'&&b.proof.startsWith('by\n')&&Buffer.byteLength(b.proof)<=12000&&Array.isArray(b.dependencies)&&b.dependencies.length<=4,'bounded exact formal bundle required; run check for expression validation');
  }
  return text;

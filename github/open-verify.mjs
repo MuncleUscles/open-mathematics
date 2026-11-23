@@ -17,6 +17,7 @@ import {
 } from '../src/open-research.mjs';
 import {clientFor,read} from './runtime.mjs';
 import {loadWorkflowOpenProblem,positiveId} from './open-select.mjs';
+import {FULL_LEAN,validateFullLeanBundle,fullLeanTheorem} from '../src/full-lean.mjs';
 
 const PROTOCOL_ROOT=fileURLToPath(new URL('../',import.meta.url));
 const ATTESTATION_DOMAIN='Open Mathematics open research attestation v5\n';
@@ -88,6 +89,7 @@ function declaredDependencies(submission){
 
 function parseBundle(artifactText){
  const bundle=parseProblemJSON(Buffer.from(artifactText));
+ if(bundle.version===2)return validateFullLeanBundle(bundle);
  ensure(object(bundle)&&Object.keys(bundle).length===5&&bundle.version===1&&
   Array.isArray(bundle.definitions)&&Array.isArray(bundle.dependencies)&&
   typeof bundle.statement==='string'&&typeof bundle.proof==='string','Exact formal bundle required');
@@ -109,7 +111,7 @@ async function creditedArtifact(github,problem,id,readRecord,formal,readInherita
  const record=await readRecord(id);
  const e=record?.evidence;
  ensure(record?.status==='credited'&&e?.id===id&&e.repository===d.repository&&e.branch===d.branch&&
-  e.problem===d.problem&&e.policy===policyHash,
+  e.problem===d.problem,
  'Dependency must be credited in this exact problem ledger and policy');
  try{await readOpenRecordInheritance(record,id,problem,readInheritance);}catch(error){
   throw Error('Dependency must be credited in this exact problem ledger and policy: '+error.message);
@@ -139,9 +141,9 @@ async function creditedArtifact(github,problem,id,readRecord,formal,readInherita
  ensure(sha256(bytes)===e.bundle_hash&&proof===e.proof,'Credited dependency bytes differ from its native commitment');
  if(formalRecord){
   const bundle=parseBundle(proof);
-  ensure(bundle.statement===e.formal_statement&&Array.isArray(e.dependencies),'Credited formal statement commitment mismatch');
+  ensure((e.policy!==policyHash||problem.policy.version===6||bundle.statement===e.formal_statement)&&Array.isArray(e.dependencies),'Credited formal statement commitment mismatch');
   validateBundleDeps(bundle,e.dependencies);
-  return {id,bundle_hash:e.bundle_hash,artifact_hash:e.artifact_hash,bytes,dependencies:bundle.dependencies};
+  return {id,bundle_hash:e.bundle_hash,artifact_hash:e.artifact_hash,bytes,dependencies:bundle.dependencies,theorem:fullLeanTheorem(bundle,e.bundle_hash)};
  }
  return {id,bundle_hash:e.bundle_hash,artifact_hash:e.artifact_hash,bytes,dependencies:[]};
 }
@@ -205,13 +207,23 @@ function validateFormalResult(result,{problem,claim,artifactText,submission,dire
  const expectedIds=declaredDependencies(submission);
  validateBundleDeps(bundle,expectedIds);
  const rawHash=sha256(artifactText);
+ const modern=problem.policy.version===6;
+ ensure(modern||bundle.version===1,'Full Lean requires the activated Mathlib policy');
  const expected={
   ...expectedIdentity(problem,claim),checker:'open-mathematics-v5',toolchain:problem.policy.toolchain,
-  bundle_hash:rawHash,artifact_hash:rawHash,formal_statement:bundle.statement,proposition_hash:sha256(bundle.statement),
-  statement_hash:sha256({definitions:bundle.definitions,statement:bundle.statement,dependencies:bundle.dependencies}),
-  proof_hash:sha256(bundle.proof),theorem:`B_${rawHash}.result`,
+  bundle_hash:rawHash,artifact_hash:rawHash,
+  ...(!modern?{formal_statement:bundle.statement,proposition_hash:sha256(bundle.statement),
+   statement_hash:sha256({definitions:bundle.definitions,statement:bundle.statement,dependencies:bundle.dependencies})}:{}),
+  proof_hash:sha256(bundle.version===2?bundle.source:bundle.proof),theorem:fullLeanTheorem(bundle,rawHash),
  };
  for(const [key,value] of Object.entries(expected))ensure(result[key]===value,'Formal verifier result '+key+' mismatch');
+ if(modern){
+  ensure(typeof result.formal_statement==='string'&&result.formal_statement===result.formal_statement.trim()&&Buffer.byteLength(result.formal_statement)>0&&Buffer.byteLength(result.formal_statement)<=4000&&result.proposition_hash===sha256(result.formal_statement),'Exact verified semantic statement required');
+  ensure(object(result.canonical_semantics)&&Buffer.byteLength(stableJSON(result.canonical_semantics))<=32000&&result.statement_hash===sha256(result.canonical_semantics),'Serialized statement commitment mismatch');
+  const k=result.full_kernel;
+  ensure(object(k)&&k.version===1&&k.lean_commit===FULL_LEAN.leanCommit&&k.mathlib_commit===FULL_LEAN.mathlibCommit&&typeof k.export_hash==='string'&&HASH.test(k.export_hash)&&typeof k.baseline_hash==='string'&&HASH.test(k.baseline_hash),'Pinned serialized proof and library baseline required');
+  ensure(Array.isArray(k.checker_set)&&stableJSON(k.checker_set)===stableJSON(['leanchecker','leanchecker-paranoid','lean4lean','nanoda','con-leche','con-ron']),'Every pinned independent proof checker must pass');
+ }
  ensure(result.mode==='isolated'&&result.result==='pass'&&result.production_verified===true&&result.verified===true&&
   result.verification==='verified'&&result.sorry===false&&typeof result.image==='string'&&IMAGE.test(result.image),
  'Isolated production proof verification required');
@@ -238,7 +250,7 @@ function validateFormalResult(result,{problem,claim,artifactText,submission,dire
  for(const use of evidence){
   const index=expectedIds.indexOf(use.id),dep=bundle.dependencies[index],prior=direct?.find(item=>item.id===use.id);
   ensure(dep&&Object.keys(use).length===4&&use.proof_body_use===true&&bundleHashes[use.id]===dep.bundle_hash&&
-   use.constant===`B_${dep.bundle_hash}.result`&&use.artifact_hash===artifactHashes[use.id]&&
+   (modern?typeof use.constant==='string'&&use.constant.startsWith(`B_${dep.bundle_hash}.`)&&(!direct||use.constant===prior?.theorem):use.constant===`B_${dep.bundle_hash}.result`)&&use.artifact_hash===artifactHashes[use.id]&&
    (!direct||(prior&&prior.bundle_hash===dep.bundle_hash&&use.artifact_hash===prior.artifact_hash)),
   'Formal dependency use differs from its exact credited artifact');
  }
@@ -313,7 +325,7 @@ function runFormal({problem,claim,artifactBytes,artifactText,submission,dependen
   const args=['scripts/verify_open.py',candidate,'--policy',path.join(problem.root,problem.descriptor.policy.path),
    '--policy-hash',problem.policyHash,'--dependencies',manifest,'--head',claim.head,'--base',claim.base,
    '--protocol-commit',claim.protocol_commit,'--repository',claim.repository];
-  const run=spawnSync('python3',args,{cwd:PROTOCOL_ROOT,encoding:'utf8',timeout:90000,maxBuffer:MAX_VERIFIER_OUTPUT,
+  const run=spawnSync('python3',args,{cwd:PROTOCOL_ROOT,encoding:'utf8',timeout:problem.policy.version===6?1200000:90000,maxBuffer:MAX_VERIFIER_OUTPUT,
    env:{PATH:process.env.PATH,TRUSTED_LEAN_IMAGE:image}});
   if(run.status!==0)throw Error('Isolated verifier rejected: '+openVerifierFailure(run));
   const result=validateOpenResult(JSON.parse(run.stdout),{

@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
-import {abi} from 'genlayer-js';
 import {loadOpenProblem,openNativeConfiguration,sha256,stableJSON} from '../src/open-research.mjs';
 import {openMigrationHash} from '../src/open-snapshot.mjs';
 import {validateGitHubAccountsConfig,validateGitHubAccountsDeployment} from '../src/github-accounts.mjs';
@@ -12,35 +11,10 @@ import {requireOpenNative} from '../github/open-verify.mjs';
 import {read,finalized,saveJSON} from '../github/runtime.mjs';
 import {loadLocalSigner} from './problem-agent.mjs';
 import {createStudioClient,studioEnvelopeFailure} from '../src/studio-client.mjs';
-import {verifyFinalizedOutcome} from '../src/studio.mjs';
+import {validateNativeDeploymentReceipt} from '../src/deployment-receipt.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
-export function validateGitHubAccountsDeploymentReceipt(receipt,{hash,sender,codeHash,config}){
- verifyFinalizedOutcome(receipt);
- if(typeof receipt.hash!=='string'||receipt.hash.toLowerCase()!==hash.toLowerCase()||
-  typeof receipt.from_address!=='string'||receipt.from_address.toLowerCase()!==sender.toLowerCase())
-  throw Error('Deployment receipt binding mismatch');
- // A matching constructor view does not prove which program was deployed.
- // The finalized receipt must contain the exact reviewed source and call bytes.
- const encoded=receipt.data?.contract_code;
- if(typeof encoded!=='string'||encoded.length===0||encoded.length>2*1024*1024||
-  !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))
-  throw Error('Canonical deployment source bytes required');
- const bytes=Buffer.from(encoded,'base64');
- if(bytes.toString('base64')!==encoded||sha256(bytes)!==codeHash)throw Error('Deployed source differs from reviewed code');
- const calldata=receipt.data?.calldata,raw=calldata?.raw;
- if(!Array.isArray(raw)||raw.length===0||raw.length>65536||raw.some(value=>!Number.isInteger(value)||value<0||value>255))
-  throw Error('Exact constructor calldata bytes required');
- const actual=Buffer.from(raw),expected=Buffer.from(abi.calldata.encode({args:[JSON.stringify(config)]}));
- if(!actual.equals(expected)||
-  (Object.hasOwn(calldata,'base64')&&calldata.base64!==actual.toString('base64')))
-  throw Error('Deployment constructor differs from reviewed serialization');
- const address=receipt.data?.contract_address;
- if(address!==undefined&&receipt.to_address!==undefined&&
-  (typeof address!=='string'||typeof receipt.to_address!=='string'||address.toLowerCase()!==receipt.to_address.toLowerCase()))
-  throw Error('Deployment contract address mismatch');
- return receipt;
-}
+export {validateNativeDeploymentReceipt as validateGitHubAccountsDeploymentReceipt} from '../src/deployment-receipt.mjs';
 export async function run(argv=process.argv.slice(2)){
  const [command,directory,journalFile,...flags]=argv;
  if(command!=='deploy'||!directory||!journalFile||flags.length>1||flags.some(x=>x!=='--send'))
@@ -68,7 +42,7 @@ export async function run(argv=process.argv.slice(2)){
   journal.status='broadcast';saveJSON(journalFile,journal);
  }
  const receipt=await finalized(client,journal.hash);
- validateGitHubAccountsDeploymentReceipt(receipt,{hash:journal.hash,sender:account.address,codeHash:intent.codeHash,config});
+ validateNativeDeploymentReceipt(receipt,{hash:journal.hash,sender:account.address,codeHash:intent.codeHash,config});
  const deployment={version:1,chainId:61999,contract:receipt.data?.contract_address||receipt.to_address,codeHash:intent.codeHash,
   sourceContract:config.source_contract,sourceCodeHash:problem.deployment.codeHash,sourceConfigHash:config.source_config_hash,
   problem:config.problem,repository:config.repository,policyHash:config.policy,implementationCommit};
