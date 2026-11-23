@@ -1,0 +1,51 @@
+{
+  "scope": "Actual failed read-only diagnostic, not a migration snapshot",
+  "toolCommit": "6a420a2cce5225605d19cad29d19d60034e6d636",
+  "captureSha256": "2723068dbc7b8c5500200dda496c9b046593c63689baf17ebff6d5c2a5991e92",
+  "captureBytes": 2183,
+  "startedAt": "2026-11-23T04:16:53.411Z",
+  "finishedAt": "2026-11-23T04:16:56.285Z",
+  "identity": {
+    "protocolVersion": 3,
+    "chainId": 61999,
+    "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+    "codeHash": "00c3bbd3d4a4d075b20b4e8eb2da4636c97c2b77b558e623a349ef5d1f47bb8e",
+    "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965"
+  },
+  "status": "failed",
+  "stats": {
+    "calls": 2,
+    "responseBytes": 8,
+    "storedBytes": 217,
+    "decodedNodes": 0,
+    "elapsedMs": 2875
+  },
+  "error": {
+    "code": "RPC_OR_CAPTURE_ERROR",
+    "message": "A read failed; the capture stopped without retry.",
+    "rpcCode": -1
+  },
+  "migrationReady": false,
+  "atomic": false,
+  "completeHistory": false,
+  "actualResult": "eth_chainId confirmed 61999; transaction history failed before any native view or remote source verification. Original cause was obscured by SDK wrapping. No balances or cases were captured.",
+  "followupProbe": {
+    "scope": "One HTTP transport diagnostic for the failed history read; response content omitted; no state import or transaction",
+    "startedAt": "2026-11-23T04:19:23.823Z",
+    "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+    "maxDecodedBytes": 2097152,
+    "migrationReady": false,
+    "httpStatus": 200,
+    "headers": {
+      "content-type": "application/json",
+      "content-length": null,
+      "content-encoding": "br",
+      "retry-after": null
+    },
+    "stoppedAtBound": true,
+    "decodedBytesObserved": 2113536,
+    "finishedAt": "2026-11-23T04:19:24.462Z"
+  },
+  "interpretation": "A separate bounded HTTP observation established that the current history response exceeds 2 MiB. This does not retroactively identify the original hidden exception or produce a complete history. The cap was not enlarged; no capture retry was run.",
+  "nativeWrites": 0
+}

@@ -17,7 +17,7 @@ node --test proposals/v4/tests/native-capture.test.mjs
 node proposals/v4/capture-native.mjs --help
 ```
 
-The tests mock all network responses, including a request through the actual pinned `genlayer-js` 0.18.9 client. The tests pass on the repository's exact pinned Node 22.22.0 runtime. No live RPC was exercised during implementation.
+The tests mock all network responses, including requests through the actual pinned `genlayer-js` 0.18.9 client. They pass on the repository's exact pinned Node 22.22.0 runtime. The separate native trial below failed before collecting any state views; it is not a successful export.
 
 Only after reviewing the diagnostic and arranging a quiet, rate-limited observation period, explicitly run one fresh capture:
 
@@ -27,7 +27,7 @@ node proposals/v4/capture-native.mjs
 node proposals/v4/capture-native.mjs --check-source
 ```
 
-These commands make sequential native reads. Do not run both merely to compare results: each command is a distinct full capture. There is no retry or resume. A throttle, timeout, malformed response, mismatched source or exhausted budget stops that capture. Wait for a deliberate operator decision before starting a new one; never splice two captures together.
+These commands make sequential native reads. Do not run both merely to compare results: each command is a distinct full capture. There is no retry or resume. A throttle, timeout, malformed response, mismatched source or exhausted budget stops that capture. Local guard errors remain identifiable through bounded SDK/Viem cause wrappers using fixed allowlisted descriptions. Provider error messages and bodies are never copied into diagnostics. HTTP failures retain only their numeric status; HTTP 429 may also retain a numeric `Retry-After` of 0–604800 seconds (date-form and other values are omitted). Unknown failures remain unknown; a generic SDK code of `-1` does not identify a byte limit or another specific cause. Wait for a deliberate operator decision before starting a new one; never splice two captures together.
 
 The CLI checks installed SDK version 0.18.9 and hashes the actual local `contracts/research.py` and `lean/policy.json` bytes against `public/deployment.json` before any RPC. It uses the declared Studio chain and verifies `eth_chainId`; it never substitutes localnet's chain ID. A draft source edit that changes the pinned hash therefore prevents capture until a separately reviewed matching source is used.
 
@@ -58,3 +58,13 @@ Fixed maximums (tests can only reduce them): 200 calls, 180 seconds overall, 8 s
 Studio's SDK history method supplies no pagination, count or completeness witness. A short or identical history can omit transactions or lag; internal-call coverage is unproven. `completeHistory` is always false. Exposed `list_review_cases` returns only the last 100 admissions, so historical admission order remains unproven even when all creation-index cases were enumerated. The observed wallet closure does not prove that no unindexed balances or recipients exist (`completeWalletIndex: false`). Stable totals and counts are diagnostic comparisons only.
 
 No operator freeze, full receipt lineage, canonical GitHub merge verification, transaction cutoff proof, authenticated storage enumeration, migration approval, importer or post-import equivalence is performed. A successful run is evidence for further review, never permission to migrate or to expand a mathematical goal policy.
+
+## Actual failed trial, 2026-11-23
+
+One invocation with `--check-source` at tool commit `6a420a2cce5225605d19cad29d19d60034e6d636` ran from 04:16:53.411Z to 04:16:56.285Z. It confirmed chain ID 61999, then stopped on the history request. No native state view or remote source retrieval occurred, and no transaction was submitted. The SDK wrapped the failure as a generic `-1`; the original exception cannot be identified retrospectively.
+
+The [unaltered partial diagnostic](evidence/native-capture-partial.json) is 2,183 bytes with SHA-256 `2723068dbc7b8c5500200dda496c9b046593c63689baf17ebff6d5c2a5991e92`. It retains `status: "failed"` and all three false readiness/completeness flags. Local source/policy hash checks are not remote source verification.
+
+A separate [bounded HTTP probe](evidence/history-transport-probe.json) at 04:19:23.823Z received HTTP 200 and stopped when the decompressed history stream crossed 2 MiB (2,113,536 bytes observed at the chunk boundary). Response contents were discarded. This establishes the size of that later response, not the cause of the earlier hidden exception. Neither the cap nor the history-completeness claim was changed, and the collector was not rerun. The [trial summary](evidence/native-capture-failure.json) ties those observations together.
+
+The subsequent offline fix preserves locally generated budget/timeout errors through SDK wrappers, with fixed public descriptions and bounded HTTP status/retry metadata. Its tests use the actual SDK against mocked responses; a future native run has not validated the fix. A compact, paginated history source with completeness evidence remains a separate prerequisite for a scalable migration design.

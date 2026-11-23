@@ -91,6 +91,22 @@ test('actual SDK errors retain unsupported-source and throttle semantics without
   for(const code of [-32601,-32029]){let requests=0;const f=fixture();globalThis.fetch=boundedReadFetch({endpoint:studionet.rpcUrls.default.http[0],contract,fetchImpl:async(_,options)=>{requests++;const req=JSON.parse(options.body);if(req.method==='gen_getContractCode')return new Response(JSON.stringify({jsonrpc:'2.0',id:req.id,error:{code,message:'fixture',data:{retry_after_seconds:2}}}));return response(req.method==='eth_chainId'?'0x'+(61999).toString(16):[],req.id);}});const sdk=createClient({chain:studionet}),out=await f.run({client:{request:sdk.request,readContract:f.client.readContract},checkSource:true});if(code===-32601){assert.equal(out.status,'captured');assert.equal(out.sourceCheck.status,'unavailable');assert.equal(requests,4);}else{assert.equal(out.status,'failed');assert.equal(out.error.code,'THROTTLED');assert.equal(requests,3);assert.equal(f.calls.length,0);}}
  }finally{globalThis.fetch=previous;}
 });
+test('actual SDK preserves allowlisted local guard causes without exposing payloads',async()=>{
+ const previous=globalThis.fetch,sentinel='UNTRUSTED_PROVIDER_PAYLOAD';try{
+  const scenarios=[
+   {name:'stream cap',code:'BYTE_BUDGET',reply:id=>response(sentinel.repeat(40),id)},
+   {name:'advertised cap',code:'RESPONSE_BUDGET',reply:id=>new Response(JSON.stringify({jsonrpc:'2.0',id,result:[]}),{headers:{'content-length':'600'}})},
+   {name:'http failure',code:'HTTP_ERROR',httpStatus:503,reply:()=>new Response(sentinel,{status:503})},
+   {name:'unexpected cache response',code:'HTTP_ERROR',httpStatus:304,reply:()=>new Response(null,{status:304})},
+   {name:'http throttle',code:'THROTTLED',httpStatus:429,retryAfterSeconds:120,reply:()=>new Response(sentinel,{status:429,headers:{'retry-after':'120'}})},
+   {name:'invalid retry header',code:'THROTTLED',httpStatus:429,reply:()=>new Response(sentinel,{status:429,headers:{'retry-after':sentinel}})},
+   {name:'overbound retry header',code:'THROTTLED',httpStatus:429,reply:()=>new Response(sentinel,{status:429,headers:{'retry-after':'999999999'}})},
+   {name:'remote string code',code:'RPC_OR_CAPTURE_ERROR',reply:id=>new Response(JSON.stringify({jsonrpc:'2.0',id,error:{code:'BYTE_BUDGET',message:sentinel,data:sentinel}}))},
+   {name:'unknown provider error',code:'RPC_OR_CAPTURE_ERROR',reply:id=>new Response(JSON.stringify({jsonrpc:'2.0',id,error:{code:-12345,message:sentinel,data:sentinel}}))},
+  ];
+  for(const scenario of scenarios){let requests=0;const f=fixture();globalThis.fetch=boundedReadFetch({endpoint:studionet.rpcUrls.default.http[0],contract,limits:{maxResponseBytes:512},fetchImpl:async(_,options)=>{requests++;const req=JSON.parse(options.body);return req.method==='eth_chainId'?response('0xf22f',req.id):scenario.reply(req.id);}});const sdk=createClient({chain:studionet}),out=await f.run({client:{request:sdk.request,readContract:f.client.readContract}});assert.equal(out.status,'failed',scenario.name);assert.equal(out.error.code,scenario.code,scenario.name);assert.equal(out.error.httpStatus,scenario.httpStatus,scenario.name);assert.equal(out.error.retryAfterSeconds,scenario.retryAfterSeconds,scenario.name);assert.equal(requests,2,scenario.name);assert.equal(out.stats.calls,2);assert.equal(out.reads.length,0);assert.equal(JSON.stringify(out).includes(sentinel),false,scenario.name);}
+ }finally{globalThis.fetch=previous;}
+});
 test('outputs are unique, compact, bounded diagnostics under .data; symlinks refused',async()=>{
  const repository=fs.mkdtempSync(path.join(os.tmpdir(),'native-capture-test-')),outside=fs.mkdtempSync(path.join(os.tmpdir(),'native-capture-outside-'));try{const out=await fixture().run(),a=writeCapture(repository,out),b=writeCapture(repository,out);assert.notEqual(a,b);assert.equal(path.dirname(a),path.join(fs.realpathSync(repository),'.data/v3-native-captures'));assert.equal(JSON.parse(fs.readFileSync(a)).migrationReady,false);assert.equal(fs.statSync(a).mode&0o777,0o600);assert.throws(()=>writeCapture(repository,{...out,migrationReady:true}));assert.throws(()=>writeCapture(repository,{...out,limits:{...out.limits,maxOutputBytes:10}}),/budget/);fs.rmSync(path.join(repository,'.data'),{recursive:true});fs.symlinkSync(outside,path.join(repository,'.data'));assert.throws(()=>writeCapture(repository,out),/symlinks/);assert.deepEqual(fs.readdirSync(outside),[]);}finally{fs.rmSync(repository,{recursive:true,force:true});fs.rmSync(outside,{recursive:true,force:true});}
 });

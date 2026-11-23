@@ -17,3 +17,5 @@ Set `PYTEST_BIN` to the existing environment's pytest executable if it lives out
 This proposal is based on `eecacad0cb9ba8034040d9b7a9c92543dcbadcc0`. Deploying a replacement requires a reviewed migration of the full v3 state and history. The existing migration covers the v2 ledger. Until a replacement is verified, the v3 worker keeps automatic case expiry disabled.
 
 The audit uses the checked-in display snapshot and always reports `readyForMigration: false`, even when its internal consistency checks pass. It makes no RPC calls and cannot establish completeness, a single cutoff, authenticity or authorization. The related [disjoint-CNF proposal](../disjoint-cnf/PROPOSAL.md) is a locally checked known result, not an enrolled goal or rewarded contribution.
+
+The separate [bounded native diagnostic](CAPTURE.md) retains raw ABI and tagged values while explicitly refusing migration readiness. Its actual native trial failed on history before any state views or remote source verification; the preserved failure and later bounded HTTP probe are linked in that document. Do not treat it as a completed native export or rerun it just to obtain a successful result.

@@ -14,7 +14,26 @@ const address=x=>typeof x==='string'&&/^0x[0-9a-fA-F]{40}$/.test(x);
 const hash=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
 const id=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/.test(x);
 const digest=x=>createHash('sha256').update(x).digest('hex');
-const fail=(code,message)=>{throw Object.assign(Error(message),{code});};
+// Preserve only errors created by this module through SDK/Viem cause wrappers.
+// A provider cannot select a local guard classification with a string code.
+const localFailures=new WeakSet();
+const captureFailure=(code,message)=>{const error=Object.assign(Error(message),{code});localFailures.add(error);return error;};
+const fail=(code,message)=>{throw captureFailure(code,message);};
+const safeFailureMessages=Object.freeze({
+ INVALID_RESPONSE:'A response or capture binding failed local validation.',
+ HTTP_ERROR:'The RPC provider returned an unsuccessful HTTP status.',
+ THROTTLED:'The RPC provider returned HTTP 429; no retry or resume was attempted.',
+ CALL_BUDGET:'Capture call budget exhausted.',TIME_BUDGET:'Capture time budget exhausted.',
+ READ_TIMEOUT:'A read exceeded the capture timeout.',
+ RESPONSE_BUDGET:'A response exceeded the local shape or per-response byte budget.',
+ BYTE_BUDGET:'RPC response or aggregate byte budget exceeded.',
+ STORAGE_BUDGET:'Stored evidence exceeded its local byte budget.',
+ NODE_BUDGET:'Aggregate decoded-node budget exhausted.',
+ CASE_BUDGET:'Case enumeration limit exceeded.',WALLET_BUDGET:'Observed wallet closure exceeded its bound.',
+ INVALID_ABI:'Native response failed bounded ABI decoding or byte round-trip.',
+ INVALID_SOURCE:'Source-code response failed local validation.',
+ SOURCE_HASH_MISMATCH:'RPC source bytes do not match the reviewed deployment.',
+});
 const need=(ok,message)=>{if(!ok)fail('INVALID_RESPONSE',message);};
 const field=(map,key)=>map instanceof Map?map.get(key):undefined;
 const terminalCases=new Set(['settled','withdrawn','expired']);
@@ -25,7 +44,7 @@ function limitsFor(options={}){const limits={...DEFAULT_LIMITS};for(const [key,v
 function strings(value,maximum,label){need(Array.isArray(value)&&value.length<=maximum&&value.every(id)&&new Set(value).size===value.length,'Invalid '+label);return value;}
 function nativeInteger(value,label){need(typeof value==='bigint',label+' must retain its native integer type');return value;}
 function amount(value,label){need(typeof value==='string'&&/^(0|[1-9][0-9]{0,77})$/.test(value),label+' must retain its native decimal-string type');return BigInt(value);}
-function errorCode(error){for(let i=0;i<8&&error;i++,error=error.cause)if(typeof error.code==='number')return error.code;return null;}
+function errorCode(error){for(let i=0;i<8&&error;i++,error=error.cause)if(Number.isSafeInteger(error.code))return error.code;return null;}
 function historyRows(value,limits,contract){
  need(Array.isArray(value)&&value.length<=limits.maxHistoryRows,'History must be a bounded array; completeness is unknown');
  const seen=new Set();
@@ -42,7 +61,20 @@ function historyRows(value,limits,contract){
   return {hash:tx,status,finalized:status==='FINALIZED',related:!!related};
  });
 }
-function safeError(error){const throttle=rpcRateLimit(error);if(throttle)return {code:'THROTTLED',message:'Provider throttled the capture; no retry or resume was attempted.',throttle};if(typeof error.code==='string')return {code:error.code,message:error.message};return {code:'RPC_OR_CAPTURE_ERROR',message:'A read failed; the capture stopped without retry.',rpcCode:errorCode(error)};}
+function safeError(error){
+ const throttle=rpcRateLimit(error);if(throttle)return {code:'THROTTLED',message:'Provider throttled the capture; no retry or resume was attempted.',throttle};
+ // Never copy messages, payloads or stacks from SDK/provider errors. All public
+ // descriptions are fixed here; bounded traversal also tolerates cause cycles.
+ for(let depth=0,cause=error;depth<8&&cause&&typeof cause==='object';depth++,cause=cause.cause){
+  if(localFailures.has(cause)&&Object.hasOwn(safeFailureMessages,cause.code)){
+   const result={code:cause.code,message:safeFailureMessages[cause.code]};
+   if(Number.isSafeInteger(cause.httpStatus)&&cause.httpStatus>=300&&cause.httpStatus<=599)result.httpStatus=cause.httpStatus;
+   if(cause.httpStatus===429&&Number.isSafeInteger(cause.retryAfterSeconds)&&cause.retryAfterSeconds>=0&&cause.retryAfterSeconds<=604800)result.retryAfterSeconds=cause.retryAfterSeconds;
+   return result;
+  }
+ }
+ return {code:'RPC_OR_CAPTURE_ERROR',message:'A read failed; the capture stopped without retry.',rpcCode:errorCode(error)};
+}
 
 /** Every success is only a bounded observation. Raw ABI/tagged reads are evidence,
  * not JSON-normalized migration state. A failed capture is explicitly partial. */
@@ -61,7 +93,7 @@ export async function captureNative({client,deployment,sourceBytes,policyBytes,c
   if(output.stats.calls>=limits.maxCalls)fail('CALL_BUDGET','Capture call budget exhausted');
   const remaining=limits.maxDurationMs-(now()-start);if(remaining<=0)fail('TIME_BUDGET','Capture time budget exhausted');
   output.stats.calls++;const startedAt=iso();let timer;
-  const value=await Promise.race([Promise.resolve().then(operation),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('Read timed out; capture stopped'),{code:'READ_TIMEOUT'})),Math.min(remaining,limits.callTimeoutMs));})]).finally(()=>clearTimeout(timer));
+  const value=await Promise.race([Promise.resolve().then(operation),new Promise((_,reject)=>{timer=setTimeout(()=>reject(captureFailure('READ_TIMEOUT','Read timed out; capture stopped')),Math.min(remaining,limits.callTimeoutMs));})]).finally(()=>clearTimeout(timer));
   if(now()-start>limits.maxDurationMs)fail('TIME_BUDGET','Capture time budget exhausted');
   let rawJSON;try{rawJSON=boundedJSON(value,{...limits,maxBytes:limits.maxResponseBytes});}catch{fail('RESPONSE_BUDGET','Response shape or byte budget exceeded');}
   output.stats.responseBytes+=Buffer.byteLength(rawJSON);if(output.stats.responseBytes>limits.maxTotalBytes)fail('BYTE_BUDGET','Capture aggregate byte budget exhausted');
@@ -166,10 +198,15 @@ export function boundedReadFetch({fetchImpl,endpoint,contract,limits:options={},
   const headers=new Headers(init.headers);need([...headers.keys()].every(key=>key.toLowerCase()==='content-type')&&headers.get('content-type')==='application/json','Unexpected authentication or request headers');
   if(++calls>limits.maxCalls)fail('CALL_BUDGET','Transport call budget exhausted');const remaining=limits.maxDurationMs-(now()-started);if(remaining<=0)fail('TIME_BUDGET','Transport time budget exhausted');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(remaining,limits.callTimeoutMs));let reader;
-  const aborted=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Object.assign(Error('Transport timed out'),{code:'READ_TIMEOUT'})),{once:true}));
+  const aborted=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(captureFailure('READ_TIMEOUT','Transport timed out')),{once:true}));
   try{
    const response=await Promise.race([fetchImpl(endpoint,{method:'POST',body:JSON.stringify(request),headers,signal:controller.signal,redirect:'error',credentials:'omit'}),aborted]);
-   need(response.ok&&response.body,'RPC HTTP response unavailable');
+   if(!response.ok){
+    const error=captureFailure(response.status===429?'THROTTLED':'HTTP_ERROR','RPC HTTP response unavailable');error.httpStatus=response.status;
+    const retry=response.headers.get('retry-after');if(response.status===429&&typeof retry==='string'&&/^[0-9]{1,6}$/.test(retry)&&Number(retry)<=604800)error.retryAfterSeconds=Number(retry);
+    throw error;
+   }
+   need(response.body,'RPC HTTP response body unavailable');
    const advertised=response.headers.get('content-length');if(advertised!==null&&(!/^\d+$/.test(advertised)||Number(advertised)>limits.maxResponseBytes))fail('RESPONSE_BUDGET','RPC response exceeds byte limit');
    reader=response.body.getReader();const chunks=[];let bytes=0;
    for(;;){const next=await Promise.race([reader.read(),aborted]);if(next.done)break;bytes+=next.value.byteLength;totalBytes+=next.value.byteLength;if(bytes>limits.maxResponseBytes||totalBytes>limits.maxTotalBytes)fail('BYTE_BUDGET','RPC streaming byte budget exceeded');chunks.push(Buffer.from(next.value));}
