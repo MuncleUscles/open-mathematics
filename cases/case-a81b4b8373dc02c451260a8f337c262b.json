@@ -12,7 +12,8 @@
         "method": "attest_case",
         "argsSha256": "2839aa08426050fd7cee2a50b9d0301641b24f9fdc1ebe6cd61a1cf427a08420",
         "independent": false
-      }
+      },
+      "hash": "0x92b4ac426111830a3bb69990272a6d77b5d2a725e898f45124ed3413d8c1a54c"
     }
   },
   "rounds": {
@@ -53,6 +54,6 @@
     "target": "p-vs-np",
     "verdict": null
   },
-  "updatedAt": "2026-11-23T02:32:56.540Z",
+  "updatedAt": "2026-11-23T02:32:57.926Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45100799950"
 }
