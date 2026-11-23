@@ -23,6 +23,7 @@ try{
  const at=flags.indexOf('--worktree');if(at!==-1){if(!flags[at+1]||flags[at+1].startsWith('--'))throw Error('--worktree requires a directory');worktree=flags[at+1];flags.splice(at,2);if(flags.includes('--worktree'))throw Error('Only one --worktree is allowed');}
  worktree=fs.realpathSync(worktree);if(!fs.statSync(worktree).isDirectory())throw Error('Contributor worktree must be a directory');
  const workFile=file=>contributorPath(worktree,file),trusted=file=>path.join(toolRoot,file);
+ const evidenceFile=file=>typeof file==='string'&&path.isAbsolute(file)?file:workFile(file);
 const deployment=JSON.parse(fs.readFileSync(trusted('public/deployment.json'),'utf8')),policy=JSON.parse(fs.readFileSync(trusted('lean/policy.json'),'utf8'));
 const gh=new GitHub({repository:deployment.repository,token:process.env.GITHUB_TOKEN});
 const [command,...args]=flags;
@@ -87,7 +88,7 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
   if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Signature does not match the claim wallet');
   const envelope={claim,signature};process.stdout.write(`Open-Mathematics-Claim: ${digest(claim)}\n\`\`\`json\n${JSON.stringify(envelope,null,2)}\n\`\`\`\n`);
  }else if(command==='challenge'){
-  const [id,file]=args,evidence=fs.readFileSync(file,'utf8');if(evidence.trim().length<20||evidence.length>4000)throw Error('Challenge needs 20–4,000 characters of substantive evidence');
+  const [id,file]=args,evidence=fs.readFileSync(evidenceFile(file),'utf8');if(evidence.trim().length<20||evidence.length>4000)throw Error('Challenge needs 20–4,000 characters of substantive evidence');
   const impact=args.includes('--impact'),method=impact?'challenge_impact':'challenge',c=clientFor();
   const state=await read(c,deployment.contract,impact?'get_impact':'get',[id]);
   if(state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||state.round>=2)throw Error('Challenge window closed or budget exhausted');
@@ -101,7 +102,7 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
    method='set_affiliation';callArgs=[args[0]];
   }else if(command==='case-report'){
    const [kind,target,file]=args;if(!['attribution','authorship','external-solution'].includes(kind))throw Error('Unknown provenance case kind');
-   const bytes=fs.readFileSync(file);if(bytes.byteLength>12000)throw Error('Case evidence is too large');
+   const bytes=fs.readFileSync(evidenceFile(file));if(bytes.byteLength>12000)throw Error('Case evidence is too large');
    const payload=JSON.parse(bytes);if(Object.keys(payload).sort().join(',')!=='claim,component,sources'||typeof payload.claim!=='string'||payload.claim.length<40||payload.claim.length>3000||typeof payload.component!=='string'||payload.component.length<1||payload.component.length>300)throw Error('Case needs a specific claim, component and actual sources');
    validateProvenance({mode:'integration',sources:payload.sources,discovery_basis:''});
    for(const source of payload.sources){const url=validateSourceURL(source.reference);if(/\.pdf$/i.test(url.pathname))throw Error('PDF sources are unsupported; use a direct stable UTF-8 text source.');}
@@ -112,12 +113,12 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
    if(process.env.CONTRIBUTOR_KEY_FILE){const wallet=privateKeyToAccount(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()).address;const capacity=await read(reader,deployment.contract,'get_case_capacity',[wallet]);if(Number(capacity.available)<1)throw Error('Four cases are already open for this wallet; withdraw an unadmitted case or wait for settlement');}
    method='report_case';callArgs=[kind,target,JSON.stringify(payload)];
   }else if(command==='case-withdraw'){
-   const [id,file]=args,reason=fs.readFileSync(file,'utf8');if(reason.length<10||reason.length>1000)throw Error('Withdrawal reason needs 10–1000 characters');
+   const [id,file]=args,reason=fs.readFileSync(evidenceFile(file),'utf8');if(reason.length<10||reason.length>1000)throw Error('Withdrawal reason needs 10–1000 characters');
    const state=await read(clientFor(),deployment.contract,'get_case',[id]);if(state.status!=='submitted')throw Error('Only an unadmitted submitted case can be withdrawn');
    if(process.env.CONTRIBUTOR_KEY_FILE&&privateKeyToAccount(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()).address.toLowerCase()!==state.reporter.toLowerCase())throw Error('Only the original reporter may withdraw this case');
    method='withdraw_case';callArgs=[id,reason];
   }else{
-   const [id,file]=args,evidence=fs.readFileSync(file,'utf8');if(evidence.length<30||evidence.length>4000)throw Error('Case challenge needs 30–4000 characters');
+   const [id,file]=args,evidence=fs.readFileSync(evidenceFile(file),'utf8');if(evidence.length<30||evidence.length>4000)throw Error('Case challenge needs 30–4000 characters');
    const state=await read(clientFor(),deployment.contract,'get_case',[id]);if(state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||Number(state.round)>=2)throw Error('Case challenge window closed');
    method='challenge_case';callArgs=[id,evidence];
   }
@@ -143,8 +144,12 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
   const index=await fetch(`https://raw.githubusercontent.com/${deployment.repository}/evidence/index.json`,{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw Error('Evidence feed unavailable');return r.json();});
   const entry=index.entries.find(e=>e.pr===pr);if(!entry)out({pr,status:'no indexed outcome yet',next:'If you already posted the signed comment as the PR author before its nine-minute expiry, wait for the worker or 15-minute recovery sweep; do not repeatedly resubmit. Otherwise post a fresh claim using the same GitHub account that opened the PR. A different bot account cannot claim for the author.'});
   else{const report=await fetch(`https://raw.githubusercontent.com/${deployment.repository}/evidence/${entry.report}`).then(r=>r.json());
-   const result={id:entry.id,status:report.status,historicalInitialPoints:report.record?.credited_points||'0',impact:report.impact||null,reason:report.record?.verdict?.reason,archivedError:report.error,run:report.run,commentId:report.commentId,readSource:'Archived public report',resume:'Do not resubmit a credited contribution. Repository operators use impact.yml for an unresolved later-impact review; known failed consensus is preserved, not rerolled. Pending claims on the active deployment can resume through research.yml.'};
-   try{const c=clientFor(),record=await read(c,deployment.contract,'get',[entry.id]);result.status=record.status;result.reason=record.verdict?.reason;result.impact=await read(c,deployment.contract,'get_impact',[entry.id]);result.walletPoints=await read(c,deployment.contract,'get_points',[record.evidence.wallet]);if(deployment.protocolVersion>=3)result.provenance=await read(c,deployment.contract,'get_provenance',[entry.id]);result.readSource='Fresh finalized active contract';result.contract=deployment.contract;}catch{result.nativeRead='Unavailable or record not registered in the active contract; consult archived verification evidence.';}
+   const registrationRejection=report.status==='rejected'?report.registrationRejection:null;
+   const result={id:entry.id,status:report.status,historicalInitialPoints:report.record?.credited_points||'0',impact:report.impact||null,reason:registrationRejection?.reason??report.record?.verdict?.reason,archivedError:report.error,run:report.run,commentId:report.commentId,readSource:'Archived public report',resume:'Do not resubmit a credited contribution. Repository operators use impact.yml for an unresolved later-impact review; known failed consensus is preserved, not rerolled. Pending claims on the active deployment can resume through research.yml.'};
+   if(registrationRejection){
+    result.registrationRejection=registrationRejection;result.contract=report.contract;
+    result.resume='This registration transaction finalized with an execution error. Inspect the recorded receipt for this completed attempt.';
+   }else try{const c=clientFor(),record=await read(c,deployment.contract,'get',[entry.id]);result.status=record.status;result.reason=record.verdict?.reason;result.impact=await read(c,deployment.contract,'get_impact',[entry.id]);result.walletPoints=await read(c,deployment.contract,'get_points',[record.evidence.wallet]);if(deployment.protocolVersion>=3)result.provenance=await read(c,deployment.contract,'get_provenance',[entry.id]);result.readSource='Fresh finalized active contract';result.contract=deployment.contract;}catch{result.nativeRead='Unavailable or record not registered in the active contract; consult archived verification evidence.';}
    out(result);
   }
  }else throw Error('Unknown command; run help');

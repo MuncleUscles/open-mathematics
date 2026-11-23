@@ -172,3 +172,23 @@ test('post-finality report lookup errors retain the finalized transaction identi
  assert.deepEqual(rateLimit,{retryAfterSeconds:1020,limit:500});
  assert.match(error,/transaction finalized/);assert.match(next,/^Wait at least 1020 seconds.*Inspect the finalized receipt/);
 });
+
+test('status shows a finalized registration rejection without asking for a nonexistent native record',async t=>{
+ const id='pr-11-fixture',path='reports/'+id+'.json',hash='0x'+'4'.repeat(64),reason='statement already reserved or credited';
+ const archived={status:'rejected',contract:wallet,registrationRejection:{hash,reason}};
+ const output=[];
+ t.mock.method(console,'log',line=>output.push(JSON.parse(line)));
+ t.mock.method(globalThis,'fetch',async url=>{
+  if(url.endsWith('/evidence/index.json'))return {ok:true,json:async()=>({entries:[{id,pr:11,report:path}]})};
+  assert(url.endsWith('/evidence/'+path));return {ok:true,json:async()=>archived};
+ });
+ let nativeReads=0;
+ await run(['status','11'],{clientFor:()=>{nativeReads++;assert.fail('A terminal registration failure is an archived receipt');}});
+ assert.equal(nativeReads,0);
+ assert.equal(output.length,1);
+ assert.equal(output[0].status,'rejected');
+ assert.equal(output[0].reason,reason);
+ assert.equal(output[0].historicalInitialPoints,'0');
+ assert.deepEqual(output[0].registrationRejection,{hash,reason});
+ assert.match(output[0].resume,/completed attempt/);
+});
