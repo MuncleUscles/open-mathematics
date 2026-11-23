@@ -9054,6 +9054,12 @@
           ],
           "reason": "Case case-d3df7324f9f3ac4605012de53e4ed20d supports the limited source-controller authorship binding. The retrieved registered source publishes the exact case-specific, wallet-bound challenge, unexpired at the attested retrieval time. The trusted verifier corroborates control of the source author's identity and confirms that it matches the target's verified subject. Approval establishes only this identity binding, not discovery priority, mathematical authorship beyond the controlled source, formal resolution, or point entitlement."
         }
+      },
+      {
+        "at": "1795402499",
+        "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+        "event": "settlement",
+        "round": "0"
       }
     ],
     "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
@@ -9079,7 +9085,7 @@
     "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
     "revision": "0",
     "round": "0",
-    "status": "provisional",
+    "status": "settled",
     "target": "author-d76c65bded14d6d33865bc32651e4fee",
     "verdict": {
       "approve": true,
@@ -9102,6 +9108,6 @@
       }
     ]
   },
-  "updatedAt": "2026-11-23T02:55:37.315Z",
+  "updatedAt": "2026-11-23T02:55:40.178Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
 }
