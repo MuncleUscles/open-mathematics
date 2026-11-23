@@ -1,0 +1,695 @@
+{
+  "version": 1,
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chainId": 61999,
+  "codeHash": "00c3bbd3d4a4d075b20b4e8eb2da4636c97c2b77b558e623a349ef5d1f47bb8e",
+  "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+  "startedAt": "2026-11-23T03:09:43.168Z",
+  "collectedAt": "2026-11-23T03:10:02.266Z",
+  "readMode": "Sequential latest-final native views; collected over an interval, not an atomic block snapshot. Historical read model only; never merge or reward authority.",
+  "capturedReads": [
+    {
+      "call": [
+        "get_affiliations",
+        []
+      ],
+      "readAt": "2026-11-23T03:09:44.511Z"
+    },
+    {
+      "call": [
+        "get_external_authors",
+        []
+      ],
+      "readAt": "2026-11-23T03:09:45.707Z"
+    },
+    {
+      "call": [
+        "get_problem",
+        []
+      ],
+      "readAt": "2026-11-23T03:09:46.875Z"
+    },
+    {
+      "call": [
+        "list_contributions",
+        []
+      ],
+      "readAt": "2026-11-23T03:09:48.098Z"
+    },
+    {
+      "call": [
+        "list_cases",
+        []
+      ],
+      "readAt": "2026-11-23T03:09:49.251Z"
+    },
+    {
+      "call": [
+        "get",
+        [
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:50.426Z"
+    },
+    {
+      "call": [
+        "get_provenance",
+        [
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:51.576Z"
+    },
+    {
+      "call": [
+        "get_impact",
+        [
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:52.743Z"
+    },
+    {
+      "call": [
+        "get",
+        [
+          "pr-5-5d1b90aaf87e-56a602db558c"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:53.937Z"
+    },
+    {
+      "call": [
+        "get_provenance",
+        [
+          "pr-5-5d1b90aaf87e-56a602db558c"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:55.143Z"
+    },
+    {
+      "call": [
+        "get_impact",
+        [
+          "pr-5-5d1b90aaf87e-56a602db558c"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:56.306Z"
+    },
+    {
+      "call": [
+        "get_case",
+        [
+          "case-d0bf6c0e80b36667bd90e8771bf0aeba"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:57.557Z"
+    },
+    {
+      "call": [
+        "get_case",
+        [
+          "case-a81b4b8373dc02c451260a8f337c262b"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:58.731Z"
+    },
+    {
+      "call": [
+        "get_case",
+        [
+          "case-d3df7324f9f3ac4605012de53e4ed20d"
+        ]
+      ],
+      "readAt": "2026-11-23T03:09:59.962Z"
+    },
+    {
+      "call": [
+        "get_points",
+        [
+          "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+        ]
+      ],
+      "readAt": "2026-11-23T03:10:01.107Z"
+    },
+    {
+      "call": [
+        "get_points",
+        [
+          "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6"
+        ]
+      ],
+      "readAt": "2026-11-23T03:10:02.266Z"
+    }
+  ],
+  "affiliations": [
+    {
+      "changed_at": "1795399573",
+      "history": [
+        {
+          "at": "1795399329",
+          "side": "shared"
+        },
+        {
+          "at": "1795399573",
+          "side": "p-not-equals-np"
+        }
+      ],
+      "side": "p-not-equals-np",
+      "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6"
+    }
+  ],
+  "authors": [
+    {
+      "binding_version": "1",
+      "claim_history": [
+        {
+          "at": "1795402499",
+          "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+          "case": "case-d3df7324f9f3ac4605012de53e4ed20d",
+          "identity_subject": "github:user:2372232",
+          "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6"
+        }
+      ],
+      "claimed_wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+      "id": "author-d76c65bded14d6d33865bc32651e4fee",
+      "identity_subject": "github:user:2372232",
+      "name": "Open Mathematics pilot (MuncleUscles)",
+      "sources": [
+        "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md"
+      ],
+      "unclaimed_points": "0",
+      "verified_subject": "github:user:2372232"
+    }
+  ],
+  "problem": {
+    "external_solutions": [
+      "case-a81b4b8373dc02c451260a8f337c262b"
+    ],
+    "id": "p-vs-np",
+    "status": "open",
+    "target_statement_hash": ""
+  },
+  "records": [
+    {
+      "challenges": [],
+      "credited_points": "400",
+      "deadline": "1795391138",
+      "digest": "86a7f754b717c46f2d160d9508244a5b3e99dd1a67ad73ff42d70a9259c02685",
+      "evidence": {
+        "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+        "base": "4d71cbf53d69aa346377c2d61c21888a198257d0",
+        "claim": "Integrates the verified CNF variable-renaming lemma into the canonical research tree. For every renaming, truth assignment and CNF formula, evaluation commutes with renaming. This is textbook mathematics, not a new discovery. The proof expression already appears as a development fixture; this submission adds the first accepted formal component through the actual protocol. Consider only modest infrastructure integration credit, or reject if this is insufficient.",
+        "claim_digest": "5c22de45baf0796a01d368495ef679a1f3f7931b21455c5f758d39b412a1df14",
+        "context": "The current research tree has no accepted proofs. Trusted CNF definitions and a development fixture are present. This E2E contribution tests independently verified infrastructure for future SAT reductions, not a solution or new progress on P vs NP. Public PR #1 contains exactly the proof expression.\nTrusted pilot context: known CNF renaming theorem, not new mathematical discovery; no complete P/NP formalization. This workflow admits only a proof of the pinned RenamingSound theorem. Evaluate what is actually proved, not unsupported claims of solving P vs NP.",
+        "dependencies": [],
+        "head": "ee4678fc76d9f4a82fc68b1006f87c07f934a52b",
+        "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+        "kind": "infrastructure",
+        "policy": "6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e",
+        "pr": "1",
+        "problem": "p-vs-np",
+        "repository": "MuncleUscles/open-mathematics",
+        "statement_hash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+        "verification": "verified",
+        "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+      },
+      "ledger_migration": {
+        "snapshot_hash": "33c8e6d02250befdc3a9e0ed32d230c6d0d2423d6be5c7f69bafd70cf417a668",
+        "source_contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+        "trust": "verifier-attested-frozen-snapshot"
+      },
+      "merge_commit": "5ea768475ae512f554c71041fa299900fbe01083",
+      "migration": {
+        "github_author_id": "2372232",
+        "initial_points_carried": "400",
+        "snapshot_hash": "7fd204e013c81962c19776134d123df21669e647baed96b46497a337fa1b9584",
+        "source_contract": "0x8981C4fc15024752702e0851e4e063adebc40C7C",
+        "source_digest": "86a7f754b717c46f2d160d9508244a5b3e99dd1a67ad73ff42d70a9259c02685",
+        "trust": "verifier-attested-frozen-snapshot"
+      },
+      "round": "0",
+      "status": "credited",
+      "verdict": {
+        "accept": true,
+        "award": "400",
+        "evidence_refs": [
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ],
+        "novelty": "1",
+        "reason": "The submission provides a formal integration of a textbook CNF variable-renaming lemma. While the mathematics is not a new discovery, the contribution establishes the first accepted formal component in the research tree, providing necessary infrastructure for future SAT reductions. It earns modest credit for integration and reusability.",
+        "reusability": "2",
+        "significance": "1"
+      }
+    },
+    {
+      "challenges": [],
+      "credited_points": "300",
+      "deadline": "1795397092",
+      "digest": "9acc475d980bddaac5493bb83d5aae9f54079feb496641ce653b6062db5f4ff1",
+      "evidence": {
+        "artifact_hash": "e41846831783a8b49d608175179ef0a3adcd7ea0431e6915e11d71db73ce8ea6",
+        "base": "bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7",
+        "branch": "research",
+        "claim": "For any maps r and s on natural-number variables satisfying s (r n) = n for every n, a finite CNF formula is satisfiable if and only if its variable-renamed formula is satisfiable. Both directions construct explicit satisfying assignments using the previously accepted evaluation-renaming identity.",
+        "claim_digest": "56a602db558c4b6983bf79a92905f9c557006d7aff412f5ed5d65acffdfe7da5",
+        "context": "{\"title\":\"Satisfiability is preserved by injective CNF variable renaming\",\"novelty\":\"This extends the canonical evaluation-renaming component to existential satisfiability and states the left-inverse assumption explicitly. It is established mathematical infrastructure, not a discovery or a result about P versus NP. This controlled pilot uses a bundled checked proof to test real dependency attribution and the submission protocol.\",\"prior_art\":[{\"reference\":\"Open Mathematics PR #1: https://github.com/MuncleUscles/open-mathematics/pull/1\",\"relationship\":\"The accepted RenamingSound lemma transports CNF evaluation across a variable map. This theorem uses that exact credited proof to transfer satisfying assignments in both directions.\"}],\"dependencies\":[{\"id\":\"pr-1-ee4678fc76d9-5c22de45baf0\",\"use\":\"In the reverse implication, renaming_sound rewrites evaluation under the renamed assignment. In the forward implication, its symmetric equality transfers the existing satisfying assignment to the original formula.\",\"importance\":\"It supplies the common semantic transport identity for both constructed witnesses. The result could be reproved by unfolding lists, so this is modest reusable infrastructure impact rather than indispensable or novel mathematics.\"}],\"attribution\":{\"wallet\":\"0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6\",\"contributions\":\"A separate local agent wallet prepared this downstream theorem and structured submission. The same GitHub account operates both pilot submissions; this is disclosed common account control, not evidence of independent humans.\"},\"limitations\":\"Only finite CNF semantics and variable maps with an explicit left inverse are covered. There is no running-time theorem, SAT-completeness formalization, algorithmic breakthrough, lower bound or resolution of P versus NP. This is a controlled protocol demonstration using known mathematics.\"}\nTrusted scope: established CNF infrastructure, not a P/NP breakthrough. Proof-body use demonstrates structural use of an exact prior artifact, not indispensability. Same GitHub author may control multiple agent wallets; this pilot provides no proof of distinct people.",
+        "dependencies": [
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ],
+        "formal_statement": "-- Trusted foundations. Core Lean only: no Mathlib dependency in this component.\ndef Clause := List (Nat × Bool)\ndef CNF := List Clause\ndef evalLiteral (a : Nat → Bool) (l : Nat × Bool) : Bool := a l.1 == l.2\ndef evalClause (a : Nat → Bool) (c : Clause) : Bool := c.any (evalLiteral a)\ndef evalCNF (a : Nat → Bool) (f : CNF) : Bool := f.all (evalClause a)\n-- Goal: variable renaming commutes with CNF evaluation for every assignment.\n-- This supports future reductions. It proves no complexity lower bound.\ndef renameClause (r : Nat → Nat) (c : Clause) : Clause := c.map (fun l => (r l.1, l.2))\ndef renameCNF (r : Nat → Nat) (f : CNF) : CNF := f.map (renameClause r)\ndef RenamingSound : Prop := ∀ (r : Nat → Nat) (a : Nat → Bool) (f : CNF),\n  evalCNF a (renameCNF r f) = evalCNF (fun n => a (r n)) f\ndef Satisfiable (f : CNF) : Prop := ∃ a : Nat → Bool, evalCNF a f = true\n\ndef RenamingSAT : Prop := ∀ (r s : Nat → Nat), (∀ n, s (r n) = n) → ∀ f, Satisfiable (renameCNF r f) ↔ Satisfiable f\n",
+        "github_author_id": "2372232",
+        "head": "5d1b90aaf87e9066593726d665acf45001d55891",
+        "id": "pr-5-5d1b90aaf87e-56a602db558c",
+        "kind": "lemma",
+        "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
+        "pr": "5",
+        "problem": "p-vs-np",
+        "proof": "by\n  intro r s h f\n  constructor\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (r n), ?_⟩\n    exact (renaming_sound r a f).symm.trans ha\n  · intro hf\n    rcases hf with ⟨a, ha⟩\n    refine ⟨fun n => a (s n), ?_⟩\n    rw [renaming_sound]\n    simpa only [h] using ha\n",
+        "repository": "MuncleUscles/open-mathematics",
+        "statement_hash": "ca48fc7bcbb37f52d5e12d5048243cd3ce8dd423c8e80447041d85acab17b67c",
+        "submission_hash": "fe0e9ab9b98b473daf61af96f9f9008ba396f25da65f94fbe94feb6244bd90d9",
+        "verification": "verified",
+        "verified_dependencies": [
+          {
+            "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+            "constant": "renaming_sound",
+            "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+            "proof_body_use": true
+          }
+        ],
+        "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6"
+      },
+      "ledger_migration": {
+        "snapshot_hash": "33c8e6d02250befdc3a9e0ed32d230c6d0d2423d6be5c7f69bafd70cf417a668",
+        "source_contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+        "trust": "verifier-attested-frozen-snapshot"
+      },
+      "merge_commit": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef",
+      "round": "0",
+      "status": "credited",
+      "verdict": {
+        "accept": true,
+        "award": "300",
+        "evidence_refs": [
+          "pr-5-5d1b90aaf87e-56a602db558c",
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ],
+        "novelty": "1",
+        "reason": "Modest integration credit only. The prior component establishes evaluation transport; this submission adds a distinct satisfiability equivalence with explicit witness transport and a left-inverse hypothesis. Although a short, standard consequence of known mathematics, it provides a reusable SAT-level interface rather than merely restating the evaluation identity. The verified dependency record shows substantive proof-body use of the prior lemma in both directions, not just an import or citation. Formal validity is left to the pinned verifier. No challenges or duplicate satisfiability theorem are supplied. This establishes neither mathematical discovery nor a complexity-theoretic advance.",
+        "reusability": "1",
+        "significance": "1"
+      }
+    }
+  ],
+  "provenances": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "value": {
+        "author_ids": [],
+        "contribution": "pr-1-ee4678fc76d9-5c22de45baf0",
+        "corrections": [],
+        "current_initial_points": "400",
+        "external_allocations": [],
+        "mode": "integration",
+        "original_initial_points": "400",
+        "revoked_points": "0",
+        "sources": [],
+        "version": "0"
+      }
+    },
+    {
+      "id": "pr-5-5d1b90aaf87e-56a602db558c",
+      "value": {
+        "author_ids": [],
+        "contribution": "pr-5-5d1b90aaf87e-56a602db558c",
+        "corrections": [],
+        "current_initial_points": "300",
+        "external_allocations": [],
+        "mode": "integration",
+        "original_initial_points": "300",
+        "revoked_points": "0",
+        "sources": [],
+        "version": "0"
+      }
+    }
+  ],
+  "impacts": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "value": {
+        "downstream": "pr-1-ee4678fc76d9-5c22de45baf0",
+        "status": "not-requested"
+      }
+    },
+    {
+      "id": "pr-5-5d1b90aaf87e-56a602db558c",
+      "value": {
+        "allocations": [
+          {
+            "band": "1",
+            "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+            "reason": "The verified exact artifact supplies the evaluation-transport identity used in both directions of the downstream satisfiability equivalence: its symmetric equality validates the pulled-back assignment, and rewriting with it plus the left-inverse hypothesis validates the other witness. This is meaningful but readily replaceable known infrastructure, not discovery. Its proof expression already existed as a development fixture, limiting credit to accepted integration and demonstrated reuse."
+          }
+        ],
+        "budget": "300",
+        "challenges": [],
+        "deadline": "1795399712",
+        "downstream": "pr-5-5d1b90aaf87e-56a602db558c",
+        "eligible": [
+          {
+            "evidence": {
+              "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+              "base": "4d71cbf53d69aa346377c2d61c21888a198257d0",
+              "claim": "Integrates the verified CNF variable-renaming lemma into the canonical research tree. For every renaming, truth assignment and CNF formula, evaluation commutes with renaming. This is textbook mathematics, not a new discovery. The proof expression already appears as a development fixture; this submission adds the first accepted formal component through the actual protocol. Consider only modest infrastructure integration credit, or reject if this is insufficient.",
+              "claim_digest": "5c22de45baf0796a01d368495ef679a1f3f7931b21455c5f758d39b412a1df14",
+              "context": "The current research tree has no accepted proofs. Trusted CNF definitions and a development fixture are present. This E2E contribution tests independently verified infrastructure for future SAT reductions, not a solution or new progress on P vs NP. Public PR #1 contains exactly the proof expression.\nTrusted pilot context: known CNF renaming theorem, not new mathematical discovery; no complete P/NP formalization. This workflow admits only a proof of the pinned RenamingSound theorem. Evaluate what is actually proved, not unsupported claims of solving P vs NP.",
+              "dependencies": [],
+              "head": "ee4678fc76d9f4a82fc68b1006f87c07f934a52b",
+              "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+              "kind": "infrastructure",
+              "policy": "6913abda1fc32e998f995182c13fb7d4675c362890cf5ec7aa0e00824ff9cb7e",
+              "pr": "1",
+              "problem": "p-vs-np",
+              "repository": "MuncleUscles/open-mathematics",
+              "statement_hash": "a1c9f09b2f83e97ca50c0f7c0849e3743fb27127c8d07cc11694582c8ca85893",
+              "verification": "verified",
+              "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+            },
+            "github_author_id": "2372232",
+            "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+            "shared_github_author": true,
+            "use": {
+              "artifact_hash": "b2af27e44448342763116595117352c2dec0ce6b5e580bc8b273a9d86d1dd580",
+              "constant": "renaming_sound",
+              "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+              "proof_body_use": true
+            },
+            "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f"
+          }
+        ],
+        "evidence_refs": [
+          "pr-5-5d1b90aaf87e-56a602db558c",
+          "pr-1-ee4678fc76d9-5c22de45baf0"
+        ],
+        "paid_points": "100",
+        "reason": "Award 100 of the available 300 points. The SAT-level equivalence adds explicit satisfying-assignment transport rather than merely duplicating the evaluation identity, supporting modest infrastructure credit despite the short, controlled pilot. Both submissions share GitHub account control despite distinct agent wallets; this is not independent-person evidence, and the combined shared-account ceiling is one band. The supplied evidence establishes no circular dependency or duplicate SAT theorem and does not justify stronger impact or further awards. Initial awards remain unchanged; no recursive propagation is applied.",
+        "round": "0",
+        "source_digest": "9acc475d980bddaac5493bb83d5aae9f54079feb496641ce653b6062db5f4ff1",
+        "status": "settled"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "attestation": null,
+      "attestation_hash": null,
+      "challenges": [],
+      "created_at": "1795399636",
+      "deadline": "0",
+      "history": [
+        {
+          "at": "1795399747",
+          "event": "withdrawal",
+          "reason": "Controlled negative trial completed: withdraw this unadmitted report without a mathematical resolution, attribution change or point allocation.\n"
+        }
+      ],
+      "id": "case-d0bf6c0e80b36667bd90e8771bf0aeba",
+      "kind": "external-solution",
+      "payload": {
+        "claim": "Controlled negative protocol trial: the linked Open Mathematics README explicitly describes infrastructure and makes no claim of solving P vs NP. This report is intentionally withdrawn before documentary admission; it must not resolve the problem or allocate any points.",
+        "component": "Unadmitted external-solution report and reporter withdrawal",
+        "sources": [
+          {
+            "authors": [
+              "Open Mathematics pilot"
+            ],
+            "priority_evidence": "No discovery priority is asserted or verified by this withdrawal trial.",
+            "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/bf4e1aacdf9028442eac45e5dfc2a82f0cd587c7/README.md",
+            "relationship": "The README states that the CNF infrastructure is not a P versus NP breakthrough; this is a controlled workflow fixture.",
+            "title": "Open Mathematics pilot README"
+          }
+        ]
+      },
+      "reporter": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
+      "revision": "0",
+      "round": "0",
+      "status": "withdrawn",
+      "target": "p-vs-np",
+      "verdict": null
+    },
+    {
+      "attestation": {
+        "artifact_hash": "",
+        "authorship_verified": false,
+        "formal_verified": false,
+        "identity_author_id": "",
+        "identity_challenge": "",
+        "identity_source": "",
+        "identity_subject": "",
+        "policy": "",
+        "priority_basis": [],
+        "priority_verified": false,
+        "sources": [
+          {
+            "content_hash": "ad990d7a8462126cc3f0247eddd904a9968537bf2cf0ca08d73ee35cbdf91b63",
+            "excerpt": "Author identity for this document: Open Mathematics pilot (MuncleUscles).\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\n\nThis document was written for a controlled protocol test by the Open Mathematics pilot and its development agents. It makes no claim of solving P vs NP, discovering new mathematics, or owning the work of an external researcher. The pilot's complete P vs NP target is not enrolled. A documentary report referencing this source must not resolve the flagship problem merely because the source is public.\n\nThis is a test of source-specific author identity and wallet binding, not proof that an external academic identity has been verified. It does not establish discovery priority and does not justify an external-author point allocation. Any native case and its result remain inspectable in the public audit.",
+            "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+            "retrieved_at": "1795401175",
+            "verified_authors": [
+              {
+                "name": "Open Mathematics pilot (MuncleUscles)",
+                "subject": "github:user:2372232"
+              }
+            ]
+          }
+        ],
+        "statement_hash": ""
+      },
+      "attestation_hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+      "author_ids": [
+        "author-d76c65bded14d6d33865bc32651e4fee"
+      ],
+      "challenges": [],
+      "created_at": "1795400801",
+      "deadline": "1795401523",
+      "history": [
+        {
+          "at": "1795401177",
+          "event": "documentary-verification",
+          "hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+          "round": "0"
+        },
+        {
+          "at": "1795401223",
+          "attestation_hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+          "event": "review",
+          "round": "0",
+          "verdict": {
+            "evidence_refs": [
+              "case-a81b4b8373dc02c451260a8f337c262b",
+              "p-vs-np",
+              "source:0"
+            ],
+            "external_allocations": [],
+            "reason": "Case case-a81b4b8373dc02c451260a8f337c262b provides no support for resolving p-vs-np. The retrieved source describes a controlled documentary test and expressly disclaims a mathematical discovery or full solution. The attestation does not verify a formal proof of the exact enrolled full target, authorship, or discovery priority. Corroborated source-controller identity alone establishes neither mathematical priority nor wallet-bound author identity; no identity challenge is supplied. No priority-author IDs are eligible for external credit, so no recognition points are allocated.",
+            "resolve": false
+          }
+        },
+        {
+          "at": "1795401528",
+          "attestation_hash": "c44422cf42fe505280ef5a9b8fa6db067b549a97705798309a65efaa9acfe5ea",
+          "event": "settlement",
+          "round": "0"
+        }
+      ],
+      "id": "case-a81b4b8373dc02c451260a8f337c262b",
+      "kind": "external-solution",
+      "payload": {
+        "claim": "Controlled negative documentary trial: this source explicitly makes no claim of solving P vs NP. Review the public non-solution evidence through admission, independent judgment and settlement. It establishes only the pilot source identity, with no discovery priority, author payout or problem resolution.",
+        "component": "Source-specific documentary admission and non-solution settlement",
+        "sources": [
+          {
+            "authors": [
+              "Open Mathematics pilot (MuncleUscles)"
+            ],
+            "priority_evidence": "No priority is asserted. This source cannot justify discovery allocations or a P vs NP resolution.",
+            "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+            "relationship": "The pilot publishes this source to test documentary admission; the text explicitly denies a mathematical discovery or full problem solution.",
+            "title": "Controlled Open Mathematics provenance test source"
+          }
+        ]
+      },
+      "priority_author_ids": [],
+      "reporter": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
+      "revision": "0",
+      "round": "0",
+      "status": "settled",
+      "target": "p-vs-np",
+      "verdict": {
+        "evidence_refs": [
+          "case-a81b4b8373dc02c451260a8f337c262b",
+          "p-vs-np",
+          "source:0"
+        ],
+        "external_allocations": [],
+        "reason": "Case case-a81b4b8373dc02c451260a8f337c262b provides no support for resolving p-vs-np. The retrieved source describes a controlled documentary test and expressly disclaims a mathematical discovery or full solution. The attestation does not verify a formal proof of the exact enrolled full target, authorship, or discovery priority. Corroborated source-controller identity alone establishes neither mathematical priority nor wallet-bound author identity; no identity challenge is supplied. No priority-author IDs are eligible for external credit, so no recognition points are allocated.",
+        "resolve": false
+      },
+      "verified_authors": [
+        {
+          "authors": [
+            {
+              "name": "Open Mathematics pilot (MuncleUscles)",
+              "subject": "github:user:2372232"
+            }
+          ],
+          "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md"
+        }
+      ]
+    },
+    {
+      "attestation": {
+        "artifact_hash": "",
+        "authorship_verified": true,
+        "formal_verified": false,
+        "identity_author_id": "author-d76c65bded14d6d33865bc32651e4fee",
+        "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+        "identity_source": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+        "identity_subject": "github:user:2372232",
+        "policy": "",
+        "priority_basis": [],
+        "priority_verified": false,
+        "sources": [
+          {
+            "content_hash": "ecb5a2f1ec2eac177193bb588638b29697d7a38c7d83626bdb4975c468474afa",
+            "excerpt": "Author identity for this document: Open Mathematics pilot (MuncleUscles).\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\n\nPublic wallet-bound challenge for the controlled pilot source identity:\n\nOpen Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+            "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+            "retrieved_at": "1795402148",
+            "verified_authors": [
+              {
+                "name": "Open Mathematics pilot (MuncleUscles)",
+                "subject": "github:user:2372232"
+              }
+            ]
+          }
+        ],
+        "statement_hash": ""
+      },
+      "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+      "author_ids": [
+        "author-d76c65bded14d6d33865bc32651e4fee"
+      ],
+      "challenges": [],
+      "created_at": "1795401540",
+      "deadline": "1795402493",
+      "history": [
+        {
+          "at": "1795402151",
+          "event": "documentary-verification",
+          "hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+          "round": "0"
+        },
+        {
+          "at": "1795402193",
+          "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+          "event": "review",
+          "round": "0",
+          "verdict": {
+            "approve": true,
+            "evidence_refs": [
+              "case-d3df7324f9f3ac4605012de53e4ed20d",
+              "author-d76c65bded14d6d33865bc32651e4fee",
+              "source:0"
+            ],
+            "reason": "Case case-d3df7324f9f3ac4605012de53e4ed20d supports the limited source-controller authorship binding. The retrieved registered source publishes the exact case-specific, wallet-bound challenge, unexpired at the attested retrieval time. The trusted verifier corroborates control of the source author's identity and confirms that it matches the target's verified subject. Approval establishes only this identity binding, not discovery priority, mathematical authorship beyond the controlled source, formal resolution, or point entitlement."
+          }
+        },
+        {
+          "at": "1795402499",
+          "attestation_hash": "fa93ee38c81f84544776037b95d256c575c90c6ec167a1ec2d1e7a495a0fc04a",
+          "event": "settlement",
+          "round": "0"
+        }
+      ],
+      "id": "case-d3df7324f9f3ac4605012de53e4ed20d",
+      "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+      "identity_expiry": "1795487940",
+      "kind": "authorship",
+      "payload": {
+        "claim": "Controlled authorship trial for the Open Mathematics pilot GitHub source controller only. I claim the named pilot source identity from this wallet, and will publish the exact native expiring wallet-bound challenge on the same registered source. This is not a claim to an external academic identity, discovery priority, new mathematical result, or reward.",
+        "component": "Binding the registered pilot source author to its controlling wallet",
+        "sources": [
+          {
+            "authors": [
+              "Open Mathematics pilot (MuncleUscles)"
+            ],
+            "priority_evidence": "No discovery priority, third-party authorship or external point entitlement is asserted.",
+            "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+            "relationship": "The exact registered pilot source will publish the native challenge. The reporter is the controller being tested; the same GitHub account operates both pilot research wallets.",
+            "title": "Controlled Open Mathematics provenance test source"
+          }
+        ]
+      },
+      "priority_author_ids": [],
+      "reporter": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+      "revision": "0",
+      "round": "0",
+      "status": "settled",
+      "target": "author-d76c65bded14d6d33865bc32651e4fee",
+      "verdict": {
+        "approve": true,
+        "evidence_refs": [
+          "case-d3df7324f9f3ac4605012de53e4ed20d",
+          "author-d76c65bded14d6d33865bc32651e4fee",
+          "source:0"
+        ],
+        "reason": "Case case-d3df7324f9f3ac4605012de53e4ed20d supports the limited source-controller authorship binding. The retrieved registered source publishes the exact case-specific, wallet-bound challenge, unexpired at the attested retrieval time. The trusted verifier corroborates control of the source author's identity and confirms that it matches the target's verified subject. Approval establishes only this identity binding, not discovery priority, mathematical authorship beyond the controlled source, formal resolution, or point entitlement."
+      },
+      "verified_authors": [
+        {
+          "authors": [
+            {
+              "name": "Open Mathematics pilot (MuncleUscles)",
+              "subject": "github:user:2372232"
+            }
+          ],
+          "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md"
+        }
+      ]
+    }
+  ],
+  "walletBalances": [
+    {
+      "wallet": "0x62d4954283fb71Ed0Bd411D3f76282DB3388B58f",
+      "value": {
+        "historical_initial_points": "400",
+        "impact_points": "100",
+        "initial_points": "400",
+        "mode": "contribution points on the Intelligent Contract",
+        "points": "500",
+        "problem": "p-vs-np",
+        "total_awarded": "800",
+        "total_historical_initial_awarded": "700",
+        "total_impact_points": "100",
+        "transferable": false
+      }
+    },
+    {
+      "wallet": "0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6",
+      "value": {
+        "historical_initial_points": "300",
+        "impact_points": "0",
+        "initial_points": "300",
+        "mode": "contribution points on the Intelligent Contract",
+        "points": "300",
+        "problem": "p-vs-np",
+        "total_awarded": "800",
+        "total_historical_initial_awarded": "700",
+        "total_impact_points": "100",
+        "transferable": false
+      }
+    }
+  ]
+}
