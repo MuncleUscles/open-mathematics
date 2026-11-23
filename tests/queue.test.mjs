@@ -108,11 +108,32 @@ test('saved retargeted approval is queued for expiration while a fresh one is ig
 });
 test('resume requires the original exact saved envelope and comment',async()=>{
   const f=await fixture();
-  for(const mutate of [r=>r.commentId=99,r=>r.claim.claim.head='f'.repeat(40),r=>r.contract='0x'+'3'.repeat(40),r=>r.status='invalid',r=>r.completedAt=created]){
+  for(const mutate of [r=>r.commentId=99,r=>r.claim.claim.head='f'.repeat(40),r=>r.contract='0x'+'3'.repeat(40),r=>r.status='invalid',r=>r.status='rejected',r=>r.status='expired']){
     const report=structuredClone(f.report);mutate(report);
     const h=harness([f],{reports:{[`reports/${f.id}.json`]:report}});
     assert.equal(await selectClaim({...h,deployment,eventName:'workflow_dispatch',event:{inputs:{comment_id:'11'}}}),null);
   }
+});
+test('explicit dispatch can reopen an exact blocked journal while automatic runs skip it',async()=>{
+  const f=await fixture();
+  f.pr.state='closed';f.pr.merged=true;
+  Object.assign(f.report,{status:'credited',blockedConsensus:true,completedAt:created});
+  const entry={id:f.id,commentId:11,status:'credited',needsResume:false,updatedAt:created};
+  const saved=harness([f],{list:[],entries:[entry],reports:{[`reports/${f.id}.json`]:f.report}});
+  assert.equal(await selectClaim({...saved,deployment,eventName:'schedule'}),null);
+  assert.equal(await selectClaim({...saved,deployment,eventName:'issue_comment',event:{action:'created',issue:{pull_request:{}},comment:{id:11}}}),null);
+  const manual={...saved,deployment,eventName:'workflow_dispatch',event:{inputs:{comment_id:'11'}}};
+  assert.equal((await selectClaim(manual)).commentId,11);
+  f.report.commentId=19;
+  assert.equal(await selectClaim(manual),null);
+});
+test('a registration journal without a native record stays eligible for recovery',async()=>{
+  const f=await fixture();
+  f.report.status='registration-pending';
+  f.report.transactions={register:{intent:{method:'register'}}};
+  const entry={id:f.id,commentId:11,status:f.report.status,needsResume:true,updatedAt:created};
+  const h=harness([f],{list:[],entries:[entry],reports:{[`reports/${f.id}.json`]:f.report}});
+  assert.equal((await selectClaim({...h,deployment,eventName:'schedule'})).commentId,11);
 });
 test('deleted recovery comment does not block later eligible work and API failures fail closed',async()=>{
   const f=await fixture(),h=harness([f],{entries:[{id:'missing',commentId:999,status:'provisional',needsResume:true,updatedAt:created}]});

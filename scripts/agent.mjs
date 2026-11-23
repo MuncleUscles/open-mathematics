@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Contributor-facing helper. Keys stay in the local signer; only signatures leave it.
+import {sourceURL as validateSourceURL} from '../github/provenance-source.mjs';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {randomBytes} from 'node:crypto';import {execFileSync,spawnSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {privateKeyToAccount} from 'viem/accounts';import {recoverMessageAddress,isAddress} from 'viem';
-import {GitHub} from '../src/github.mjs';import {decodeSubmission} from '../src/submission.mjs';
+import {GitHub} from '../src/github.mjs';import {decodeSubmission,validateProvenance} from '../src/submission.mjs';
 import {digest,message,validateClaim,enrolledSubmissionBlobs} from '../src/security.mjs';import {clientFor,read,finalized} from '../github/runtime.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function contributorPath(worktree,file){
@@ -27,7 +28,7 @@ const out=x=>console.log(JSON.stringify(x,null,2));
 const blob=async sha=>{const b=await gh.request(`/git/blobs/${sha}`);if(b.sha!==sha||b.encoding!=='base64'||b.size>12000)throw Error('Invalid proof blob');return Buffer.from(b.content,'base64');};
 async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,'list_contributions',[]),records=await Promise.all(ids.map(id=>read(c,deployment.contract,'get',[id])));return Object.entries(policy.goals).map(([id,g])=>({id,...g,status:records.some(r=>['approved','credited'].includes(r.status)&&r.evidence.statement_hash===g.statement_hash)?'closed':'open',creditedDependency:records.find(r=>r.status==='credited'&&r.evidence.statement_hash===policy.goals.renaming.statement_hash)?.evidence.id||null}));}
  if(!command||command==='help'){
-  out({start:'Read AGENTS.md. Run this helper from its trusted protocol checkout; --worktree DIR selects contributor files (defaults to your current directory).',toolRoot,worktree,commands:{goals:'Query finalized contract state for available enrolled goals.',init:'init GOAL SLUG WALLET — create a required record to fill in.',format:'format research/submissions/SLUG.json — normalize before committing.',check:'check RECORD [--lean] — validate record and proof; --lean requires TRUSTED_LEAN_IMAGE and Docker.',sign:'sign PR RECORD — verify immutable GitHub blobs and emit a public signed comment. Requires local CONTRIBUTOR_KEY_FILE, no local PR checkout.',prepare:'prepare PR RECORD PUBLIC_WALLET — emit the exact claim and message for an external signer.',envelope:'envelope CLAIM_FILE SIGNATURE_FILE — verify signature and format the public comment; public input files may be outside the worktree.',challenge:'challenge ID EVIDENCE_FILE [--impact] [--send] — preview or submit a challenge with a local signer.',status:'status PR — print latest public outcome, reason, initial/later points and recovery action.'},canonicalBranch:deployment.branch,repository:deployment.repository,keyRule:'Never put a private key in chat, GitHub, a PR, the manifest, or a command-line argument.'});
+  out({start:'Read AGENTS.md. Run this helper from its trusted protocol checkout; --worktree DIR selects contributor files (defaults to your current directory).',toolRoot,worktree,commands:{authors:'Read native external-author IDs, verified identities and unclaimed points.',affiliations:'Read current wallet affiliations and their history.',affiliation:'affiliation SIDE [--send] — preview/change your own native affiliation; points and merit are unaffected.', 'case-report':'case-report KIND TARGET FILE [--send] — report specific provenance evidence or claim your external-author identity from your own wallet.', 'case-withdraw':'case-withdraw ID REASON_FILE [--send] — release your unadmitted case slot; preserves the report history.', 'case-status':'case-status ID — show the native case, history and exact identity challenge if applicable.', 'case-challenge':'case-challenge ID FILE [--send] — challenge a provisional attribution/identity/solution case.',goals:'Query finalized contract state for available enrolled goals.',init:'init GOAL SLUG WALLET — create a required record to fill in.',format:'format research/submissions/SLUG.json — normalize before committing.',check:'check RECORD [--lean] — validate record and proof; --lean requires TRUSTED_LEAN_IMAGE and Docker.',sign:'sign PR RECORD — verify immutable GitHub blobs and emit a public signed comment. Requires local CONTRIBUTOR_KEY_FILE, no local PR checkout.',prepare:'prepare PR RECORD PUBLIC_WALLET — emit the exact claim and message for an external signer.',envelope:'envelope CLAIM_FILE SIGNATURE_FILE — verify signature and format the public comment; public input files may be outside the worktree.',challenge:'challenge ID EVIDENCE_FILE [--impact] [--send] — preview or submit a challenge with a local signer.',status:'status PR — print latest public outcome, reason, initial/later points and recovery action.'},canonicalBranch:deployment.branch,repository:deployment.repository,keyRule:'Never put a private key in chat, GitHub, a PR, the manifest, or a command-line argument.'});
  }else if(command==='goals')out({deployment:Object.fromEntries(['contract','repository','branch','chainId','policy','windowSeconds'].map(k=>[k,deployment[k]])),goals:await goals()});
  else if(command==='init'){
   const [goal,slug,wallet]=args;if(!Object.hasOwn(policy.goals,goal)||!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug||''))throw Error('Use an enrolled goal and lowercase slug');
@@ -79,11 +80,60 @@ async function goals(){const c=clientFor(),ids=await read(c,deployment.contract,
   if(state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||state.round>=2)throw Error('Challenge window closed or budget exhausted');
   if(!args.includes('--send'))out({contract:deployment.contract,method,args:[id,evidence],deadline:state.deadline,next:'Review the evidence, then repeat with --send and a local CONTRIBUTOR_KEY_FILE. No transaction sent.'});
   else{if(!process.env.CONTRIBUTOR_KEY_FILE)throw Error('Local wallet signer required');const sender=clientFor(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim());const hash=await sender.writeContract({address:deployment.contract,functionName:method,args:[id,evidence],leaderOnly:false});await finalized(sender,hash,{address:deployment.contract,method,args:[id,evidence]});out({status:'challenge recorded',hash,next:'Settlement is blocked. The queue will request a fresh review; native consensus appeals are separate.'});}
+ }else if(command==='affiliation'||command==='case-report'||command==='case-challenge'||command==='case-withdraw'){
+  if(deployment.protocolVersion!==3)throw Error('This deployment does not yet expose native sides/provenance');
+  let method,callArgs;
+  if(command==='affiliation'){
+   if(!['p-equals-np','p-not-equals-np','shared'].includes(args[0]))throw Error('Choose p-equals-np, p-not-equals-np or shared');
+   method='set_affiliation';callArgs=[args[0]];
+  }else if(command==='case-report'){
+   const [kind,target,file]=args;if(!['attribution','authorship','external-solution'].includes(kind))throw Error('Unknown provenance case kind');
+   const bytes=fs.readFileSync(file);if(bytes.byteLength>12000)throw Error('Case evidence is too large');
+   const payload=JSON.parse(bytes);if(Object.keys(payload).sort().join(',')!=='claim,component,sources'||typeof payload.claim!=='string'||payload.claim.length<40||payload.claim.length>3000||typeof payload.component!=='string'||payload.component.length<1||payload.component.length>300)throw Error('Case needs a specific claim, component and actual sources');
+   validateProvenance({mode:'integration',sources:payload.sources,discovery_basis:''});
+   for(const source of payload.sources){const url=validateSourceURL(source.reference);if(/\.pdf$/i.test(url.pathname))throw Error('PDF sources are unsupported; use a direct stable UTF-8 text source.');}
+   const reader=clientFor();
+   if(kind==='attribution'){const record=await read(reader,deployment.contract,'get',[target]);if(record.status!=='credited')throw Error('Attribution target must be a settled credited contribution');}
+   else if(kind==='authorship'){const author=(await read(reader,deployment.contract,'get_external_authors',[])).find(a=>a.id===target);if(!author)throw Error('Unknown author; run authors for exact IDs and registered sources');if(author.claimed_wallet)throw Error('This author identity is already bound');if(!payload.sources.some(s=>author.sources.includes(s.reference)))throw Error('Cite the exact registered author source; a different page cannot prove this identity');}
+   else{const problem=await read(reader,deployment.contract,'get_problem',[]);if(target!==problem.id||problem.status==='resolved')throw Error('Unknown or already resolved problem');}
+   if(process.env.CONTRIBUTOR_KEY_FILE){const wallet=privateKeyToAccount(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()).address;const capacity=await read(reader,deployment.contract,'get_case_capacity',[wallet]);if(Number(capacity.available)<1)throw Error('Four cases are already open for this wallet; withdraw an unadmitted case or wait for settlement');}
+   method='report_case';callArgs=[kind,target,JSON.stringify(payload)];
+  }else if(command==='case-withdraw'){
+   const [id,file]=args,reason=fs.readFileSync(file,'utf8');if(reason.length<10||reason.length>1000)throw Error('Withdrawal reason needs 10–1000 characters');
+   const state=await read(clientFor(),deployment.contract,'get_case',[id]);if(state.status!=='submitted')throw Error('Only an unadmitted submitted case can be withdrawn');
+   if(process.env.CONTRIBUTOR_KEY_FILE&&privateKeyToAccount(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()).address.toLowerCase()!==state.reporter.toLowerCase())throw Error('Only the original reporter may withdraw this case');
+   method='withdraw_case';callArgs=[id,reason];
+  }else{
+   const [id,file]=args,evidence=fs.readFileSync(file,'utf8');if(evidence.length<30||evidence.length>4000)throw Error('Case challenge needs 30–4000 characters');
+   const state=await read(clientFor(),deployment.contract,'get_case',[id]);if(state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||Number(state.round)>=2)throw Error('Case challenge window closed');
+   method='challenge_case';callArgs=[id,evidence];
+  }
+  if(!args.includes('--send'))out({contract:deployment.contract,method,args:callArgs,next:'Review this preview. Repeat with --send and your local CONTRIBUTOR_KEY_FILE to sign. No transaction sent.'});
+  else{
+   if(!process.env.CONTRIBUTOR_KEY_FILE)throw Error('Local wallet signer required');
+   const sender=clientFor(fs.readFileSync(process.env.CONTRIBUTOR_KEY_FILE,'utf8').trim()),wallet=sender.account.address;
+   const hash=await sender.writeContract({address:deployment.contract,functionName:method,args:callArgs,leaderOnly:false});await finalized(sender,hash,{address:deployment.contract,method,args:callArgs});
+   if(method==='report_case'){
+    const ids=await read(sender,deployment.contract,'list_cases',[]),cases=await Promise.all(ids.map(id=>read(sender,deployment.contract,'get_case',[id])));
+    const matches=cases.filter(c=>c.reporter.toLowerCase()===wallet.toLowerCase()&&c.kind===callArgs[0]&&c.target===callArgs[1]&&digest(c.payload)===digest(JSON.parse(callArgs[2])));
+    out({hash,cases:matches.map(c=>({id:c.id,status:c.status,identity_challenge:c.identity_challenge,identity_expiry:c.identity_expiry})),next:'Reports do not establish priority or resolve a problem. A trusted verifier must admit documentary evidence; independent review and a challenge window precede any correction. Publish the exact challenge on the same registered author-controlled source. Identity verification and settlement must finish within the 24-hour native expiry.'});
+   }else out({hash,status:'finalized',next:method==='set_affiliation'?'Your affiliation changed; submission directions and earned credit remain historical.':method==='withdraw_case'?'Your unadmitted case was withdrawn; its audit history remains and the slot is available.':'The case is challenged and cannot settle until reviewed again.'});
+  }
+ }else if(command==='authors'||command==='affiliations'){
+  if(deployment.protocolVersion!==3)throw Error('Native provenance is unavailable in this deployment');
+  out(await read(clientFor(),deployment.contract,command==='authors'?'get_external_authors':'get_affiliations',[]));
+ }else if(command==='case-status'){
+  if(deployment.protocolVersion!==3)throw Error('Native provenance is unavailable in this deployment');
+  out(await read(clientFor(),deployment.contract,'get_case',[args[0]]));
  }else if(command==='status'){
   const pr=Number(args[0]);if(!Number.isSafeInteger(pr)||pr<1)throw Error('PR number required');
   const index=await fetch(`https://raw.githubusercontent.com/${deployment.repository}/evidence/index.json`,{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw Error('Evidence feed unavailable');return r.json();});
   const entry=index.entries.find(e=>e.pr===pr);if(!entry)out({pr,status:'no indexed outcome yet',next:'If you already posted the signed comment as the PR author before its nine-minute expiry, wait for the worker or 15-minute recovery sweep; do not repeatedly resubmit. Otherwise post a fresh claim using the same GitHub account that opened the PR. A different bot account cannot claim for the author.'});
-  else{const report=await fetch(`https://raw.githubusercontent.com/${deployment.repository}/evidence/${entry.report}`).then(r=>r.json());out({id:entry.id,status:report.status,initialPoints:report.record?.credited_points||'0',impact:report.impact||null,reason:report.record?.verdict?.reason,error:report.error,run:report.run,commentId:report.commentId,resume:'Repository operator: dispatch research.yml with this comment_id. Changed head/base requires a new signed claim.'});}
+  else{const report=await fetch(`https://raw.githubusercontent.com/${deployment.repository}/evidence/${entry.report}`).then(r=>r.json());
+   const result={id:entry.id,status:report.status,historicalInitialPoints:report.record?.credited_points||'0',impact:report.impact||null,reason:report.record?.verdict?.reason,archivedError:report.error,run:report.run,commentId:report.commentId,readSource:'Archived public report',resume:'Do not resubmit a credited contribution. Repository operators use impact.yml for an unresolved later-impact review; known failed consensus is preserved, not rerolled. Pending claims on the active deployment can resume through research.yml.'};
+   try{const c=clientFor(),record=await read(c,deployment.contract,'get',[entry.id]);result.status=record.status;result.reason=record.verdict?.reason;result.impact=await read(c,deployment.contract,'get_impact',[entry.id]);result.walletPoints=await read(c,deployment.contract,'get_points',[record.evidence.wallet]);if(deployment.protocolVersion>=3)result.provenance=await read(c,deployment.contract,'get_provenance',[entry.id]);result.readSource='Fresh finalized active contract';result.contract=deployment.contract;}catch{result.nativeRead='Unavailable or record not registered in the active contract; consult archived verification evidence.';}
+   out(result);
+  }
  }else throw Error('Unknown command; run help');
 }catch(e){console.error(JSON.stringify({error:e.message,next:'Run node scripts/agent.mjs help. No claim was posted and no private key was transmitted.'}));process.exitCode=1;}
 }

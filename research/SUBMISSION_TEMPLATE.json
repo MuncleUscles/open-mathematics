@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "problem": "p-vs-np",
   "kind": "lemma",
   "title": "A precise descriptive title",
@@ -22,5 +22,11 @@
     "wallet": "0x0000000000000000000000000000000000000000",
     "contributions": "Describe this contributor's work and any assistance."
   },
-  "limitations": "State unproved claims, scope restrictions and known weaknesses. This does not resolve P vs NP."
+  "limitations": "State unproved claims, scope restrictions and known weaknesses. This does not resolve P vs NP.",
+  "research_direction": "shared",
+  "provenance": {
+    "mode": "integration",
+    "sources": [],
+    "discovery_basis": ""
+  }
 }

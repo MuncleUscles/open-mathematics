@@ -12,11 +12,13 @@
     "evidence",
     "dependencies",
     "attribution",
-    "limitations"
+    "limitations",
+    "research_direction",
+    "provenance"
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "problem": {
       "const": "p-vs-np"
@@ -191,8 +193,139 @@
       "type": "string",
       "minLength": 30,
       "maxLength": 2000
+    },
+    "research_direction": {
+      "enum": [
+        "p-equals-np",
+        "p-not-equals-np",
+        "shared"
+      ],
+      "description": "Direction of this contribution, not a validity or reward signal. Current wallet affiliation is a separate changeable on-chain declaration."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Untrusted source declarations reviewed independently. External author names never authorize a wallet or prove ownership. A URL alone cannot resolve the problem.",
+      "required": [
+        "mode",
+        "sources",
+        "discovery_basis"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "discovery",
+            "formalization",
+            "extension",
+            "integration"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reference",
+              "title",
+              "authors",
+              "relationship",
+              "priority_evidence"
+            ],
+            "properties": {
+              "reference": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://",
+                "minLength": 8,
+                "maxLength": 1000
+              },
+              "title": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 300
+              },
+              "authors": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "relationship": {
+                "type": "string",
+                "minLength": 30,
+                "maxLength": 1500
+              },
+              "priority_evidence": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 1500
+              }
+            }
+          }
+        },
+        "discovery_basis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "formalization",
+                  "integration"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sources": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "mode": {
+                    "const": "discovery"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sources": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "discovery_basis": {
+                "minLength": 40
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Open Mathematics mandatory submission record"
+  "title": "Open Mathematics submission with research direction and external provenance"
 }

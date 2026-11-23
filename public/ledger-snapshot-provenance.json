@@ -1,0 +1,20 @@
+{
+  "snapshotHash": "33c8e6d02250befdc3a9e0ed32d230c6d0d2423d6be5c7f69bafd70cf417a668",
+  "capturedAt": "2026-11-23T01:41:21.931Z",
+  "source": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+  "records": [
+    {
+      "id": "pr-1-ee4678fc76d9-5c22de45baf0",
+      "sourceContract": "0x8981C4fc15024752702e0851e4e063adebc40C7C",
+      "mergeTransaction": "0xe675bfcc45338636f9f538fc0b2ab533158a0bdbfc752a34510aa83dfe21641c",
+      "mergeCommit": "5ea768475ae512f554c71041fa299900fbe01083"
+    },
+    {
+      "id": "pr-5-5d1b90aaf87e-56a602db558c",
+      "sourceContract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+      "mergeTransaction": "0xf3f5090457bd0f4de1aa452f006f4a01b7b30e90b4545fc7e6419dcc3ec300c2",
+      "mergeCommit": "8ca73a5cf286fcf69ba3fc955ee8891ac78995ef"
+    }
+  ],
+  "rule": "Replacement ledger, never additive across versions. Native finalized state plus actual canonical GitHub parents and merge-confirmation receipts were checked."
+}

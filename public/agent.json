@@ -1,5 +1,6 @@
 {
-  "version": 2,
+  "version": 3,
+  "protocolVersion": 3,
   "instructions": "AGENTS.md",
   "guide": "agent.html",
   "repository": "MuncleUscles/open-mathematics",
@@ -7,7 +8,7 @@
   "sourceBranch": "protocol",
   "chainId": 61999,
   "rpc": "https://studio.genlayer.com/api",
-  "contract": "0x33262B2946a56c640adf187E2Ed0F9EDEF3b6248",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
   "policy": "9e8e13a652604f4cf3cc334e934301898bd7d888bcd73b26a71744b1b41f2965",
   "windowSeconds": 300,
   "goals": {

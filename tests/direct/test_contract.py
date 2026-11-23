@@ -3,14 +3,14 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 def evidence(wallet, key='lemma', statement='d'*64):
-    return json.dumps(dict(id=key, problem='p-vs-np', policy='policy',repository='fixture/research',pr=1,head='a'*40,base='b'*40,wallet='0x'+bytes(wallet).hex(),claim_digest='c'*64,statement_hash=statement,artifact_hash='e'*64,verification='verified',claim='Renaming is sound; known mathematics useful to this component.',context='No prior component',dependencies=[],kind='lemma',submission_hash='f'*64,github_author_id=1,verified_dependencies=[],proof='by\n  intro r a f\n  simp [evalCNF]',formal_statement='For all renamings, assignments and formulas: evaluation commutes with renaming.'))
+    return json.dumps(dict(id=key, problem='p-vs-np', policy='policy',repository='fixture/research',pr=1,head='a'*40,base='b'*40,wallet='0x'+bytes(wallet).hex(),claim_digest='c'*64,statement_hash=statement,artifact_hash='e'*64,verification='verified',claim='Renaming is sound; known mathematics useful to this component.',context='No prior component',dependencies=[],kind='lemma',submission_hash='f'*64,github_author_id=1,verified_dependencies=[],proof='by\n  intro r a f\n  simp [evalCNF]',research_direction='shared',provenance={'mode':'extension','sources':[],'discovery_basis':'Known mathematical infrastructure; no claim of discovery or exhaustive literature priority.'},formal_statement='For all renamings, assignments and formulas: evaluation commutes with renaming.'))
 
 def setup(direct_vm,direct_deploy,direct_alice,carry_legacy=False):
     from gltest.direct.sdk_loader import setup_sdk_paths
     setup_sdk_paths(__import__('pathlib').Path('contracts/research.py'),'v0.2.16')
     from genlayer import Address
     direct_vm.sender=direct_alice
-    return direct_deploy('contracts/research.py','0x'+direct_alice.hex(),'0x'+direct_alice.hex(),'p-vs-np','policy',10,carry_legacy,sdk_version='v0.2.16')
+    return direct_deploy('contracts/research.py','0x'+direct_alice.hex(),'0x'+direct_alice.hex(),'p-vs-np','policy',10,carry_legacy,'',sdk_version='v0.2.16')
 
 def decision(vm,accept=True):
     vm.mock_llm('.*',json.dumps(dict(accept=accept,novelty=1 if accept else 0,significance=1,reusability=2,reason='Known mathematics, useful verified integration into this new component.',evidence_refs=['lemma'])))

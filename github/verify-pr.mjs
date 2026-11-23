@@ -6,7 +6,7 @@ import {decodeSubmission} from '../src/submission.mjs';import {clientFor,read} f
 const [claimFile]=process.argv.slice(2);if(!claimFile)throw Error('Usage: node github/verify-pr.mjs signed-claim.json');
 const deployment=JSON.parse(fs.readFileSync('public/deployment.json','utf8'));
 const policy=JSON.parse(fs.readFileSync('lean/policy.json','utf8'));
-if(deployment.protocolVersion!==2||digest(fs.readFileSync('lean/policy.json'))!==deployment.policy)throw Error('Reviewed v2 deployment required');
+if(deployment.protocolVersion!==3||digest(fs.readFileSync('lean/policy.json'))!==deployment.policy)throw Error('Reviewed v2 deployment required');
 const {claim,signature}=JSON.parse(fs.readFileSync(claimFile,'utf8'));
 validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contract:deployment.contract,policy:deployment.policy,branch:deployment.branch,now:Number(process.env.CLAIM_AT||Date.now())});
 const signer=await recoverMessageAddress({message:message(claim),signature});if(signer.toLowerCase()!==claim.wallet.toLowerCase())throw Error('Invalid wallet claim');

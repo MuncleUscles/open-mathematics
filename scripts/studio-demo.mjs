@@ -20,7 +20,7 @@ try{
 if(await client.getChainId()!==studionet.id)throw Error('Wrong Studio chain');
 const code=fs.readFileSync('contracts/research.py','utf8');report.codeHash=digest(code);
 const policy=digest(fs.readFileSync('lean/policy.json','utf8'));
-const deploy=await client.deployContract({code,args:[account.address,account.address,'p-vs-np',policy,10,false],leaderOnly:false});
+const deploy=await client.deployContract({code,args:[account.address,account.address,'p-vs-np',policy,10,false,''],leaderOnly:false});
 const receipt=await wait('deploy',deploy);const address=receipt.data?.contract_address||receipt.to_address;if(!/^0x[\da-f]{40}$/i.test(address))throw Error('No deployed address');report.contract=address;save();
 const write=async(stage,fn,args)=>wait(stage,await client.writeContract({address,functionName:fn,args,leaderOnly:false}));
 const lean=JSON.parse(fs.readFileSync('public/lean-evidence.json','utf8'));
@@ -31,7 +31,7 @@ for(const [id,claim,statement] of [
   const claimEnvelope={version:1,domain:'https://open-mathematics.demo',chainId:61999,problem:'p-vs-np',repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),wallet:account.address,nonce:randomBytes(16).toString('hex'),expires:Date.now()+300000};
   const signature=await account.signMessage({message:message(claimEnvelope)});
   report.claims??={};report.claims[id]={claim:claimEnvelope,signature};
-  const e={id,problem:'p-vs-np',policy,repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),base:'b'.repeat(40),wallet:account.address,claim_digest:digest(claimEnvelope),statement_hash:statement,artifact_hash:id==='demo-renaming'?lean.artifact_hash:tautology.artifact_hash,verification:'verified',claim,context:'Bounded integration demonstration. P vs NP remains open; no complete P/NP formalization is present. No prior renaming theorem in this demo component.',dependencies:[],kind:'lemma',submission_hash:digest('explicit fixture submission'),github_author_id:1,verified_dependencies:[],proof:'by\n  simp [evalCNF]',formal_statement:id==='demo-renaming'?'For all renamings, assignments and formulas: CNF evaluation commutes with variable renaming.':'The proposition True; no mathematical content about P vs NP.'};
+  const e={id,problem:'p-vs-np',policy,repository:'fixture/open-mathematics',pr:id==='demo-renaming'?1:2,head:'a'.repeat(40),base:'b'.repeat(40),wallet:account.address,claim_digest:digest(claimEnvelope),statement_hash:statement,artifact_hash:id==='demo-renaming'?lean.artifact_hash:tautology.artifact_hash,verification:'verified',claim,context:'Bounded integration demonstration. P vs NP remains open; no complete P/NP formalization is present. No prior renaming theorem in this demo component.',dependencies:[],kind:'lemma',submission_hash:digest('explicit fixture submission'),github_author_id:1,verified_dependencies:[],research_direction:'shared',provenance:{mode:'extension',sources:[],discovery_basis:'Controlled known-mathematics fixture for integration testing only; no discovery or priority claim.'},proof:'by\n  simp [evalCNF]',formal_statement:id==='demo-renaming'?'For all renamings, assignments and formulas: CNF evaluation commutes with variable renaming.':'The proposition True; no mathematical content about P vs NP.'};
   await write(id+'-register','register',[JSON.stringify(e)]);
   await write(id+'-adjudicate','adjudicate',[id,0]);
   const judgment=report.transactions[id+'-adjudicate'].receipt;
