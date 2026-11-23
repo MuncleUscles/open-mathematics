@@ -25,7 +25,18 @@ export async function retry(fn,{wait=sleep}={}){
   }
  }
 }
-const knownRegistrationErrors=new Set(['statement already reserved or credited','duplicate or invalid contribution id','MVP evidence or registry capacity exceeded','legacy import required before registration']);
+const knownRegistrationErrors=new Set([
+ 'statement already reserved or credited',
+ 'duplicate or invalid contribution id',
+ 'MVP evidence or registry capacity exceeded',
+ 'legacy import required before registration',
+ 'statement or artifact already reserved credited or historical',
+ 'signed claim already registered',
+ 'verified normal GitHub account and valid creation time required',
+ 'GitHub account below minimum age at original signed claim',
+ 'one active contribution per GitHub account; finish or expire the existing claim',
+ 'three registrations per GitHub account in rolling 24 hours',
+]);
 const leaderReceipt=r=>Array.isArray(r.consensus_data?.leader_receipt)?r.consensus_data.leader_receipt[0]:r.consensus_data?.leader_receipt;
 
 export class FinalizedExecutionError extends Error {

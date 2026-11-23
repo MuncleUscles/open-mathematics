@@ -1,0 +1,37 @@
+name: Open research protocol validation
+on:
+  push:
+    branches: [development/open-research]
+  pull_request:
+    paths: ['contracts/research_v5.py', 'src/**', 'github/open-*.mjs', 'scripts/*open*', 'lean/open_check.py', 'tests/**', 'public/open/**', '.github/workflows/protocol-v5.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.22.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Build pinned Linux Lean image
+        run: bash github/build-verifier.sh
+      - name: Verify generic checker and real isolation
+        run: LEAN_BIN="$PWD/.data/image/lean-4.19.0-linux/bin/lean" RUN_DOCKER_TESTS=1 python3 -B -m unittest discover -s tests -p test_open_verifier.py -v
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 -m venv .venv
+      - run: .venv/bin/pip install -r requirements.txt
+      - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py
+      - run: .venv/bin/pytest tests/direct -q
