@@ -70,3 +70,70 @@ test('complete native fixture renders source authors, correction history and und
  assert.match(container.innerHTML,/Live · finalized protocol v3 reads/);assert.match(container.innerHTML,/Verified integration/);assert.match(container.innerHTML,/Source Author/);assert.match(container.innerHTML,/200 unclaimed points/);assert.match(container.innerHTML,/No author wallet assigned/);assert.match(container.innerHTML,/Earlier source now attributed/);assert.equal(badge.textContent,'UNDER REVIEW');assert.ok(!container.innerHTML.includes('Resolved by the native problem registry'));
  assert.equal(typeof buttons.get('[data-affiliation]').onclick,'function');assert.ok(methods.includes('get_provenance'));
 });
+
+import {validatedCommunitySnapshot} from '../public/community-snapshot.mjs';
+function publishedFixture(){
+ const wallet='0x'+'1'.repeat(40),author='author-'+'a'.repeat(32),caseId='case-'+'c'.repeat(32),id='pr-1-ee4678fc76d9-5c22de45baf0';
+ const deployment={protocolVersion:3,contract:'0x'+'2'.repeat(40),chainId:61999,codeHash:'a'.repeat(64),policy:'b'.repeat(64)};
+ const source={reference:'https://example.org/paper',title:'Published source',authors:['Source Author'],relationship:'Formalizes the existing source result.',priority_evidence:'Reviewed dated publication evidence.'};
+ const snapshot={version:1,contract:deployment.contract,chainId:deployment.chainId,codeHash:deployment.codeHash,policy:deployment.policy,collectedAt:'2026-11-22T12:00:00.000Z',
+  affiliations:[{wallet,side:'shared',changed_at:'1795348800',history:[{side:'shared',at:'1795348800'}]}],
+  authors:[{id:author,name:'Source Author',sources:[source.reference],unclaimed_points:'0',claimed_wallet:wallet,claim_history:[{case:caseId,wallet,at:'1795348800'}]}],
+  problem:{id:'p-vs-np',status:'open',target_statement_hash:'',external_solutions:[caseId]},
+  records:[{status:'credited',credited_points:'300',evidence:{id,pr:'1',wallet,research_direction:'shared',title:'Accepted published integration',dependencies:[]}}],
+  provenances:[{id,value:{contribution:id,version:'1',mode:'formalization',sources:[source],original_initial_points:'300',current_initial_points:'300',external_allocations:[],revoked_points:'0',corrections:[{case:caseId,reason:'Reviewed source attribution.'}]}}],
+  cases:[{id:caseId,kind:'external-solution',target:'p-vs-np',reporter:wallet,payload:{sources:[source]},status:'settled',round:'0',deadline:'1795348800',verdict:{resolve:false},history:[{event:'settlement',at:'1795348800'}]}],
+  impacts:[{id,value:{downstream:id,status:'not-requested'}}],
+  walletBalances:[{wallet,value:{problem:'p-vs-np',historical_initial_points:'300',total_historical_initial_awarded:'700',total_awarded:'800',points:'300',initial_points:'300',impact_points:'0',total_impact_points:'100',transferable:false,mode:'contribution points on the Intelligent Contract'}}]};
+ return {snapshot,deployment};
+}
+test('published snapshot validator binds the deployment, preserves native strings and accepts bounded optional views',()=>{
+ const {snapshot,deployment}=publishedFixture();
+ assert.equal(validatedCommunitySnapshot(snapshot,deployment),snapshot);
+ const withoutOptional=structuredClone(snapshot);delete withoutOptional.impacts;delete withoutOptional.walletBalances;withoutOptional.future_display_field='Ignored metadata';
+ assert.equal(validatedCommunitySnapshot(withoutOptional,deployment),withoutOptional);
+ const fullImpact=structuredClone(snapshot);fullImpact.impacts[0].value={downstream:snapshot.records[0].evidence.id,status:'settled',budget:'300',round:'0',deadline:'1795348800',paid_points:'100',eligible:[],allocations:[{id:snapshot.records[0].evidence.id,band:'1',reason:'Verified reuse.'}],challenges:[]};
+ assert.equal(validatedCommunitySnapshot(fullImpact,deployment),fullImpact);
+ for(const [field,value] of [['version',2],['version','1'],['contract','0x'+'3'.repeat(40)],['chainId',1],['chainId','61999'],['codeHash','c'.repeat(64)],['policy','d'.repeat(64)],['collectedAt','not a date'],['collectedAt',new Date(Date.now()+120000).toISOString()]]){
+  assert.equal(validatedCommunitySnapshot({...snapshot,[field]:value},deployment),null,field);
+ }
+ assert.equal(validatedCommunitySnapshot(snapshot,{...deployment,protocolVersion:2}),null);
+});
+test('published snapshot rejects malformed native arrays, cross-record mappings and optional accounting views',()=>{
+ const {snapshot,deployment}=publishedFixture();
+ const mutations=[
+  s=>{s.affiliations={};},s=>{s.affiliations[0].side='a fake side';},s=>{s.affiliations[0].history[0].at=-1;},s=>{s.affiliations=Array(501).fill(s.affiliations[0]);},
+  s=>{s.authors[0].claimed_wallet='not a wallet';},s=>{s.authors[0].sources=['javascript:alert(1)'];},s=>{s.authors[0].unclaimed_points='-1';},s=>{s.authors.push(s.authors[0]);},
+  s=>{s.problem.status='solved';},s=>{s.problem.external_solutions=[{}];},s=>{s.records[0].evidence.dependencies={};},s=>{s.records.push(s.records[0]);},
+  s=>{s.provenances=[];},s=>{s.provenances[0].value.contribution='different';},s=>{s.provenances[0].value.sources[0].authors=Array(9).fill('Name');},s=>{s.provenances[0].value.corrections=[null];},
+  s=>{s.cases[0].round='3';},s=>{s.cases[0].history='not a list';},s=>{s.cases[0].payload.sources[0].reference='https://user:pass@example.org';},
+  s=>{s.impacts[0].id='different';},s=>{s.impacts[0].value.downstream='different';},s=>{s.impacts[0].value.status='made-up';},s=>{s.walletBalances[0].value.points='infinite';},s=>{s.walletBalances[0].value.transferable=true;},s=>{s.walletBalances[0].value.problem='different';},s=>{s.walletBalances.push(s.walletBalances[0]);},
+ ];
+ for(const mutate of mutations){const bad=structuredClone(snapshot);mutate(bad);assert.equal(validatedCommunitySnapshot(bad,deployment),null,String(mutate));}
+});
+test('native failure renders a dated snapshot with escaped native fields, no Live label, and manual recovery',async t=>{
+ const previousFetch=globalThis.fetch,previousDocument=globalThis.document;t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
+ const {snapshot,deployment}=publishedFixture(),requests=[];
+ snapshot.records[0].evidence.title='<img src=x onerror=alert(1)> accepted integration';
+ globalThis.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url==='deployment.json'?deployment:snapshot};};
+ const badge={textContent:'OPEN'},buttons=new Map();globalThis.document={querySelector:()=>badge};
+ const container={innerHTML:'',querySelector:selector=>{if(!buttons.has(selector))buttons.set(selector,{});return buttons.get(selector);}};
+ let available=false;
+ const views={get_affiliations:snapshot.affiliations,get_external_authors:snapshot.authors,get_problem:snapshot.problem,list_contributions:snapshot.records.map(r=>r.evidence.id),get:snapshot.records[0],get_provenance:snapshot.provenances[0].value,list_cases:snapshot.cases.map(c=>c.id),get_case:snapshot.cases[0]};
+ await mountResearchCommunity({container,chainRead:async(_,method)=>{if(!available)throw Error('rate limited');return views[method];}});
+ assert.deepEqual(requests,['deployment.json','community-snapshot.json']);
+ assert.match(container.innerHTML,/Published snapshot · 2026-11-22T12:00:00.000Z/);assert.match(container.innerHTML,/Historical finalized views/);assert.match(container.innerHTML,/not current state/);assert.match(container.innerHTML,/PROBLEM STATUS · PUBLISHED SNAPSHOT/);
+ assert.ok(!/\bLive\b|\bfresh\b/.test(container.innerHTML));assert.equal(badge.textContent,'SNAPSHOT · OPEN');
+ assert.match(container.innerHTML,/Source Author/);assert.match(container.innerHTML,/Registered source/);assert.match(container.innerHTML,/Verified claim recorded/);assert.match(container.innerHTML,/Reviewed — not a resolution/);assert.match(container.innerHTML,/&lt;img/);assert.ok(!container.innerHTML.includes('<img'));assert.match(container.innerHTML,/side-counts/);
+ assert.equal(typeof buttons.get('[data-refresh-community]').onclick,'function');available=true;await buttons.get('[data-refresh-community]').onclick();
+ assert.equal(badge.textContent,'OPEN');assert.match(container.innerHTML,/Live · finalized protocol v3 reads/);assert.ok(!container.innerHTML.includes('Published snapshot'));assert.equal(requests.filter(x=>x==='community-snapshot.json').length,1);
+});
+test('wrong-deployment and malformed snapshots fail closed without retaining previous counts',async t=>{
+ const previousFetch=globalThis.fetch,previousDocument=globalThis.document;t.after(()=>{globalThis.fetch=previousFetch;if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;});
+ const {snapshot,deployment}=publishedFixture(),badge={textContent:'SNAPSHOT · OPEN'},button={};globalThis.document={querySelector:()=>badge};
+ for(const bad of [{...snapshot,policy:'0'.repeat(64)},{...snapshot,cases:null}]){
+  globalThis.fetch=async url=>({ok:true,json:async()=>url==='deployment.json'?deployment:bad});
+  const container={innerHTML:'old counts',querySelector:()=>button};await mountResearchCommunity({container,chainRead:async()=>{throw Error('offline');}});
+  assert.equal(badge.textContent,'STATUS UNAVAILABLE');assert.match(container.innerHTML,/no valid published snapshot/);assert.ok(!container.innerHTML.includes('side-counts'));assert.ok(!container.innerHTML.includes('Published snapshot ·'));assert.equal(typeof button.onclick,'function');
+ }
+});

@@ -94,7 +94,7 @@ test('a matching in-flight, failed or unavailable transaction is never treated a
   for (const [receipt, error] of [
     [finalized({ statusName: 'ACCEPTED' }), /has not finalized \(ACCEPTED\)/],
     [finalized({ statusName: 'LEADER_TIMEOUT' }), /has not finalized \(LEADER_TIMEOUT\)/],
-    [finalized({ consensus_data: { leader_receipt: [{ execution_result: 'ERROR' }] } }), /failed receipt verification/],
+    [finalized({ consensus_data: { leader_receipt: [{ execution_result: 'ERROR' }] } }), {code: 'STUDIO_FINALIZED_EXECUTION_ERROR', hash, status: 'FINALIZED'}],
     [null, /unavailable/],
   ]) {
     const { client, fetched } = provider([historyRow()], receipt);

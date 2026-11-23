@@ -1,5 +1,7 @@
-import {mountResearchCommunity,provenanceMarkup} from './research-community.mjs';
-import {createNativeReader,readCurrentContribution} from './native-read.mjs';
+import {mountResearchCommunity} from './research-community.mjs';
+import {createNativeReader} from './native-read.mjs';
+import {readContributionInspection,contributionInspectionMarkup} from './contribution-inspection.mjs';
+import {validatedCommunitySnapshot} from './community-snapshot.mjs';
 import {createClient} from 'genlayer-js';import {studionet} from 'genlayer-js/chains';
 const repo='MuncleUscles/open-mathematics',root=`https://raw.githubusercontent.com/${repo}/evidence/`;
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,30 +9,42 @@ const normalize=x=>x instanceof Map?Object.fromEntries([...x].map(([k,v])=>[k,no
 const client=createClient({chain:studionet});
 const chainRead=createNativeReader((address,functionName,args)=>client.readContract({address,functionName,args,transactionHashVariant:'latest-final'}).then(normalize));
 const el=document.querySelector('#live-research');let latest,refreshing=false;
-const receipt=(r,prefix)=>Object.entries(r.transactions||{}).some(([k,v])=>k.startsWith(prefix)&&v.receipt);
 async function inspect(entry){
  const dialog=document.querySelector('#modal');document.querySelector('#modal-label').textContent='REAL PR · GENLAYER STUDIO';
  const body=document.querySelector('#modal-body');body.innerHTML='<h2>Reading the evidence…</h2>';dialog.showModal();
  try{
   const r=await fetch(entry.local?'live-example.json':root+entry.report).then(r=>{if(!r.ok)throw Error('Evidence unavailable');return r.json();});
   const deployment=await fetch('deployment.json',{cache:'no-store'}).then(r=>r.json()).catch(()=>null);
-  let record=r.record,impact=r.impact,points=r.points,provenance=null,verified=false,address=deployment?.contract||latest?.deployment?.contract||r.contract;
-  try{({record,impact,points,provenance}=await readCurrentContribution(chainRead,address,r.id,{withProvenance:Number(deployment?.protocolVersion)>=3&&deployment.contract.toLowerCase()===address.toLowerCase()}));verified=true;}catch{}
-  const allocations=impact?.allocations||[];
-  body.innerHTML=`<h2>${h(record?.status||r.status)} · PR #${r.pr}</h2><p>${h(record?.verdict?.reason||r.error||'Verification or adjudication is still running.')}</p><div class="pipeline"><span class="done">Signed claim</span><span class="${r.attestation?'done':''}">Isolated Lean</span><span class="${receipt(r,'adjudicate')?'done':''}">GenLayer</span><span class="${receipt(r,'finalize')?'done':''}">Finality</span><span class="${r.mergeCommit?'done':''}">GitHub merge</span><span class="${record?.status==='credited'?'done':''}">IC points</span></div><div class="kv"><span>Initial award for this work</span><span>${h(record?.credited_points||'0')} points</span><span>Wallet’s initial / later points</span><span>${points?h(points.initial_points||points.points)+' / '+h(points.impact_points||'0'):'Unavailable'}</span><span>Read source</span><span>${verified?'Fresh finalized contract read':'Archived public report; RPC read unavailable'}</span><span>Contributor wallet</span><span>${h(r.claim.claim.wallet)}</span><span>Approved head</span><span>${h(r.head)}</span><span>Merge commit</span><span>${h(r.mergeCommit||'Not merged')}</span><span>Active contract</span><span>${h(address)}</span></div>${record?.ledger_migration||record?.migration?'<p class="fine">Historical award carried forward once through a verifier-attested frozen snapshot. Ledger versions must not be added together.</p>':''}${impact&&impact.status!=='not-requested'?`<h3>Later impact · ${h(impact.status)}</h3><p>${h(impact.reason)}</p><p>${h(impact.paid_points||'0')} points settled for earlier authors. Initial awards stay unchanged.</p>${allocations.map(a=>`<p><strong>${h(a.band*100)} points → ${h(a.id)}</strong><br>${h(a.reason)}</p>`).join('')}`:''}${provenanceMarkup(record,provenance,{native:!!provenance})}<div class="dialog-actions"><a class="primary" href="https://github.com/${repo}/pull/${r.pr}" target="_blank" rel="noopener">Open real PR</a><a class="outline" href="${root+entry.report}" target="_blank" rel="noopener">Full evidence & receipts</a><a class="outline" href="${h(entry.run)}" target="_blank" rel="noopener">Worker log</a></div><p class="fine">Trusted pilot operators verify and execute. Only GenLayer decides merit. The pilot has separate five-minute contribution and impact windows. Native points remain nontransferable.</p>`;
+  const address=deployment?.contract||latest?.deployment?.contract||r.contract;
+  const view=await readContributionInspection({read:chainRead,address,report:r,deployment,loadSnapshot:async()=>{
+   const response=await fetch('community-snapshot.json',{cache:'no-store'});if(!response.ok)throw Error('Snapshot unavailable');return response.json();
+  }});
+  body.innerHTML=contributionInspectionMarkup({view,report:r,address,reportURL:entry.local?'live-example.json':root+entry.report,runURL:entry.run});
  }catch(e){body.textContent=e.message;}
 }
 async function refresh(){if(refreshing)return;refreshing=true;try{
  const r=await fetch(root+'index.json?refresh='+Math.floor(Date.now()/30000));if(!r.ok)throw Error();latest=await r.json();
  const entries=latest.entries||[];
  const active=await fetch('deployment.json',{cache:'no-store'}).then(r=>r.json());
+ const published=await fetch('community-snapshot.json').then(r=>r.ok?r.json():null).catch(()=>null);
+ const snapshot=validatedCommunitySnapshot(published,active);
+ if(snapshot){
+  for(const e of entries.filter(e=>e.status==='credited')){
+   const record=snapshot.records.find(r=>r.evidence.id===e.id);
+   const provenance=snapshot.provenances.find(p=>p.id===e.id)?.value;
+   const impact=snapshot.impacts?.find(p=>p.id===e.id)?.value;
+   if(record?.status==='credited'&&provenance&&impact){e.currentInitial=provenance.current_initial_points;e.impact=impact;e.snapshotAt=snapshot.collectedAt;}
+  }
+ }
  await Promise.all(entries.filter(e=>e.status==='credited').map(async e=>{
   try{const [impact,provenance]=await Promise.all([chainRead(active.contract,'get_impact',[e.id]),Number(active.protocolVersion)>=3?chainRead(active.contract,'get_provenance',[e.id]):Promise.resolve(null)]);e.impact=impact;e.currentInitial=provenance?.current_initial_points??e.points;e.native=true;}catch{e.native=false;}
  }));
 
- const laterFor=id=>entries.filter(e=>e.impact?.status==='settled').flatMap(e=>e.impact.allocations||[]).filter(a=>a.id===id).reduce((sum,a)=>sum+a.band*100,0);
+ const laterFor=id=>entries.filter(e=>e.impact?.status==='settled').flatMap(e=>(e.impact.allocations||[]).filter(a=>a.id===id).map(a=>({...a,native:e.native})));
+ const laterPoints=id=>laterFor(id).reduce((sum,a)=>sum+a.band*100,0);
+ const laterLabel=id=>laterFor(id).every(a=>a.native)?'Finalized impact reads':'Published impact evidence';
  const edges=entries.filter(e=>e.dependencies?.length&&e.status==='credited');
- el.innerHTML=`<div class="section-head"><div><span class="eyebrow-small">REAL GITHUB → LEAN → GENLAYER → POINTS</span><h2>The live research ledger</h2><button class="outline small" data-refresh-ledger>Refresh ledger</button></div><a class="outline" target="_blank" rel="noopener" href="https://github.com/${repo}">Open repository ↗</a></div><p class="muted">Indexed public evidence from actual PRs. Earlier protocol records remain historical evidence; no research side or external authorship is inferred. Select a result to read native state. Current initial allocations and later impact are shown separately when native reads succeed; the evidence view preserves historical awards.</p><div class="panel">${!entries.length?'<p class="community-empty">No indexed contribution outcomes yet. No fixture results are substituted.</p>':''}${entries.map((e,i)=>`<button class="live-result" data-live="${i}"><span><strong>PR #${e.pr} · ${h(e.title)}</strong><small>${h(e.wallet.slice(0,8))}… · ${e.native?'Finalized active contract':'Archived public evidence'}</small></span><span class="badge ${h(e.status)}">${h(e.status)}</span><strong>${h(e.currentInitial??e.points)} initial${laterFor(e.id)?'<br>+ '+laterFor(e.id)+' later':''}</strong></button>`).join('')}</div>${edges.length?`<div class="panel live-dependencies"><span class="eyebrow-small">VERIFIED DEPENDENCY GRAPH</span><h3>Earlier work, used by the next proof.</h3>${edges.map(e=>e.dependencies.map(id=>{const previous=entries.find(x=>x.id===id);return `<div class="dependency-edge"><span>PR #${previous?.pr||'?'}<br><strong>${h(previous?.title||id)}</strong></span><span aria-label="used by">→</span><span>PR #${e.pr}<br><strong>${h(e.title)}</strong></span></div><p class="fine">Exact credited artifact used in the normalized proof body. Impact review: ${h(e.impact?.status||'not requested')} · ${h(e.impact?.paid_points||'0')} later points settled.</p>`}).join('')).join('')}</div>`:''}`;
+ el.innerHTML=`<div class="section-head"><div><span class="eyebrow-small">REAL GITHUB → LEAN → GENLAYER → POINTS</span><h2>The live research ledger</h2><button class="outline small" data-refresh-ledger>Refresh ledger</button></div><a class="outline" target="_blank" rel="noopener" href="https://github.com/${repo}">Open repository ↗</a></div><p class="muted">Indexed public evidence from actual PRs. Earlier protocol records remain historical evidence; no research side or external authorship is inferred. Select a result to read native state. Current initial allocations and later impact are shown separately when native reads succeed; the evidence view preserves historical awards. Dated published snapshots remain visible during an outage and are not current native reads.</p><div class="panel">${!entries.length?'<p class="community-empty">No indexed contribution outcomes yet. No fixture results are substituted.</p>':''}${entries.map((e,i)=>`<button class="live-result" data-live="${i}"><span><strong>PR #${e.pr} · ${h(e.title)}</strong><small>${h(e.wallet.slice(0,8))}… · ${e.native?'Finalized active contract':e.snapshotAt?'Published snapshot · '+h(e.snapshotAt):'Archived public evidence'}</small></span><span class="badge ${h(e.status)}">${h(e.status)}</span><strong>${h(e.currentInitial??e.points)} initial${laterPoints(e.id)?'<br>+ '+laterPoints(e.id)+' later<small>'+laterLabel(e.id)+'</small>':''}</strong></button>`).join('')}</div>${edges.length?`<div class="panel live-dependencies"><span class="eyebrow-small">VERIFIED DEPENDENCY GRAPH</span><h3>Earlier work, used by the next proof.</h3>${edges.map(e=>e.dependencies.map(id=>{const previous=entries.find(x=>x.id===id);return `<div class="dependency-edge"><span>PR #${previous?.pr||'?'}<br><strong>${h(previous?.title||id)}</strong></span><span aria-label="used by">→</span><span>PR #${e.pr}<br><strong>${h(e.title)}</strong></span></div><p class="fine">Exact credited artifact used in the normalized proof body. ${e.native?'Finalized impact read.':e.snapshotAt?'Published snapshot · '+h(e.snapshotAt)+'.':'Archived earlier impact report.'} Impact review: ${h(e.impact?.status||'not requested')} · ${h(e.impact?.paid_points||'0')} later points settled.</p>`}).join('')).join('')}</div>`:''}`;
  el.querySelector('[data-refresh-ledger]').onclick=refresh;
  el.querySelectorAll('[data-live]').forEach(b=>b.onclick=()=>inspect(entries[Number(b.dataset.live)]));
  }catch{el.innerHTML=`<h2>Public evidence is temporarily unavailable</h2><p>The local scenarios below remain illustrative. <a href="https://github.com/${repo}/tree/evidence">Read the public evidence on GitHub</a>.</p><button class="outline small" data-refresh-ledger>Try again</button>`;el.querySelector('[data-refresh-ledger]').onclick=refresh;}finally{refreshing=false;}}

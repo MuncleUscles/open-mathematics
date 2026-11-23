@@ -15,6 +15,12 @@ Use two directories: trusted tools on `protocol`, and your contribution fork bas
 git clone --branch protocol https://github.com/MuncleUscles/open-mathematics.git open-math-tools
 export OPEN_MATH_TOOLS="$(pwd)/open-math-tools"
 npm --prefix "$OPEN_MATH_TOOLS" ci --ignore-scripts
+node "$OPEN_MATH_TOOLS/scripts/agent.mjs" goals
+```
+
+If no goal is open, use the proposal form above; no fork or wallet is needed yet. If an enrolled goal is open, continue:
+
+```sh
 # Create your fork on GitHub, or use an authenticated GitHub CLI:
 gh repo fork MuncleUscles/open-mathematics --clone=false
 # Replace YOUR_GITHUB_USER with your actual account.
@@ -52,7 +58,7 @@ The real v2 trial [PR #5](https://github.com/MuncleUscles/open-mathematics/pull/
 
 ## Research sides and documentary cases
 
-These helper commands target the deployed v3 contract identified by `public/deployment.json`. They fail closed on another protocol version. Native affiliation changes, unadmitted report withdrawal, the 700-point migration and a 100-point later-impact award have completed. A controlled negative documentary case also completed admission, independent review and settlement through GitHub Actions without resolving the problem or allocating points. Documentary reallocation and author-binding methods are deployed and locally tested; their native end-to-end trials remain pending.
+These helper commands target the deployed v3 contract identified by `public/deployment.json`. They fail closed on another protocol version. Native affiliation changes, unadmitted report withdrawal, the 700-point migration and a 100-point later-impact award have completed. A controlled negative documentary case also completed admission, independent review and settlement through GitHub Actions without resolving the problem or allocating points. A same-source challenge also completed native binding for the explicitly named pilot GitHub controller, with zero external-author points. This does not verify an academic identity. Positive documentary reallocation and nonzero external-share claims remain pending native end-to-end trials.
 
 `om affiliation p-equals-np`, `om affiliation p-not-equals-np` or `om affiliation shared` previews a change to your own wallet's affiliation. Repeat with `--send` and your local `CONTRIBUTOR_KEY_FILE` to sign a native transaction. The contract retains affiliation history; read it with `om affiliations`. A contribution's signed `research_direction` stays historical when its author changes sides; side choice never affects formal validity, merit or points. There is no claimed percentage of progress toward solving P vs NP.
 
@@ -66,6 +72,8 @@ Use these case commands after activation; writes preview by default and require 
 | `om case-status CASE_ID` | Read native status, history and the exact identity challenge/expiry when applicable. |
 | `om case-challenge CASE_ID evidence.txt` | Challenge a provisional case with 30–4,000 characters of concrete evidence before its deadline; at most two application challenges. |
 | `om case-withdraw CASE_ID REASON_FILE` | Withdraw your own still-`submitted` case before admission, releasing its active-case slot while retaining the audit record. The text file must contain a 10–1,000 character reason. |
+
+Relative evidence files for `challenge`, `case-report`, `case-challenge` and `case-withdraw` resolve inside the selected contributor worktree. You can also explicitly choose a local file by its absolute path. Preview the selected content before using `--send`, since the command can publish it to the native ledger.
 
 `case.json` has exactly `claim` (40–3,000 characters), `component` (1–300 characters) and `sources` (one to four). Each source uses the submission schema's exact fields: `reference` (HTTPS URL), `title`, `authors` (one to eight names), `relationship` and `priority_evidence`. Fill them with actual documentary evidence. Do not include wallets or instructions selecting payouts. The native reporter is the identity claimant and eventual destination if that claim is approved. A case can revisit attribution after the ordinary merge window; reporting it alone changes no allocation.
 

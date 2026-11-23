@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { abi } from 'genlayer-js';
 import { recoverReceipt } from './receipt-recovery.mjs';
-import { clean, finalized } from './runtime.mjs';
+import { clean, finalized, FinalizedExecutionError } from './runtime.mjs';
 
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
@@ -58,7 +58,7 @@ export async function journaledTransaction({
       !entry || typeof entry !== 'object' || Array.isArray(entry) ||
       (Object.hasOwn(entry, 'intent') ? !sameIntent(entry.intent, intent) : !entry.hash) ||
       (Object.hasOwn(entry, 'hash') && (typeof entry.hash !== 'string' || !HASH.test(entry.hash))) ||
-      (entry.receipt != null && !entry.hash)
+      ((entry.receipt != null || entry.failedReceipt != null) && !entry.hash)
     )) {
       throw Error(`Journal stage ${stage} does not match its exact transaction intent`);
     }
@@ -73,13 +73,25 @@ export async function journaledTransaction({
       Object.assign(entry, fields);
     }
 
+    async function rememberFailure(error) {
+      if (!entry?.intent || entry.hash !== error.hash || entry.receipt != null ||
+          !isDeepStrictEqual(entry.failedReceipt, error.receipt)) {
+        remember({ intent, hash: error.hash, failedReceipt: error.receipt });
+        delete entry.receipt;
+        await save();
+      }
+      error.stage = stage;
+    }
+
     if (!entry?.hash) {
       let recovered;
       try {
         recovered = await recoverReceipt(client, expected);
       } catch (error) {
-        if (KNOWN_MATCH.has(error.code) && typeof error.hash === 'string' && HASH.test(error.hash)) {
-          // Preserve a definite match even if its receipt is still pending or failed.
+        if (error instanceof FinalizedExecutionError) {
+          await rememberFailure(error);
+        } else if (KNOWN_MATCH.has(error.code) && typeof error.hash === 'string' && HASH.test(error.hash)) {
+          // Preserve a discovered hash even if its exact receipt is not yet verified.
           remember({ hash: error.hash });
           await save();
         } else if (!entry && error.code === 'AMBIGUOUS_STUDIO_HISTORY') {
@@ -110,12 +122,19 @@ export async function journaledTransaction({
     }
 
     // The journal stores copies of receipts, so resume verifies the native transaction again.
-    const receipt = await finalized(client, entry.hash, expected);
+    let receipt;
+    try {
+      receipt = await finalized(client, entry.hash, expected);
+    } catch (error) {
+      if (error instanceof FinalizedExecutionError) await rememberFailure(error);
+      throw error;
+    }
     if (!expectedSender(receipt.from_address, intent)) {
       throw Error(`Journal stage ${stage} receipt has an unexpected sender`);
     }
-    if (!entry.intent || !isDeepStrictEqual(entry.receipt, receipt)) {
+    if (!entry.intent || entry.failedReceipt != null || !isDeepStrictEqual(entry.receipt, receipt)) {
       remember({ intent, receipt });
+      delete entry.failedReceipt;
       await save();
     }
     return entry;
