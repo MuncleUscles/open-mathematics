@@ -12,7 +12,8 @@
         "method": "attest_case",
         "argsSha256": "33481db2ab23e6c9752aed8970c1e17a3c26b0c1beeb3285f879e5477de31125",
         "independent": false
-      }
+      },
+      "hash": "0xc95d53cdf13a918af3c3b734c97a48ad390cc685c248fa88592f07b09df3edd9"
     }
   },
   "rounds": {
@@ -55,6 +56,6 @@
     "target": "author-d76c65bded14d6d33865bc32651e4fee",
     "verdict": null
   },
-  "updatedAt": "2026-11-23T02:49:09.991Z",
+  "updatedAt": "2026-11-23T02:49:11.498Z",
   "run": "https://github.com/MuncleUscles/open-mathematics/actions/runs/45102308280"
 }
