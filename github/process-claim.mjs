@@ -13,14 +13,16 @@ const gh=new GitHub({repository:process.env.GITHUB_REPOSITORY,token:process.env.
 if(deployment.protocolVersion!==3||gh.repository!==deployment.repository||digest(fs.readFileSync('lean/policy.json'))!==deployment.policy||digest(fs.readFileSync('contracts/research.py'))!==deployment.codeHash)throw Error('Unenrolled v3 repository or policy');
 const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
 const commentId=Number(process.env.CLAIM_COMMENT_ID)||event.comment?.id||Number(event.inputs?.comment_id);
-if(!Number.isSafeInteger(commentId))throw Error('Signed claim comment ID required');
+if(!Number.isSafeInteger(commentId)||commentId<1)throw Error('Signed claim comment ID required');
 const comment=await gh.request(`/issues/comments/${commentId}`);
-if(comment.created_at!==comment.updated_at||comment.body.length>20000)throw Error('Fresh unedited signed comment required');
+const claimAt=Date.parse(comment?.created_at);
+if(comment?.id!==commentId||typeof comment.created_at!=='string'||!Number.isFinite(claimAt)||comment.created_at!==comment.updated_at||
+   typeof comment.body!=='string'||comment.body.length>20000)throw Error('Fresh unedited signed comment required');
 const match=comment.body.match(/^Open-Mathematics-Claim: ([a-f0-9]{64})\n```json\n([\s\S]+)\n```\s*$/);
 if(!match)throw Error('Use the exact signed claim comment format');
 const envelope=JSON.parse(match[2]),{claim,signature}=envelope;
 if(digest(claim)!==match[1])throw Error('Claim digest mismatch');
-validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contract:deployment.contract,policy:deployment.policy,branch:deployment.branch,now:Date.parse(comment.created_at)});
+validateClaim(claim,{domain:deployment.origin,chainId:deployment.chainId,contract:deployment.contract,policy:deployment.policy,branch:deployment.branch,now:claimAt});
 if((await recoverMessageAddress({message:message(claim),signature})).toLowerCase()!==claim.wallet.toLowerCase())throw Error('Invalid signature');
 if(claim.repository!==gh.repository||comment.issue_url!==`https://api.github.com/repos/${gh.repository}/issues/${claim.pr}`)throw Error('Claim repository/PR mismatch');
 const pr=await gh.pr(claim.pr);
@@ -68,7 +70,7 @@ try{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'open-math-claim-'));
   try{
    const file=path.join(dir,'claim.json');fs.writeFileSync(file,JSON.stringify(envelope));
-   const run=spawnSync(process.execPath,['github/verify-pr.mjs',file],{encoding:'utf8',timeout:90000,maxBuffer:100000,env:{PATH:process.env.PATH,GITHUB_REPOSITORY:gh.repository,GITHUB_TOKEN:process.env.GITHUB_TOKEN,VERIFIER_SIGNING_KEY:process.env.VERIFIER_SIGNING_KEY,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE,CLAIM_AT:String(Date.parse(comment.created_at))}});
+   const run=spawnSync(process.execPath,['github/verify-pr.mjs',file],{encoding:'utf8',timeout:90000,maxBuffer:100000,env:{PATH:process.env.PATH,GITHUB_REPOSITORY:gh.repository,GITHUB_TOKEN:process.env.GITHUB_TOKEN,VERIFIER_SIGNING_KEY:process.env.VERIFIER_SIGNING_KEY,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE,CLAIM_COMMENT_ID:String(commentId),CLAIM_CREATED_AT:comment.created_at}});
    if(run.status!==0)throw Error('Proof verifier rejected: '+run.stderr.slice(-3000));
    report.attestation=JSON.parse(run.stdout);
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
