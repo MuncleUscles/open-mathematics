@@ -35,7 +35,7 @@ const knownRegistrationErrors=new Set([
  'verified normal GitHub account and valid creation time required',
  'GitHub account below minimum age at original signed claim',
  'one active contribution per GitHub account; finish or expire the existing claim',
- 'three registrations per GitHub account in rolling 24 hours',
+ 'three registrations per GitHub account in rolling 24 hours', // Historical deployments: retain receipt recovery.
  'content has unresolved adjudication; same-content resubmission is fenced',
  'previously rejected content cannot receive a fresh adjudication',
  'same content already has an active or settled claim',

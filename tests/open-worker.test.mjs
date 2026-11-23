@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {privateKeyToAccount} from 'viem/accounts';
 import {canonical,digest,message} from '../src/security.mjs';
-import {sha256} from '../src/open-research.mjs';
+import {sha256,openMigrationHash} from '../src/open-research.mjs';
 import {verifyFinalizedOutcome} from '../src/studio.mjs';
 import {readOpenClaimComment,requireClaimAuthor,exactOpenReport,eligibleOpenClaim,selectOpenClaim,readOpenRecoveryClaim} from '../github/open-select.mjs';
 import {
@@ -391,6 +391,33 @@ test('a shared subtree cannot elide a longer branch of the dependency depth chec
  const candidate=await fixture({dependencies});
  await assert.rejects(resolveOpenDependencies({...candidate,github:creditedGitHub(credits),
   readRecord:async id=>credits.find(item=>item.record.evidence.id===id).record}),/dependency depth limit/);
+});
+
+test('an imported credited proof remains reusable only with native-bound predecessor evidence',async()=>{
+ const {problem}=await fixture(),prior=creditFixture(problem,A,0),original=structuredClone(prior.record);
+ const predecessor={address:problem.deployment.contract,snapshot_hash:hash('9')};
+ const candidate=await fixture({dependencies:[{id:A,bundle_hash:prior.record.evidence.bundle_hash}]});
+ candidate.problem={...candidate.problem,deployment:{...candidate.problem.deployment,contract:address('e'),predecessor}};
+ const provenance={inherited:true,predecessor:predecessor.address,snapshot_hash:predecessor.snapshot_hash,
+  record_hash:openMigrationHash(prior.record),original_record_hash:openMigrationHash(prior.record)};
+ const calls=[],input={...candidate,github:creditedGitHub([prior]),readRecord:async()=>prior.record,
+  readInheritance:async id=>{calls.push(id);return provenance;}};
+ const resolved=await resolveOpenDependencies(input);
+ assert.deepEqual(calls,[A]);assert.deepEqual(resolved.artifacts.map(item=>item.id),[A]);
+ assert.deepEqual(resolved.artifacts[0].bytes,prior.bytes);assert.deepEqual(prior.record,original);
+ const noGit={commit:()=>assert.fail('Unbound records must not resolve Git objects')};
+ for(const altered of [undefined,{inherited:false},{...provenance,predecessor:address('f')},
+  {...provenance,snapshot_hash:hash('f')},{...provenance,record_hash:hash('f')},
+  {...provenance,original_record_hash:'bad'},{...provenance,extra:true}]){
+  await assert.rejects(resolveOpenDependencies({...input,github:noGit,readInheritance:async()=>altered}),/inheritance commitment/);
+ }
+ await assert.rejects(resolveOpenDependencies({...input,github:noGit,readInheritance:undefined}),/authenticated predecessor/);
+ const tampered=structuredClone(prior.record);tampered.evidence.proof+='\n';
+ await assert.rejects(resolveOpenDependencies({...input,github:noGit,readRecord:async()=>tampered}),/inheritance commitment/);
+ const foreign=structuredClone(prior.record);foreign.evidence.contract=address('f');
+ await assert.rejects(resolveOpenDependencies({...input,github:noGit,readRecord:async()=>foreign,readInheritance:async()=>assert.fail('Foreign contracts must fail before provenance reads')}),/foreign contract/);
+ const rejected={...prior.record,status:'rejected'};
+ await assert.rejects(resolveOpenDependencies({...input,github:noGit,readRecord:async()=>rejected,readInheritance:async()=>({...provenance,record_hash:openMigrationHash(rejected)})}),/must be credited/);
 });
 
 test('formal evidence must contain observed direct proof uses and an isolated result',async()=>{

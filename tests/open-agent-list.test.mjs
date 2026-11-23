@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {listOpenContributions} from '../scripts/open-agent.mjs';
+import {listOpenContributions,readOpenContributionStatus} from '../scripts/open-agent.mjs';
+import {openMigrationHash} from '../src/open-research.mjs';
 
 const contract='0x'+'1'.repeat(40),problem={descriptor:{protocol:{commit:'a'.repeat(40)}},deployment:{problem:'p-vs-np',repository:'owner/problem',branch:'research',chainId:61999,contract}};
 const record=(id,changes={})=>({status:'credited',credited_points:'260',award_budget:'300',impact_reserve:'60',reserve_settled:true,evidence:{...problem.deployment,id,context:JSON.stringify({title:'A useful contribution '+id}),claim:'Precisely stated scope',formal_statement:'∀ n : Nat, n = n',evidence_kind:'formal',verification:'verified',research_direction:'A chosen direction',bundle_hash:'b'.repeat(64)},...changes});
@@ -29,4 +30,38 @@ test('list refuses substituted records and never labels notes as reusable formal
  const read=r=>async method=>method==='list_contributions'?{items:['pr-1'],total:1,next_offset:null}:r;
  for(const change of [{id:'pr-other'},{contract:'0x'+'2'.repeat(40)},{repository:'other/problem'},{problem:'other'},{branch:'main'}]){const r=record('pr-1');Object.assign(r.evidence,change);await assert.rejects(listOpenContributions({native:read(r),problem}),/scope mismatch/);}
  const note=record('pr-1');Object.assign(note.evidence,{evidence_kind:'research-note',verification:'not-formal',formal_statement:''});const page=await listOpenContributions({native:read(note),problem});assert.equal(page.items[0].eligible_dependency,false);assert.equal(page.items[0].scope.verification,'not-formal');
+});
+
+test('list discovers inherited credited work only through successor-authenticated provenance',async()=>{
+ const predecessor={address:contract,snapshot_hash:'c'.repeat(64)},successor={...problem,deployment:{...problem.deployment,contract:'0x'+'2'.repeat(40),predecessor}};
+ const r=record('pr-1'),provenance={inherited:true,predecessor:contract,snapshot_hash:predecessor.snapshot_hash,record_hash:openMigrationHash(r),original_record_hash:openMigrationHash(r)},calls=[];
+ const native=async(method,args)=>{calls.push([method,args]);if(method==='list_contributions')return {items:['pr-1'],total:1,next_offset:null};if(method==='get')return r;if(method==='get_inheritance')return provenance;assert.fail(method);};
+ const page=await listOpenContributions({native,problem:successor});
+ assert.equal(page.items[0].eligible_dependency,true);assert.deepEqual(page.items[0].inheritance,provenance);
+ assert.deepEqual(calls.at(-1),['get_inheritance',['pr-1']]);assert.equal(r.evidence.contract,contract);
+ await assert.rejects(listOpenContributions({problem:successor,native:async(method,args)=>method==='get_inheritance'?{...provenance,record_hash:'f'.repeat(64)}:native(method,args)}),/inheritance commitment/);
+ await assert.rejects(listOpenContributions({problem:successor,native:async(method,args)=>method==='get_inheritance'?{inherited:false}:native(method,args)}),/inheritance commitment/);
+});
+
+test('status prefers the current ledger and authenticates a predecessor archive before displaying it',async()=>{
+ const predecessor={address:contract,snapshot_hash:'c'.repeat(64)},successor={...problem,deployment:{...problem.deployment,contract:'0x'+'2'.repeat(40),predecessor}};
+ const old=record('pr-1');old.evidence.pr=7;
+ const current=record('pr-2');Object.assign(current.evidence,{pr:7,contract:successor.deployment.contract});
+ const archived={id:'pr-1',pr:7,contract,chainId:61999,repository:problem.deployment.repository,status:'credited'},recent={...archived,id:'pr-2',contract:successor.deployment.contract};
+ const inheritance={inherited:true,predecessor:contract,snapshot_hash:predecessor.snapshot_hash,record_hash:openMigrationHash(old),original_record_hash:openMigrationHash(old)};
+ const calls=[],native=async(method,args)=>{calls.push([method,args]);if(method==='get')return args[0]==='pr-1'?old:current;if(method==='get_inheritance')return inheritance;assert.fail(method);};
+ const active=await readOpenContributionStatus({index:{entries:[archived,recent]},number:7,problem:successor,native});
+ assert.equal(active.archived,recent);assert.equal(active.sourceContract,successor.deployment.contract);assert.deepEqual(calls,[['get',['pr-2']]]);
+ const carried=await readOpenContributionStatus({index:{entries:[archived]},number:7,problem:successor,native});
+ assert.equal(carried.archived,archived);assert.equal(carried.contract,successor.deployment.contract);assert.equal(carried.sourceContract,contract);assert.deepEqual(carried.inheritance,inheritance);
+ assert.equal(archived.contract,contract);
+ for(const altered of [{inherited:false},{...inheritance,predecessor:'0x'+'f'.repeat(40)},{...inheritance,snapshot_hash:'f'.repeat(64)},{...inheritance,record_hash:'f'.repeat(64)}]){
+  await assert.rejects(readOpenContributionStatus({index:{entries:[archived]},number:7,problem:successor,native:async(method,args)=>method==='get_inheritance'?altered:native(method,args)}),/inheritance commitment/);
+ }
+ const wrongPR=structuredClone(old);wrongPR.evidence.pr=8;
+ await assert.rejects(readOpenContributionStatus({index:{entries:[archived]},number:7,problem:successor,native:async(method)=>method==='get'?wrongPR:{...inheritance,record_hash:openMigrationHash(wrongPR)}}),/native contribution identity/);
+ await assert.rejects(readOpenContributionStatus({index:{entries:[{...archived,id:'pr-wrong'}]},number:7,problem:successor,native:async()=>old}),/scope mismatch/);
+ for(const change of [{contract:'0x'+'f'.repeat(40)},{repository:'foreign/problem'},{chainId:1}]){
+  assert.equal(await readOpenContributionStatus({index:{entries:[{...archived,...change}]},number:7,problem:successor,native:async()=>assert.fail('Foreign archives cannot trigger native reads')}),null);
+ }
 });

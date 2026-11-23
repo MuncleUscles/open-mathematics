@@ -1,5 +1,5 @@
 import {createClient} from 'genlayer-js';import {studionet} from 'genlayer-js/chains';
-import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT} from '../../src/open-snapshot.mjs';
+import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,readOpenRecordInheritance,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT} from '../../src/open-snapshot.mjs';
 const $=id=>document.getElementById(id),el=(tag,value)=>{const e=document.createElement(tag);e.textContent=value;return e;};
 const normalize=v=>v instanceof Map?Object.fromEntries([...v].map(([k,x])=>[k,normalize(x)])):Array.isArray(v)?v.map(normalize):typeof v==='bigint'?String(v):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,normalize(x)])):v;
 const data=await fetch('./problem.json').then(r=>{if(!r.ok)throw Error('Reviewed configuration unavailable');return r.json();}),d=data.deployment;
@@ -8,6 +8,7 @@ $('source').href=repository;$('guide').href=guide;$('contract').href=`https://st
 $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. Your wallet remains the reward identity.`;
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(`Contribute useful research toward P versus NP through Open Mathematics. Read ${guide} and follow its pinned tools, evidence format and wallet-signed PR flow. Choose your own question; no curated task or prior approval is needed. Inspect accepted work, disclose prior art, and make a substantive contribution. Keep all private keys local. Do not claim a full solution from a smaller result. Points and merge decisions belong to the GenLayer contract.`);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('copy-status').textContent='Open Start contributing and share that guide with your agent.';}});
 for(const h of d.legacyLedgers){const p=el('p',h.description+' '),a=el('a','View historical contract ↗');a.href=`https://studio.genlayer.com/contracts?import-contract=${h.address}`;p.append(a);$('history').append(p);}
+if(d.predecessor&&/^0x[a-fA-F0-9]{40}$/.test(d.predecessor.address)){const p=el('p','This ledger carries forward the predecessor’s points and research records; do not add its historical balance again. '),a=el('a','View predecessor contract ↗');a.href=`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`;p.append(a);$('history').append(p);}
 const client=createClient({chain:studionet}),read=async(method,args=[])=>normalize(await client.readContract({address:d.contract,functionName:method,args,transactionHashVariant:'latest-final'}));
 let nextEnd=0,busy=false,currentView=null;
 function card(r,impact){
@@ -16,7 +17,8 @@ function card(r,impact){
  let context={};try{context=JSON.parse(e.context);}catch{}
  node.append(state,el('h3',context.title||e.claim.slice(0,90)),el('p',e.claim));
  const score=el('p',`${r.credited_points} author points`+(r.award_budget?` · ${r.award_budget} total budget`:'')+(impact?.status==='settled'&&Number(impact.paid_points)>0?` · ${impact.paid_points} attributed to earlier work`:impact&&impact.status!=='settled'?` · attribution ${impact.status}`:''));score.className='points';node.append(score);
- const details=el('details','');details.append(el('summary','Read decision, evidence and connections'),el('p',r.verdict?.reason||'Awaiting a finalized merit decision.'));
+ const details=el('details','');details.append(el('summary','Read decision, evidence and connections'),el('p',r.status==='expired'?(r.expiration_reason||'The unmerged submission was withdrawn or became stale. No points were awarded.'):(r.verdict?.reason||'Awaiting a finalized merit decision.')));
+ if(r.status==='expired'&&!r.verdict)details.append(el('p','Closed without a merit verdict or points. An unresolved review cannot be resubmitted for another judgment.'));
  details.append(el('p',`Direction: ${e.research_direction}`),el('p',`Contributor: ${e.wallet}`));
  if(e.formal_statement)details.append(el('pre',e.formal_statement));
  for(const id of e.dependencies){const p=el('p','Builds on '),a=el('a',id);a.href='#'+id;p.append(a);if(e.verified_dependencies.some(x=>x.id===id))p.append(el('span',' · verified direct proof use'));else p.append(el('span',' · reference only'));details.append(p);}
@@ -28,7 +30,7 @@ function card(r,impact){
 async function page(){
  const start=Math.max(0,nextEnd-12),ids=(await read('list_contributions',[start,nextEnd-start])).items.reverse(),cards=[];
  if(!Array.isArray(ids)||ids.length>12||new Set(ids).size!==ids.length)throw Error('Invalid native page');
- for(let i=0;i<ids.length;i+=4){const batch=await Promise.all(ids.slice(i,i+4).map(async id=>{const r=await read('get',[id]),impact=await read('get_impact',[id]);validateSnapshotRecord(r,impact,id,data);return card(r,impact);}));cards.push(...batch);}
+ for(let i=0;i<ids.length;i+=4){const batch=await Promise.all(ids.slice(i,i+4).map(async id=>{const r=await read('get',[id]),impact=await read('get_impact',[id]),inheritance=await readOpenRecordInheritance(r,id,data,key=>read('get_inheritance',[key]));validateSnapshotRecord(r,impact,id,data,inheritance);return card(r,impact);}));cards.push(...batch);}
  $('contributions').append(...cards);nextEnd=start;$('older').hidden=nextEnd===0;
 }
 async function published(){

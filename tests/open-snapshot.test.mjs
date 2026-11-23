@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {collectOpenSnapshot, validateOpenSnapshot, openSnapshotLabel, chooseOpenLedgerView, SNAPSHOT_READ_LIMIT} from '../src/open-snapshot.mjs';
+import {collectOpenSnapshot, validateOpenSnapshot, openSnapshotLabel, chooseOpenLedgerView, openMigrationHash, SNAPSHOT_READ_LIMIT} from '../src/open-snapshot.mjs';
 import {writeOpenSnapshot} from '../scripts/capture-open-ledger.mjs';
 
 const address = digit => '0x' + digit.repeat(40), hash = digit => digit.repeat(64), commit = digit => digit.repeat(40);
@@ -38,7 +38,7 @@ function native(total = 1, override = () => undefined) {
 
 test('capture reads only the newest bounded page with exact original source pins and dated provenance', async () => {
   const {read, calls} = native(1000), snapshot = await collectOpenSnapshot({problem, read});
-  assert.equal(calls.length, SNAPSHOT_READ_LIMIT);
+  assert.equal(calls.length, 28); assert.ok(calls.length <= SNAPSHOT_READ_LIMIT);
   assert.deepEqual(calls[3], ['list_contributions', [988, 12]]);
   assert.equal(snapshot.offset, 988);
   assert.equal(snapshot.records.length, 12);
@@ -54,6 +54,43 @@ test('capture reads only the newest bounded page with exact original source pins
 test('empty ledger uses only three unsigned views and never fabricates records', async () => {
   const {read, calls} = native(0), snapshot = await collectOpenSnapshot({problem, read});
   assert.equal(calls.length, 3); assert.deepEqual(snapshot.records, []); assert.equal(snapshot.count, '0');
+});
+
+test('inherited snapshots authenticate each original contract without adding balances again', async () => {
+  const predecessor = {address: problem.deployment.contract, snapshot_hash: hash('e')};
+  const successor = {...problem, deployment: {...problem.deployment, contract: address('f'), predecessor}};
+  const provenance = r => ({inherited: true, predecessor: predecessor.address, snapshot_hash: predecessor.snapshot_hash,
+    record_hash: openMigrationHash(r), original_record_hash: openMigrationHash(r)});
+  const provider = native(12, (method, args) => method === 'get_config' ? {...structuredClone(config), predecessor} : method === 'get_inheritance' ? provenance(record(args[0])) : undefined);
+  const snapshot = await collectOpenSnapshot({problem: successor, read: provider.read});
+  assert.equal(provider.calls.length, SNAPSHOT_READ_LIMIT);
+  assert.equal(snapshot.inheritances.length, 12);
+  assert.equal(snapshot.records[0].evidence.contract, predecessor.address);
+  assert.equal(snapshot.points.total_awarded, points.total_awarded);
+  assert.equal(provider.calls.filter(([method]) => method === 'get_points').length, 1);
+  assert.deepEqual(provider.calls[6], ['get_inheritance', ['pr-0']]);
+  assert.equal(validateOpenSnapshot(snapshot, successor), snapshot);
+  for (const mutate of [
+    s => { delete s.inheritances; }, s => { s.inheritances[0] = {inherited: false}; },
+    s => { s.inheritances[0].predecessor = address('a'); }, s => { s.inheritances[0].snapshot_hash = hash('a'); },
+    s => { s.inheritances[0].record_hash = hash('a'); }, s => { delete s.inheritances[0].original_record_hash; },
+    s => { s.records[0].evidence.claim = 'Substituted original evidence'; }, s => { s.records[0].evidence.contract = address('a'); },
+    s => { s.config.predecessor.snapshot_hash = hash('a'); }, s => { s.reads.splice(6, 1); },
+  ]) { const changed = structuredClone(snapshot); mutate(changed); assert.throws(() => validateOpenSnapshot(changed, successor), /Open ledger snapshot/); }
+});
+
+test('released inherited records retain their source hash and authenticate the current state separately', async () => {
+  const predecessor = {address: problem.deployment.contract, snapshot_hash: hash('e')};
+  const successor = {...problem, deployment: {...problem.deployment, contract: address('f'), predecessor}};
+  const original = record('pr-0'); Object.assign(original, {status: 'submitted', credited_points: '0', verdict: null});
+  const released = {...original, status: 'expired', release_reason: 'The unmerged PR was closed.'};
+  const inheritance = {inherited: true, predecessor: predecessor.address, snapshot_hash: predecessor.snapshot_hash,
+    record_hash: openMigrationHash(released), original_record_hash: openMigrationHash(original)};
+  const provider = native(1, method => method === 'get_config' ? {...structuredClone(config), predecessor} : method === 'get' ? released : method === 'get_inheritance' ? inheritance : undefined);
+  const snapshot = await collectOpenSnapshot({problem: successor, read: provider.read});
+  assert.equal(snapshot.records[0].status, 'expired');
+  assert.notEqual(snapshot.inheritances[0].record_hash, snapshot.inheritances[0].original_record_hash);
+  assert.equal(snapshot.inheritances[0].original_record_hash, openMigrationHash(original));
 });
 
 test('capture stops on its first failed read and does not retry explicit provider throttling', async () => {

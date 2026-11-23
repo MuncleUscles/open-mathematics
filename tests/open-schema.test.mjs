@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {validateOpenSubmission,decodeOpenSubmission,openSubmissionBlobs,validateOpenClaim,requireOpenConfiguration} from '../src/open-research.mjs';
+import {validateOpenSubmission,decodeOpenSubmission,openSubmissionBlobs,validateOpenClaim,requireOpenConfiguration,openNativeConfiguration,validateOpenConstructor,validateOpenPredecessor,openMigrationHash} from '../src/open-research.mjs';
 import {claimFor,submissionTemplate} from '../scripts/open-agent.mjs';
 const wallet='0x'+'1'.repeat(40),contract='0x'+'2'.repeat(40),hash='a'.repeat(64),head='b'.repeat(40),base='c'.repeat(40),worker='d'.repeat(40);
 const problem={descriptor:{id:'p-vs-np',protocol:{commit:worker}},policyHash:hash,policy:{objective:'Resolve P versus NP; useful work toward either outcome is welcome.'},deployment:{problem:'p-vs-np',repository:'owner/problem',branch:'research',chainId:61999,contract,origin:'https://example.com',verifier:'0x'+'3'.repeat(40),executor:'0x'+'4'.repeat(40),windowSeconds:300,minimumGitHubAccountAgeDays:30,legacyLedgers:[]}};
@@ -33,4 +33,29 @@ test('native open rules and service identities must match local reviewed configu
  assert.equal(await requireOpenConfiguration(problem,async()=>config),config);
  await assert.rejects(requireOpenConfiguration(problem,async()=>({...config,policy:'f'.repeat(64)})),/mismatch/);
  await assert.rejects(requireOpenConfiguration(problem,async()=>({...config,verifier:wallet})),/role/);
+});
+
+test('optional predecessor configuration is exact and bound without changing older deployments',async()=>{
+ const old=openNativeConfiguration(problem);assert.equal(Object.hasOwn(old,'predecessor'),false);assert.equal(validateOpenConstructor(old),old);
+ const predecessor={address:wallet,snapshot_hash:'f'.repeat(64)},successor={...problem,deployment:{...problem.deployment,predecessor}},config=openNativeConfiguration(successor);
+ assert.deepEqual(config.predecessor,predecessor);assert.equal(validateOpenConstructor(config),config);
+ await requireOpenConfiguration(successor,async()=>({...config,version:'5',window:'300',minimum_account_age_days:'30'}));
+ await assert.rejects(requireOpenConfiguration(successor,async()=>old),/mismatch/);
+ await assert.rejects(requireOpenConfiguration(problem,async()=>config),/mismatch/);
+ await assert.rejects(requireOpenConfiguration(successor,async()=>({...config,predecessor:{...predecessor,snapshot_hash:'e'.repeat(64)}})),/mismatch/);
+ for(const invalid of [null,undefined,{address:wallet},{...predecessor,extra:true},{...predecessor,address:'0x'+'0'.repeat(40)},{...predecessor,snapshot_hash:'bad'}])assert.throws(()=>validateOpenConstructor({...old,predecessor:invalid}),/predecessor/);
+ assert.throws(()=>validateOpenPredecessor({...predecessor,address:contract},problem.deployment),/current or a separate historical/);
+ const legacy={chain_id:61999,address:wallet,reserved_statement_hashes:[],reserved_proposition_hashes:[],description:'A separately scoped historical ledger.'};
+ assert.throws(()=>validateOpenConstructor({...config,legacy_ledgers:[legacy]}),/current or a separate historical/);
+ const claim=claimFor(successor,{pr:3,head,base,recordPath:'research/submissions/new-direction.json',recordBytes:Buffer.from('{}'),wallet});
+ assert.equal(claim.contract,contract);
+ assert.throws(()=>validateOpenClaim({...claim,contract:predecessor.address},successor),/contract/);
+});
+
+test('migration hash matches the native canonical Unicode and integer golden vector',()=>{
+ const value={z:true,a:[4,-1,false,null,{'α':'∀ n, n = n',count:400}],numeric_string:'400'};
+ assert.equal(openMigrationHash(value),'63713c1301338e9ea85cef15250dcd4faa20c306e3330d1d82f8d8ac5f92674b');
+ assert.equal(openMigrationHash(value),openMigrationHash({numeric_string:'400',a:['4',-1n,false,null,{count:'400','α':'∀ n, n = n'}],z:true}));
+ assert.equal(value.a[0],4);assert.equal(value.a[2],false);
+ assert.notEqual(openMigrationHash(value),openMigrationHash({...value,z:'true'}));
 });

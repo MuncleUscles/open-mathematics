@@ -13,7 +13,7 @@ import {fetchGitHubIdentity,validateGitHubIdentityEvidence} from '../src/github-
 import {canonical,digest,message} from '../src/security.mjs';
 import {
  decodeOpenSubmission,openSubmissionBlobs,parseProblemJSON,requireOpenConfiguration,sha256,stableJSON,
- validateOpenArtifactBytes,validateOpenClaim,verifyOpenCheckout,
+ validateOpenArtifactBytes,validateOpenClaim,verifyOpenCheckout,readOpenRecordInheritance,
 } from '../src/open-research.mjs';
 import {clientFor,read} from './runtime.mjs';
 import {loadWorkflowOpenProblem,positiveId} from './open-select.mjs';
@@ -104,13 +104,16 @@ function validateBundleDeps(bundle,expectedIds){
 
 // Resolve one exact, previously credited record at a time. A regular blob
 // reachable from an exact two-parent canonical merge is the prior input.
-async function creditedArtifact(github,problem,id,readRecord,formal){
+async function creditedArtifact(github,problem,id,readRecord,formal,readInheritance){
  const {deployment:d,policyHash}=problem;
  const record=await readRecord(id);
  const e=record?.evidence;
  ensure(record?.status==='credited'&&e?.id===id&&e.repository===d.repository&&e.branch===d.branch&&
-  e.problem===d.problem&&sameAddress(e.contract,d.contract)&&e.policy===policyHash,
+  e.problem===d.problem&&e.policy===policyHash,
  'Dependency must be credited in this exact problem ledger and policy');
+ try{await readOpenRecordInheritance(record,id,problem,readInheritance);}catch(error){
+  throw Error('Dependency must be credited in this exact problem ledger and policy: '+error.message);
+ }
  const type=e.evidence_kind;
  const formalRecord=type==='formal'&&e.verification==='verified'&&
   typeof e.artifact_path==='string'&&/^research\/artifacts\/[a-z0-9][a-z0-9-]{0,63}\.json$/.test(e.artifact_path);
@@ -143,7 +146,7 @@ async function creditedArtifact(github,problem,id,readRecord,formal){
  return {id,bundle_hash:e.bundle_hash,artifact_hash:e.artifact_hash,bytes,dependencies:[]};
 }
 
-export async function resolveOpenDependencies({github,problem,claim,submission,artifactText,readRecord}){
+export async function resolveOpenDependencies({github,problem,claim,submission,artifactText,readRecord,readInheritance}){
  const formal=submission.evidence.kind==='formal',expectedIds=declaredDependencies(submission);
  const bundle=formal?parseBundle(artifactText):null;
  if(formal)validateBundleDeps(bundle,expectedIds);
@@ -159,7 +162,7 @@ export async function resolveOpenDependencies({github,problem,claim,submission,a
   }
   ensure(pending.size+resolved.size<8,'Credited dependency closure exceeds eight artifacts');
   pending.add(id);
-  const artifact=await creditedArtifact(github,problem,id,readRecord,formal);
+  const artifact=await creditedArtifact(github,problem,id,readRecord,formal,readInheritance);
   ensure(!expectedHash||artifact.bundle_hash===expectedHash,'Credited dependency bundle commitment mismatch');
   let height=0;
   if(formal){
@@ -348,7 +351,7 @@ async function main(){
  const {artifactBytes,recordBytes,submission}=await readOpenBlobs(github,claim,problem);
  const artifactText=validateOpenArtifactBytes(artifactBytes,submission.evidence.kind);
  const dependencies=await resolveOpenDependencies({github,problem,claim,submission,artifactText,
-  readRecord:id=>read(client,d.contract,'get',[id])});
+  readRecord:id=>read(client,d.contract,'get',[id]),readInheritance:id=>read(client,d.contract,'get_inheritance',[id])});
  const result=submission.evidence.kind==='formal'?
   runFormal({problem,claim,artifactBytes,artifactText,submission,dependencies}):noteResult(problem,claim,artifactText);
  const claimDigest=digest(claim);

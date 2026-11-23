@@ -2,6 +2,10 @@
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import copy
+import os
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -513,7 +517,7 @@ def test_impact_challenge_preserves_or_reduces_existing_recipients_only(open_pro
     assert open_protocol.get_points(address(direct_alice))["impact_points"] == "0"
 
 
-def test_github_admission_quota_cannot_be_evaded_with_wallets_or_expiration(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
+def test_one_active_github_claim_remains_but_fourth_same_day_registration_is_allowed(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
     first = submit(open_protocol, direct_vm, direct_alice, direct_owner, "first")
     with direct_vm.expect_revert("one active contribution"):
         submit(open_protocol, direct_vm, direct_alice, direct_charlie, "same-controller")
@@ -530,13 +534,9 @@ def test_github_admission_quota_cannot_be_evaded_with_wallets_or_expiration(open
         submit(open_protocol, direct_vm, direct_alice, direct_charlie, key)
         direct_vm.sender = direct_bob
         open_protocol.release_unmerged(key, "The contributor closed this exact PR before a canonical merge.")
-    with direct_vm.expect_revert("rolling 24 hours"):
-        submit(open_protocol, direct_vm, direct_alice, direct_owner, "fourth")
-    # Native registration timestamps, not caller-supplied comment timestamps, set the rolling limit.
-    deadline = open_protocol.get("first")["deadline"]
-    direct_vm.warp(datetime.fromtimestamp(deadline + 86401, timezone.utc).isoformat())
     submit(open_protocol, direct_vm, direct_alice, direct_owner, "fourth")
     assert open_protocol.count_contributions() == 4
+    assert open_protocol.get_problem()["admission_limits"]["registrations_per_rolling_24h"] is None
 
 
 def test_final_rejection_remembers_exact_bundle_but_stale_expiration_does_not(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
@@ -876,3 +876,197 @@ def test_model_challenge_payloads_omit_wallet_but_public_evidence_keeps_it(open_
     assert all(set(item) == {'evidence'} for item in captured[-1]['challenges'])
     assert 'wallet' in open_protocol.get_impact('later')['challenges'][0]
     assert all(set(item) == {'evidence'} for item in captured[-1]['downstream']['challenges'])
+
+
+# Cross-contract reads are mocked at the actual SDK CallContract boundary.
+# These fixtures test deterministic migration, not network finality/consensus.
+def migration_hash(value):
+    def normalize(item):
+        if type(item) is int:
+            return str(item)
+        if isinstance(item, list):
+            return [normalize(value) for value in item]
+        if isinstance(item, dict):
+            return {key: normalize(value) for key, value in item.items()}
+        return item
+    return digest(json.dumps(normalize(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+
+
+@pytest.fixture
+def pilot_snapshot(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
+    credited(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, "credited")
+    settle_impact(open_protocol, direct_vm, direct_bob, "credited", [])
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, "rejected")
+    settle_initial(open_protocol, direct_vm, direct_bob, "rejected", accept=False)
+    submit(open_protocol, direct_vm, direct_alice, direct_charlie, "pending")
+    direct_vm.sender = direct_bob
+    open_protocol.begin_adjudication("pending", 0)
+    ids = open_protocol.list_contributions(0, 16)["items"]
+    records = [open_protocol.get(key) for key in ids]
+    snapshot = {"config": open_protocol.get_config(), "records": records,
+                "impacts": [open_protocol.get_impact(key) for key in ids],
+                "balances": [{"wallet": recipient, "value": open_protocol.get_points(recipient)}
+                             for recipient in sorted(set(r["evidence"]["wallet"].lower() for r in records))]}
+    # Direct mode has one storage namespace. Project these native records to a
+    # distinct predecessor address before replacing that namespace for the child.
+    for record, impact in zip(snapshot["records"], snapshot["impacts"]):
+        record["evidence"]["contract"] = "0x" + "7" * 40
+        record["digest"] = digest(json.dumps(record["evidence"]))
+        if "source_digest" in impact:
+            impact["source_digest"] = record["digest"]
+    return snapshot
+
+
+def deploy_successor(vm, deploy, snapshot, *, commitment=None, constructor=None, count=None, page=None):
+    from gltest.direct.vm import InmemManager
+    vm._storage = InmemManager()
+    # Direct mode supports one loaded contract class; preserve the captured
+    # predecessor responses, then allocate a fresh child class/storage context.
+    if contracts := sys.modules.get("genlayer.gl.genvm_contracts"):
+        contracts.__known_contract__ = None
+    source_address = snapshot["records"][0]["evidence"]["contract"]
+    calls = []
+    def hook(_vm, request):
+        from genlayer.py import calldata
+        call = request["CallContract"]
+        assert str(call["address"]).lower() == source_address.lower()
+        assert call["state"] == 1, "migration must read finalized predecessor state"
+        method, args = call["calldata"]["method"], call["calldata"].get("args", [])
+        calls.append((method, args))
+        records = {r["evidence"]["id"]: r for r in snapshot["records"]}
+        values = {
+            "get_config": lambda: snapshot["config"],
+            "count_contributions": lambda: len(records) if count is None else count,
+            "list_contributions": lambda: page if page is not None else {"items": list(records), "total": len(records), "next_offset": None},
+            "get": lambda: records[args[0]],
+            "get_impact": lambda: next(i for i in snapshot["impacts"] if i["downstream"] == args[0]),
+            "get_points": lambda: next(b["value"] for b in snapshot["balances"] if b["wallet"] == args[0]),
+        }
+        if method == "list_contributions":
+            assert args == [0, 16]
+        return b"\x00" + calldata.encode(copy.deepcopy(values[method]()))
+    vm._gl_call_hook = hook
+    setup = copy.deepcopy(snapshot["config"] if constructor is None else constructor)
+    setup["predecessor"] = {"address": source_address, "snapshot_hash": commitment or migration_hash(snapshot)}
+    return deploy(SOURCE, json.dumps(setup), sdk_version="v0.2.16"), calls
+
+
+def test_four_serial_resolved_same_day_claims_have_no_daily_quota(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+    start = datetime.now(timezone.utc).timestamp()
+    for index in range(4):
+        key = f"serial-{index}"
+        submit(open_protocol, direct_vm, direct_alice, direct_owner, key)
+        settle_initial(open_protocol, direct_vm, direct_bob, key, accept=False)
+    assert datetime.now(timezone.utc).timestamp() - start < 86400
+    assert open_protocol.count_contributions() == 4
+    assert open_protocol.get_points(address(direct_owner))["total_awarded"] == "0"
+
+
+def test_successor_preserves_400_history_and_pending_fence_then_rewards_inherited_dependency(pilot_snapshot, direct_vm, direct_deploy, direct_alice, direct_bob, direct_owner, direct_charlie):
+    snapshot = pilot_snapshot
+    child, calls = deploy_successor(direct_vm, direct_deploy, snapshot)
+    vector = {"z": True, "a": [4, -1, False, None, {"α": "∀ n, n = n", "count": 400}], "numeric_string": "400"}
+    assert sys.modules[child.__class__.__module__].migration_digest(vector) == "63713c1301338e9ea85cef15250dcd4faa20c306e3330d1d82f8d8ac5f92674b"
+    assert [method for method, _ in calls[:3]] == ["get_config", "count_contributions", "list_contributions"]
+    assert [args[0] for method, args in calls if method == "get_points"] == sorted(b["wallet"] for b in snapshot["balances"])
+    assert child.list_contributions(0, 16)["items"] == ["credited", "rejected", "pending"]
+    for record in snapshot["records"]:
+        key = record["evidence"]["id"]
+        assert child.get(key) == record
+        info = child.get_inheritance(key)
+        assert info == {"inherited": True, "predecessor": "0x" + "7" * 40,
+                        "snapshot_hash": migration_hash(snapshot), "record_hash": migration_hash(record),
+                        "original_record_hash": migration_hash(record)}
+    for balance in snapshot["balances"]:
+        assert child.get_points(balance["wallet"]) == balance["value"]
+    with direct_vm.expect_revert("signed claim already registered"):
+        submit(child, direct_vm, direct_alice, direct_owner, "replayed-claim", claim_digest=snapshot["records"][0]["evidence"]["claim_digest"])
+    direct_vm.sender = direct_bob
+    for key in ["credited", "rejected", "pending"]:
+        with direct_vm.expect_revert("inherited adjudication"):
+            child.begin_adjudication(key, 0)
+        with direct_vm.expect_revert("inherited adjudication"):
+            child.adjudicate(key, 0)
+    with direct_vm.expect_revert("one active contribution"):
+        submit(child, direct_vm, direct_alice, direct_owner, "fourth")
+    before = child.get_inheritance("pending")
+    expire(child, direct_vm, direct_bob, "pending")
+    after = child.get_inheritance("pending")
+    assert before["original_record_hash"] == after["original_record_hash"]
+    assert before["record_hash"] != after["record_hash"] == migration_hash(child.get("pending"))
+    with direct_vm.expect_revert("unresolved adjudication"):
+        submit(child, direct_vm, direct_alice, direct_owner, "retry-pending", github_author_id=2,
+               **same_content(snapshot["records"][2]["evidence"], proof_edit=True))
+    with direct_vm.expect_revert("previously rejected"):
+        submit(child, direct_vm, direct_alice, direct_owner, "retry-rejection", github_author_id=2,
+               **same_content(snapshot["records"][1]["evidence"], proof_edit=True))
+    prior = snapshot["records"][0]
+    direct_vm.sender = direct_bob
+    child.confirm_merge("credited", prior["evidence"]["head"], prior["merge_commit"])
+    assert child.get_points(address(direct_owner))["total_awarded"] == "400"
+    later = credited(child, direct_vm, direct_alice, direct_bob, direct_charlie, "later", dependencies=["credited"],
+                     verified_dependencies=[use(prior["evidence"])])
+    assert child.get_inheritance(later["id"]) == {"inherited": False}
+    settle_impact(child, direct_vm, direct_bob, "later", [("credited", 1)])
+    assert child.get_points(address(direct_owner))["points"] == "426"
+    assert child.get_points(address(direct_charlie))["points"] == "374"
+    assert child.get_points(address(direct_owner))["total_awarded"] == "800"
+    assert child.get_points(address(direct_owner))["total_reserved_points"] == "0"
+    assert child.get("credited") == prior
+
+
+@pytest.mark.parametrize("mutation,error", [
+    (lambda s: s["records"][0].update(credited_points="401"), "settled reserve"),
+    (lambda s: s["balances"][0]["value"].update(points="999"), "accounting"),
+    (lambda s: s["impacts"][0].update(paid_points="1"), "without upstream awards"),
+    (lambda s: s["records"][2].update(adjudication_started_round=-1), "unsupported predecessor"),
+    (lambda s: s["records"][2].update(adjudication_finished_round=0), "adjudication fence"),
+    (lambda s: s["records"][2].update(verdict={"accept": True}), "no completed judgment"),
+    (lambda s: s["records"][1].update(status="provisional"), "unsupported predecessor"),
+    (lambda s: s["records"][1].update(round=1), "unsupported predecessor"),
+    (lambda s: s["records"][2].update(challenges=[{"evidence": "earlier challenge"}]), "unsupported predecessor"),
+    (lambda s: s["records"][0]["evidence"].update(proof="changed bytes"), "content commitments"),
+])
+def test_successor_rejects_unsupported_or_inconsistent_committed_histories(pilot_snapshot, direct_vm, direct_deploy, mutation, error):
+    mutation(pilot_snapshot)
+    with direct_vm.expect_revert(error):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot)
+
+
+def test_successor_rejects_snapshot_drift_and_wrong_configuration(pilot_snapshot, direct_vm, direct_deploy):
+    with direct_vm.expect_revert("snapshot commitment"):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot, commitment="0" * 64)
+    changed = copy.deepcopy(pilot_snapshot["config"])
+    changed["objective"] += " An altered objective must not inherit automatically."
+    with direct_vm.expect_revert("identical configuration"):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot, constructor=changed)
+    original = copy.deepcopy(pilot_snapshot["config"])
+    pilot_snapshot["config"]["predecessor"] = {"address": "0x" + "6" * 40, "snapshot_hash": "1" * 64}
+    with direct_vm.expect_revert("one hop"):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot, constructor=original)
+
+
+def test_successor_rejects_unbounded_or_incomplete_registry(pilot_snapshot, direct_vm, direct_deploy):
+    for count in [0, 17, True]:
+        with direct_vm.expect_revert("one to sixteen"):
+            deploy_successor(direct_vm, direct_deploy, pilot_snapshot, count=count)
+    with direct_vm.expect_revert("complete bounded predecessor"):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot, page={"items": ["credited"], "total": 3, "next_offset": 1})
+    duplicate = copy.deepcopy(pilot_snapshot["records"][0])
+    duplicate["evidence"]["id"] = "second-credit"
+    pilot_snapshot["records"].append(duplicate)
+    pilot_snapshot["impacts"].append({**pilot_snapshot["impacts"][0], "downstream": "second-credit"})
+    with direct_vm.expect_revert("at most one credited"):
+        deploy_successor(direct_vm, direct_deploy, pilot_snapshot)
+
+
+@pytest.mark.skipif(not os.environ.get("OPEN_MATH_PREDECESSOR_SNAPSHOT"), reason="Optional exact live predecessor fixture is supplied by the release audit")
+def test_exact_captured_live_predecessor_is_supported(direct_vm, direct_deploy):
+    snapshot = json.loads(Path(os.environ["OPEN_MATH_PREDECESSOR_SNAPSHOT"]).read_text())
+    assert migration_hash(snapshot) == "3d91b53dbf4bf783c9abce91a1ece3fc8ec6f28315bcfbb765af615ebb5d8a88"
+    child, _ = deploy_successor(direct_vm, direct_deploy, snapshot)
+    for record in snapshot["records"]:
+        assert child.get(record["evidence"]["id"]) == record
+    for balance in snapshot["balances"]:
+        assert child.get_points(balance["wallet"]) == balance["value"]
+    assert child.get_points(snapshot["balances"][0]["wallet"])["total_awarded"] == "400"
