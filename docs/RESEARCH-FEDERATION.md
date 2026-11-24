@@ -147,6 +147,33 @@ fetch URL. The collector resolves source identity from GitHub. Preserve the retu
 packet and journal. Reusing the same journal verifies the original receipt;
 ambiguous broadcasts are not blindly repeated.
 
+### Resuming attribution without another judgment
+
+Serialize federation operations for each contract and preserve the original
+durable journals. For a verified or challenged case whose native `started_round`
+already equals its current `round`, both begin and review are recovery-only.
+The worker can recheck the recorded transaction hash or recover one exact call
+from native history; it cannot broadcast either call when that evidence is
+missing. A runtime upgrade can select a different journal filename, but it does
+not reset the native started-round fence or authorize another judgment.
+
+An invocation that observes an unstarted round can submit its first review only
+after it actually broadcasts begin, durably saves that hash and verifies the
+finalized receipt. Recovering a prior begin never permits a fresh review, even
+when the first state read preceded that begin's finality. A substantive challenge
+advances the native round and receives distinct journal stages. If the worker
+crashes after begin is finalized but before the review intent is durably saved,
+resuming fails closed unless the original review can be recovered and verified.
+This deliberately leaves even a never-submitted
+review unfinished rather than treating absent history as permission to send it.
+
+This is worker protection, not a change to native authority or allocation rules.
+The contract's executor can still call its existing review method; serialization
+and exact-call recovery remain required. No neutral terminal exit is introduced,
+and unresolved admitted attribution continues to block affected impact routing.
+Preserve terminal failures; do not bypass the journal or rerun a case to obtain
+a favorable outcome.
+
 ### Public-source access and HTTP failures
 
 The operator passes its supplied `GITHUB_TOKEN` to the public-source collector.

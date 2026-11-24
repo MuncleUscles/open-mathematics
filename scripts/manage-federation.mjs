@@ -8,7 +8,7 @@ import {digest,canonical} from '../src/security.mjs';
 import {loadOpenProblem,verifyOpenCheckout,parseProblemJSON} from '../src/open-research.mjs';
 import {requireOpenNative} from '../github/open-verify.mjs';
 import {clientFor,read,clean,saveJSON} from '../github/runtime.mjs';
-import {journaledTransaction} from '../github/journaled-transaction.mjs';
+import {journaledFederationTransaction} from '../github/federation-transaction.mjs';
 import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 import {collectGithubProvenance} from '../github/github-provenance.mjs';
 import {processAttribution,authorClaimPreflight} from '../github/federation-worker.mjs';
@@ -42,10 +42,10 @@ export async function run(argv=process.argv.slice(2),{loadJournal,saveJournal,ou
  const keys={verifier:process.env.VERIFIER_SIGNING_KEY,executor:process.env.EXECUTOR_SIGNING_KEY},clients={};
  const reader=withStudioBatchPacing(clientFor());await requireOpenNative(problem,reader);
  const native=(method,args=[])=>read(reader,d.contract,method,args);
- async function tx(role,stage,method,args,recoverOnly=false){
+ async function tx(role,stage,method,args,recoverOnly=false,onBroadcast){
   if(!keys[role]||createAccount(keys[role]).address.toLowerCase()!==d[role].toLowerCase())throw Error('Correct dedicated '+role+' key required');
   const client=clients[role]??=withStudioBatchPacing(clientFor(keys[role]));
-  return journaledTransaction({client,address:d.contract,sender:d[role],method,args,independent:['review_attribution','verify_author_claim','settle_author_claim'].includes(method),recoverOnly,transactions:journal.transactions,stage,save});
+  return journaledFederationTransaction({client,address:d.contract,sender:d[role],method,args,independent:['review_attribution','verify_author_claim','settle_author_claim'].includes(method),recoverOnly,onBroadcast,transactions:journal.transactions,stage,save});
  }
  const collect=collectPublicSource;
  let result;

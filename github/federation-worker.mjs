@@ -54,10 +54,17 @@ export async function processAttribution({id,read,tx,collect,save=async()=>{},no
   c=await read('get_attribution_case',[id]);
  }
  if(['verified','challenged'].includes(c.status)){
-  const round=Number(c.round);
-  if(!uint(c.round)||!hash(c.attestation_hash))throw Error('Exact round and admitted source hash required');
-  await tx('executor',`begin-r${round}`,'begin_attribution_review',[id,round,c.attestation_hash]);
-  await tx('executor',`review-r${round}`,'review_attribution',[id,round,c.attestation_hash]);
+  const round=Number(c.round),startedRound=Number(c.started_round);
+  if(!uint(c.round)||!(c.started_round===-1||c.started_round==='-1'||uint(c.started_round))||startedRound>round||!hash(c.attestation_hash))throw Error('Exact round, started round and admitted source hash required');
+  // A changed runtime or missing journal must not turn an unfinished native
+  // round into another judgment. A crash after begin but before review also
+  // fails closed on resume. The executor must serialize these operations.
+  const recoverOnly=startedRound===round;
+  let beganHere=false;
+  await tx('executor',`begin-r${round}`,'begin_attribution_review',[id,round,c.attestation_hash],recoverOnly,()=>{beganHere=true;});
+  // The first read can precede a prior begin's finality. Recovering that begin
+  // still cannot authorize a fresh review, even if startedRound looked older.
+  await tx('executor',`review-r${round}`,'review_attribution',[id,round,c.attestation_hash],recoverOnly||!beganHere);
   c=await read('get_attribution_case',[id]);
  }
  if(['provisional','settled'].includes(c.status)){
