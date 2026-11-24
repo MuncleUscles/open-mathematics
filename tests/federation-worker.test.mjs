@@ -47,3 +47,27 @@ test('settlement exact call names bind the reconciled routing revision',()=>{
  assert.throws(()=>routedImpactCall('c',{round:1,routing_revision:2}),/commitment/);
  assert.throws(()=>routedImpactCall('c',{round:1,routing_revision:-1}),/revision/);
 });
+
+test('expired review releases routing without recovering or replacing a failed judgment',async()=>{
+ for(const status of ['verified','challenged']){
+  const c={...base(),status,round:status==='challenged'?1:0,started_round:status==='challenged'?1:0,attestation_hash:'b'.repeat(64),review_deadline:100};
+  const calls=[],attribution={revision:0,initial_pool:'300'};
+  const result=await processAttribution({id:c.id,now:()=>102000,read:async(method)=>method==='get_attribution'?attribution:{...c},tx:async(...args)=>{calls.push(args);assert.equal(args[2],'expire_attribution');c.status='expired';}});
+  assert.equal(result.status,'expired');assert.deepEqual(result.attribution,attribution);
+  assert.deepEqual(calls.map(x=>x.slice(0,4)),[['executor',`expire-r${c.round}`,'expire_attribution',[c.id,c.round,c.attestation_hash]]]);
+  calls.length=0;
+  assert.equal((await processAttribution({id:c.id,read:async(method)=>method==='get_attribution'?attribution:{...c},tx:async()=>assert.fail('no writes for terminal expiry')})).status,'expired');
+ }
+});
+test('expiry cannot race a provisional success into settlement or a new judgment',async()=>{
+ const c={...base(),status:'verified',round:0,started_round:0,attestation_hash:'b'.repeat(64),review_deadline:100};
+ const calls=[];
+ await assert.rejects(processAttribution({id:c.id,now:()=>102000,read:async()=>({...c}),tx:async(...args)=>{calls.push(args);c.status='provisional';throw Error('unfinished attribution review deadline must elapse');}}),/unfinished attribution/);
+ assert.equal(calls.length,1);assert.equal(calls[0][2],'expire_attribution');
+});
+test('before expiry, a started review remains recovery-only and its terminal failure is retained',async()=>{
+ const c={...base(),status:'verified',round:0,started_round:0,attestation_hash:'b'.repeat(64),review_deadline:100};
+ const calls=[];
+ await assert.rejects(processAttribution({id:c.id,now:()=>101999,read:async()=>({...c}),tx:async(...args)=>{calls.push(args);if(args[2]==='review_attribution')throw Error('original UNDETERMINED');}}),/original UNDETERMINED/);
+ assert.deepEqual(calls.map(x=>[x[2],x[4]]),[['begin_attribution_review',true],['review_attribution',true]]);
+});
