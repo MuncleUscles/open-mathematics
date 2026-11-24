@@ -28,8 +28,29 @@ reconstructed here. They therefore have no paired baseline result. A historical
 native outcome is not an independent expert label or a fresh benchmark run.
 
 Federation A, B and C are explicit placeholders pending exact inputs and final
-receipts. The committed measurement list is empty. All 18 case/arm cells are
-`not_run`, and no accuracy or false acceptance/rejection rate is reported.
+receipts. The [committed measurements](../fixtures/benchmark/measurements.json)
+now contain one actual first-answer centralized baseline for JSP-000007. The
+[published report](../fixtures/benchmark/report.json) has one valid completed
+cell and 17 `not_run` cells. No accuracy or false acceptance/rejection rate is
+reported.
+
+The fresh Codex agent received the frozen prompt without inherited parent-chat
+context and returned `insufficient_evidence`. Its exact model identifier and
+revision were not exposed: `Codex session model` is a display description and
+`not-exposed` records an unknown revision, not an immutable model pin. Cost and
+latency remain null; the start and observation timestamps do not establish
+inference latency. There is no expert label, centralized panel, or paired
+GenLayer run. The [raw prompt, first answer, start/completion metadata and hash
+manifest](../fixtures/benchmark/runs/codex-fresh-agent-jsp-2026-11-24/README.md)
+are preserved. Publication checks verify their correspondence. The offline
+reporter validates imported measurements; it does not independently prove model
+execution or isolation.
+
+Four reported milestones match the four predeclared records. One additional
+announcement milestone is unmatched by that list and remains for review; the
+expected list was not expanded after seeing the answer. Historical organizer
+agreement is false, which is disagreement with a historical decision, not a
+finding of mathematical inaccuracy. The frozen inputs and rubric are unchanged.
 
 ## Commands
 
@@ -37,7 +58,7 @@ Run from the protocol repository:
 
 ```sh
 node scripts/judging-benchmark.mjs prepare --out /private/tmp/pnp-judging-inputs.json
-node scripts/judging-benchmark.mjs report --out /private/tmp/pnp-judging-report.json
+node scripts/judging-benchmark.mjs report --measurements fixtures/benchmark/measurements.json --out /private/tmp/pnp-judging-report.json
 node scripts/judging-benchmark.mjs report --measurements /absolute/path/measurements.json
 node --test tests/judging-benchmark.test.mjs
 ```
@@ -47,6 +68,9 @@ artifact is never silently replaced. `--fixtures` selects another reviewed
 fixture directory. Source hashes, sizes, paths and roles are checked before
 preparation or reporting. Limits are 16 cases, 32 sources, 256 KiB per source,
 2 MiB total source bytes, 192 KiB per prompt and 48 recorded case/arm attempts.
+Reports without `--measurements` remain preparation-only with zero imported
+attempts; use the explicit committed measurement path above to reproduce the
+published result. No command here runs a model or repeats the recorded judgment.
 
 Give an evaluator only the selected prepared case's `prompt`. Keep the manifest,
 historical sources and reports out of its context. In particular, do not give a
@@ -66,7 +90,10 @@ successful answers. The harness rejects duplicate case/arm attempts, so a
 failure cannot be replaced by a favorable retry in one benchmark edition.
 
 The prompt hash binds the evaluator to the frozen input. Declare provider,
-model, revision and parameters; unknown costs/latencies are `null`, not zero.
+model, revision and parameters; if an exact identifier or revision is not exposed,
+record that limitation explicitly rather than inventing a pin. Such a run cannot
+support a claim about a particular immutable model revision. Unknown
+costs/latencies are `null`, not zero.
 The offline reporter cannot independently prove that a submitted measurement
 was executed or that a panel actually followed its aggregation rule. Preserve
 raw evaluator outputs and call metadata separately for audit. Never describe

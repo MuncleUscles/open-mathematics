@@ -57,6 +57,41 @@ test('default report claims preparation only and keeps all measurement and accur
  assert.equal(report.rows.find(r=>r.case_id==='pnp-pr22').historical_reference.award,300);
 });
 
+test('the recorded first-answer baseline is bound to its unchanged prompt, raw answer and published report',async()=>{
+ const runId='codex-fresh-agent-jsp-2026-11-24',prefix='runs/'+runId+'/',root=join(FIXTURES,prefix);
+ const audit=JSON.parse(await readFile(join(root,'audit.json'),'utf8'));
+ const originals=['benchmark-jsp-prompt.txt','benchmark-jsp-output.json','benchmark-jsp-start.json','benchmark-jsp-completion.json'];
+ assert.deepEqual(Object.keys(audit.artifacts).sort(),[...originals.map(name=>prefix+name),'measurements.json','report.json'].sort());
+ for(const [path,expected] of Object.entries(audit.artifacts)){
+  const bytes=await readFile(join(FIXTURES,path));assert.equal(bytes.length,expected.bytes);assert.equal(digest(bytes),expected.sha256);
+ }
+ const prepared=await prepareBenchmark(),item=prepared.cases.find(c=>c.case_id==='jsp-000007');
+ const prompt=await readFile(join(root,'benchmark-jsp-prompt.txt'));
+ assert.deepEqual(prompt,Buffer.from(item.prompt));assert.equal(audit.prompt_sha256,item.prompt_sha256);
+ assert.equal(audit.benchmark_manifest_sha256,prepared.manifest_hash);
+ const start=JSON.parse(await readFile(join(root,'benchmark-jsp-start.json'),'utf8'));
+ const completion=JSON.parse(await readFile(join(root,'benchmark-jsp-completion.json'),'utf8'));
+ assert.equal(start.prompt_sha256,item.prompt_sha256);assert.equal(completion.first_attempt,true);
+ assert.equal(audit.execution_record.parent_conversation_inherited,false);
+ assert.equal(audit.execution_record.independently_verified_by_reporter,false);
+ const measurements=JSON.parse(await readFile(join(FIXTURES,'measurements.json'),'utf8'));
+ assert.equal(measurements.runs.length,1);const recorded=measurements.runs[0];
+ assert.equal(recorded.run_id,runId);assert.equal(recorded.prompt_sha256,item.prompt_sha256);
+ assert.deepEqual(recorded.outcome,JSON.parse(await readFile(join(root,'benchmark-jsp-output.json'),'utf8')));
+ assert.equal(recorded.models[0].revision,'not-exposed');assert.equal(audit.model_identity.exact_model_identifier,null);assert.equal(audit.model_identity.exact_revision,null);
+ assert.equal(recorded.elapsed_ms,null);assert.equal(recorded.cost_usd,null);
+ const report=await reportBenchmark({measurements});
+ assert.deepEqual(report,JSON.parse(await readFile(join(FIXTURES,'report.json'),'utf8')));
+ assert.equal(report.measurements.completed_valid,1);assert.equal(report.measurements.execution_independently_verified_by_harness,false);
+ assert.equal(report.rows.flatMap(row=>row.cells).filter(cell=>cell.status==='not_run').length,17);
+ assert.ok(report.rows.every(row=>row.comparisons.every(comparison=>comparison.paired===false)));
+ assert.equal(report.rows[0].cells[0].outcome.priority_assessment,'insufficient_evidence');
+ assert.equal(report.rows[0].cells[0].metrics.milestones_matching_frozen_records,4);assert.equal(report.rows[0].cells[0].metrics.unmatched_milestones,1);
+ for(const field of ['expert_ground_truth','accuracy','false_acceptance_rate','false_rejection_rate'])assert.equal(report[field],null);
+ const cli=await exec(process.execPath,[resolve('scripts/judging-benchmark.mjs'),'report','--measurements',join(FIXTURES,'measurements.json')]);
+ assert.deepEqual(JSON.parse(cli.stdout),report);
+});
+
 test('source hashes reject edits rather than silently refreshing documentary evidence',async t=>{
  const root=await copyFixture(t);await writeFile(join(root,'sources/mathdb-submission.lean'),'changed source');
  await assert.rejects(prepareBenchmark({fixturesDir:root}),/hash or size mismatch/);
