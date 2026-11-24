@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {collectGithubProvenance} from '../github/github-provenance.mjs';
+import {collectPublicSource} from '../scripts/manage-federation.mjs';
 
 const ROOT='https://api.github.com/repos/lab/proofs';
 const HEAD='a'.repeat(40),MERGE='b'.repeat(40),LATER='c'.repeat(40);
@@ -88,6 +89,20 @@ test('captures exact immutable bytes, PR submitter identity, license and native 
  assert.ok(f.calls.every(call=>call.options.headers.Authorization==='Bearer test-token'));
  assert.ok(f.calls.every(call=>!call.url.includes('attacker')));
  assert.ok(!JSON.stringify(result).includes('test-token'));
+});
+
+test('the operator public-source path never forwards its ambient workflow token',async()=>{
+ const f=fixture(),originalFetch=globalThis.fetch,originalToken=process.env.GITHUB_TOKEN;
+ try{
+  process.env.GITHUB_TOKEN='ambient-workflow-token-must-stay-local';globalThis.fetch=f.fetchImpl;
+  const result=await collectPublicSource(input());
+  assert.equal(result.evidence.content_sha256,digest(source));
+  assert.ok(f.calls.every(call=>!Object.hasOwn(call.options.headers,'Authorization')));
+  assert.ok(!JSON.stringify(result).includes(process.env.GITHUB_TOKEN));
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalToken===undefined)delete process.env.GITHUB_TOKEN;else process.env.GITHUB_TOKEN=originalToken;
+ }
 });
 
 test('accepts unchanged descendant only with exact merge ancestry and three matching file objects',async()=>{
@@ -254,6 +269,28 @@ test('rejects redirects and hostile response URLs without following metadata lin
   await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/response URL|HTTP 200/);
   assert.equal(f.calls.length,1);
  }
+});
+
+test('HTTP failures expose only numeric status and the constructed API path, without bodies or retries',async()=>{
+ const suffix='/pulls/7/files?per_page=10&page=2';
+ for(const status of [401,403,404,429,500,503]){
+  const f=fixture();paginate(f,13);f.overrides.set(suffix,url=>{
+   const r=response(url,null,{status,headers:{'x-secret':'header-secret'},raw:Buffer.from('body-secret')});
+   Object.defineProperty(r,'statusText',{value:'status-secret'});
+   Object.defineProperty(r,'body',{value:{getReader(){assert.fail('Must not read an error body');}}});
+   return r;
+  });
+  await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl,token:'credential-secret'}),error=>{
+   assert.equal(error.message,`GitHub provenance: HTTP ${status} for /repos/lab/proofs${suffix}; complete HTTP 200 response required`);
+   assert.ok(!error.message.includes('secret'));return true;
+  });
+  assert.equal(f.calls.length,4);
+ }
+ const foreign=fixture();foreign.overrides.set('',{status:403,responseURL:'https://evil.invalid/response-secret'});
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:foreign.fetchImpl}),error=>{
+  assert.equal(error.message,'GitHub provenance: redirected or foreign response URL');return true;
+ });
+ assert.equal(foreign.calls.length,1);
 });
 
 test('rejects oversized, compressed, truncated, malformed and non-JSON API responses',async()=>{

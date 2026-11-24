@@ -51,7 +51,10 @@ async function jsonRequest(url,{fetchImpl,headers,signal,requests}){
  try{response=await abortable(fetchImpl(url,{method:'GET',headers,redirect:'error',signal}),signal);}
  catch{need(false,signal.aborted?'retrieval deadline exceeded':'GitHub request failed');}
  need(response?.url===url&&!response.redirected,'redirected or foreign response URL');
- need(response.status===200,'complete HTTP 200 response required');
+ const status=Number.isInteger(response.status)&&response.status>=100&&response.status<=599?response.status:'unknown';
+ // Only our validated, constructed API path and numeric status enter journals.
+ // Never echo a server message, status text, response URL, headers or credential.
+ need(response.status===200,`HTTP ${status} for ${url.slice(API.length,API.length+512)}; complete HTTP 200 response required`);
  const contentType=response.headers?.get('content-type')||'';
  need(/^application\/(?:[a-z0-9.+-]+\+)?json(?:\s*;\s*charset=(?:utf-8|us-ascii))?$/i.test(contentType),'JSON content type required');
  const encoding=response.headers.get('content-encoding');
