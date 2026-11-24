@@ -1,0 +1,28 @@
+[
+  {
+    "id":"second-formal-result-dec-2026","version":1,
+    "text":"Will the apes have two credited formal results?",
+    "topic":"P vs NP · Verified progress",
+    "opensAt":"2026-11-24T14:00:00.000Z","closesAt":"2026-11-30T12:00:00.000Z","checkpointAt":"2026-12-01T12:00:00.000Z","resolutionDeadline":"2026-12-01T13:00:00.000Z",
+    "criteria":"YES if the first complete, stable finalized-ledger reading begun on December 1, 2026 at or after 12:00 UTC and completed by 13:00 UTC contains at least two records with status credited, evidence_kind formal and verification verified. Otherwise NO from a complete reading. This counts accepted formalizations, not solutions to P vs NP or claims of original discovery. The existing pilot has one credited formal result at question creation.",
+    "predicate":{"kind":"credited-formal-count","threshold":2},
+    "inconclusivePolicy":"If no complete stable reading is captured within the one-hour checkpoint, mark inconclusive and do not score. Missing data, an unreachable ledger, changed source configuration or an incomplete registry never implies NO. No replacement ledger or retrospective deadline extension is allowed.",
+    "verificationPolicy":"The pinned p-vs-np research policy e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755 uses independent Lean verification and finalized GenLayer credit decisions. The forecast service reads these records; it cannot award research points or decide research merit.",
+    "source":{"chainId":61999,"contract":"0x3A8Be4AA97375e4E38E1b351722aE45454DE611e","policyHash":"e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755"},
+    "evidenceSources":["https://github.com/MuncleUscles/p-vs-np/tree/evidence","https://studio.genlayer.com/contracts?import-contract=0x3A8Be4AA97375e4E38E1b351722aE45454DE611e"],
+    "scoring":"time-weighted-brier-v1","minimumCoverage":0.5,"minimumSample":5
+  },
+  {
+    "id":"first-downstream-impact-dec-2026","version":1,
+    "text":"Will a new proof earn earlier work credit?",
+    "topic":"P vs NP · Research building on research",
+    "opensAt":"2026-11-24T14:00:00.000Z","closesAt":"2026-11-30T12:00:00.000Z","checkpointAt":"2026-12-01T12:00:00.000Z","resolutionDeadline":"2026-12-01T13:00:00.000Z",
+    "criteria":"YES if total_impact_points is greater than zero in the first complete, stable finalized-ledger reading begun on December 1, 2026 at or after 12:00 UTC and completed by 13:00 UTC. Otherwise NO from a complete reading. This measures settled credit for direct proof reuse, including reuse by the same operator; it does not establish independent humans or the importance of an entire research direction.",
+    "predicate":{"kind":"impact-points","threshold":1},
+    "inconclusivePolicy":"If no complete stable reading is captured within the one-hour checkpoint, mark inconclusive and do not score. Missing data, an unreachable ledger, changed source configuration or an incomplete registry never implies NO. No replacement ledger or retrospective deadline extension is allowed.",
+    "verificationPolicy":"The pinned p-vs-np research policy e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755 uses independent Lean verification and finalized GenLayer credit decisions. The forecast service reads these records; it cannot award research points or decide research merit.",
+    "source":{"chainId":61999,"contract":"0x3A8Be4AA97375e4E38E1b351722aE45454DE611e","policyHash":"e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755"},
+    "evidenceSources":["https://github.com/MuncleUscles/p-vs-np/tree/evidence","https://studio.genlayer.com/contracts?import-contract=0x3A8Be4AA97375e4E38E1b351722aE45454DE611e"],
+    "scoring":"time-weighted-brier-v1","minimumCoverage":0.5,"minimumSample":5
+  }
+]
