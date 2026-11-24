@@ -69,6 +69,13 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  fs.copyFileSync(path.join(rendererRoot,'public/open/index.html'),path.join(destination,'index.html'));
  for(const name of ['style.css','favicon.svg'])fs.copyFileSync(path.join(rendererRoot,'public/open',name),path.join(destination,name));
  fs.cpSync(path.join(rendererRoot,'public/open/assets'),path.join(destination,'assets'),{recursive:true});
+ const forecastPath=path.join(p.root,'.open-math/forecasts.json');
+ fs.rmSync(path.join(destination,'forecasts-config.json'),{force:true});
+ if(fs.existsSync(forecastPath)){
+  const forecast=JSON.parse(readProblemFile(p.root,'.open-math/forecasts.json'));
+  if(forecast.version!==1||!/^https:\/\/[a-z0-9.-]+$/.test(forecast.api))throw Error('Invalid forecast service configuration');
+  fs.writeFileSync(path.join(destination,'forecasts-config.json'),JSON.stringify(forecast)+'\n');
+ }
  const presentation={commit,protocolCommit:p.descriptor.protocol.commit,readOnly:true};
  fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,...(githubAccounts?{githubAccounts}:{}),...(federation?{federation:true}:{})},null,2)+'\n');
  fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify({version:5,objective:p.policy.objective,admission:'open',guide:`https://github.com/${p.descriptor.repository}/blob/main/AGENTS.md`,protocol:p.descriptor.protocol,rewards:'Native nontransferable contribution and later-impact points',wallet:'Contributor-owned; signatures only',liveContract:p.deployment.contract},null,2)+'\n');fs.writeFileSync(path.join(destination,'.nojekyll'),'');
