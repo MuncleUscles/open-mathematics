@@ -192,5 +192,5 @@ export function federationCoverage(snapshot,researchSnapshot){
  const label=status==='source-changed'?'Federation and research views differ; current amounts are dated and no ranks are shown.':status==='partial'?`Showing ${snapshot.accounts.rows.length} of ${snapshot.accounts.total} accounts; no ranks for a partial page.`:status==='unreconciled'?'Account attribution does not reconcile with native totals; no ranks are shown.':'Current attribution reconciles across all GitHub accounts, including explicitly unclaimed credit.';
  return {ranked,sourceMatches,accountsComplete,status,label};
 }
-export function federationSnapshotLabel(snapshot){return `Published federation snapshot from ${snapshot.completedAt}; live unavailable. Finalized views collected ${snapshot.startedAt}–${snapshot.completedAt}, not atomically. This dated copy cannot authorize a correction, claim, merge or award.`;}
+export function federationSnapshotLabel(snapshot,{refreshing=false}={}){return `Published federation snapshot from ${snapshot.completedAt}; ${refreshing?'live refresh in progress':'live unavailable'}. Finalized views collected ${snapshot.startedAt}–${snapshot.completedAt}, not atomically. This dated copy cannot authorize a correction, claim, merge or award.`;}
 export const chooseFederationView=chooseOpenLedgerView;

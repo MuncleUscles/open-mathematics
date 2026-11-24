@@ -1,6 +1,7 @@
 import {createClient} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
-import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,readOpenRecordInheritance,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT,normalizeOpenRead} from '../../src/open-snapshot.mjs';
+import {collectOpenSnapshot,validateOpenSnapshot,validateSnapshotRecord,readOpenRecordInheritance,openSnapshotLabel,chooseOpenLedgerView,SNAPSHOT_BYTE_LIMIT} from '../../src/open-snapshot.mjs';
+import {createDashboardReaders} from '../../src/dashboard-read.mjs';
 import {buildResearchView} from '../../src/open-research-view.mjs';
 import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot,validateGitHubAccountsSnapshot,githubAccountsCoverage,githubAccountsSnapshotLabel,chooseGitHubAccountsView,GITHUB_ACCOUNTS_BYTE_LIMIT} from '../../src/github-accounts.mjs';
 import {collectFederationSnapshot,validateFederationSnapshot,federationCoverage,federationSnapshotLabel,chooseFederationView,FEDERATION_BYTE_LIMIT} from '../../src/federation-snapshot.mjs';
@@ -13,7 +14,7 @@ const detailUrl=id=>'#/contributions/'+encodeURIComponent(id);
 const identities=new Map();
 function contributorName(id){const user=identities.get(id);return user?'@'+user.login:id?'GitHub user #'+id:'Unidentified contributor';}
 function contributorLink(id){const user=identities.get(id);if(!user)return el('span',contributorName(id));const node=link('@'+user.login,'https://github.com/'+user.login,'github-user');node.title=`GitHub account #${id}. Name verified on chain ${new Date(Number(user.username_checked_at)*1000).toLocaleString()}.`;return node;}
-function renderIdentities(){if(model){renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}}
+function renderIdentities(){if(model)renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}
 let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
 const viewMap={'/':['home','problem','research','graph','federation','leaderboard','how','agent'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
@@ -138,16 +139,16 @@ function renderFederationLeaderboard(){
 }
 function renderLeaderboard(){
  if(data?.federation){renderFederationLeaderboard();return;}
- const coverage=accountView?.snapshot?githubAccountsCoverage(accountView.snapshot,currentView.snapshot):null;
+ const coverage=accountView?.snapshot&&currentView?.snapshot?githubAccountsCoverage(accountView.snapshot,currentView.snapshot):null;
  const rows=(accountView?.snapshot?.accounts||[]).filter(row=>BigInt(row.points)>0n).sort((a,b)=>BigInt(a.points)===BigInt(b.points)?a.github_author_id.localeCompare(b.github_author_id):BigInt(a.points)>BigInt(b.points)?-1:1),tbody=$('leaderboard');tbody.replaceChildren();
  let rank=0,previous;
  rows.forEach((row,index)=>{if(row.points!==previous)rank=index+1;previous=row.points;const tr=el('tr'),person=el('td',undefined,'contributor');person.append(contributorLink(row.github_author_id));
   person.append(el('span',row.login?`Name verified on chain ${new Date(Number(row.username_checked_at)*1000).toLocaleString()}`:'Username verification pending','identity-date'));
-  const wallets=model.contributorLeaderboard.find(item=>item.githubAuthorId===row.github_author_id)?.wallets||[];
+  const wallets=model?.contributorLeaderboard.find(item=>item.githubAuthorId===row.github_author_id)?.wallets||[];
   const details=el('details',undefined,'wallet-details');details.append(el('summary',`${row.wallet_count} signing wallet${Number(row.wallet_count)===1?'':'s'}`),el('span',`GitHub account ID ${row.github_author_id}`));for(const wallet of wallets)details.append(el('code',wallet));if(wallets.length<Number(row.wallet_count))details.append(el('span','Some wallet addresses belong to earlier contributions outside this page.'));person.append(details);
-  tr.append(el('td',coverage.ranked?String(rank):'—'),person,el('td',fmt(row.author_points),'numeric'),el('td',fmt(row.impact_points),'numeric'),el('td',fmt(row.points),'numeric'));tbody.append(tr);});
+  tr.append(el('td',coverage?.ranked?String(rank):'—'),person,el('td',fmt(row.author_points),'numeric'),el('td',fmt(row.impact_points),'numeric'),el('td',fmt(row.points),'numeric'));tbody.append(tr);});
  if(!rows.length){const tr=el('tr'),td=el('td',accountView?.snapshot?'No earned points in the account ledger.':accountView?.mode==='unavailable'||!data.githubAccounts?'GitHub account ledger unavailable.':'Reading the GitHub account ledger…');td.colSpan=5;tr.append(td);tbody.append(tr);}
- $('ranking-status').textContent=coverage?coverage.label:'GitHub account credit is being read from its on-chain ledger. Rankings are unavailable until it is verified.';
+ $('ranking-status').textContent=coverage?coverage.label:accountView?.snapshot?'Research records are unavailable for comparison. Account amounts are dated and no ranks are shown.':'GitHub account credit is being read from its on-chain ledger. Rankings are unavailable until it is verified.';
 }
 function renderAll(){
  const snapshot=currentView.snapshot;model=buildResearchView({records,impacts,count:snapshot.count,points:snapshot.points});
@@ -158,6 +159,7 @@ function renderAll(){
 async function publishedFederation(){const response=await fetch('./federation-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>FEDERATION_BYTE_LIMIT)throw Error('Published federation snapshot unavailable');const text=await response.text();if(new TextEncoder().encode(text).length>FEDERATION_BYTE_LIMIT)throw Error('Published federation snapshot too large');return validateFederationSnapshot(JSON.parse(text),data);}
 async function refreshFederation(){
  if(federationBusy||!data?.federation||data.preview)return;federationBusy=true;
+ if(federationView?.mode==='published')$('federation-status').textContent=federationSnapshotLabel(federationView.snapshot,{refreshing:true});
  try{federationView=await chooseFederationView({loadLive:()=>collectFederationSnapshot({problem:data,read}),loadPublished:publishedFederation,current:federationView});
   $('federation-status').textContent=federationView.mode==='published'?federationSnapshotLabel(federationView.snapshot):federationView.mode==='live'?`${federationView.unavailable?'Live refresh unavailable. Keeping the prior federation view from':'Finalized federation views checked'} ${federationView.snapshot.completedAt}. Read interval ${federationView.snapshot.startedAt}–${federationView.snapshot.completedAt}; not an atomic snapshot.`:'Federation ledger and validated published copy unavailable.';
   renderIdentities();renderFederation();renderLeaderboard();
@@ -167,6 +169,7 @@ async function refreshFederation(){
 async function publishedAccounts(){const response=await fetch('./github-accounts-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot unavailable');const text=await response.text();if(new TextEncoder().encode(text).length>GITHUB_ACCOUNTS_BYTE_LIMIT)throw Error('Published account snapshot too large');return validateGitHubAccountsSnapshot(JSON.parse(text),data.githubAccounts);}
 async function refreshAccounts(){
  if(accountBusy||!data?.githubAccounts||data.preview)return;accountBusy=true;
+ if(accountView?.mode==='published')$('accounts-status').textContent=githubAccountsSnapshotLabel(accountView.snapshot,{refreshing:true});
  try{
   accountView=await chooseGitHubAccountsView({loadLive:()=>collectGitHubAccountsSnapshot({deployment:data.githubAccounts,read:accountRead}),loadPublished:publishedAccounts,current:accountView});
   if(accountView.snapshot){identities.clear();for(const user of accountView.snapshot.accounts)if(user.login)identities.set(user.github_author_id,user);}renderIdentities();
@@ -174,15 +177,40 @@ async function refreshAccounts(){
  }catch(error){console.warn('GitHub account view failed',error);$('accounts-status').textContent='Could not verify the GitHub account ledger. Previously displayed names and points may be stale.';}
  finally{accountBusy=false;}
 }
-async function published(){const response=await fetch('./ledger-snapshot.json',{cache:'no-store'});if(!response.ok||Number(response.headers.get('content-length'))>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot unavailable');const bytes=await response.text();if(new TextEncoder().encode(bytes).length>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot too large');return validateOpenSnapshot(JSON.parse(bytes),data);}
+async function published(){const response=await fetch('./ledger-snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok||Number(response.headers.get('content-length'))>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot unavailable');const bytes=await response.text();if(new TextEncoder().encode(bytes).length>SNAPSHOT_BYTE_LIMIT)throw Error('Published snapshot too large');return validateOpenSnapshot(JSON.parse(bytes),data);}
+async function showPublishedViews(){
+ // Static copies are validated independently. They remain explicitly dated
+ // while the larger sequential native refresh runs through the shared queue.
+ const [research,accounts,federation]=await Promise.allSettled([
+  published().then(snapshot=>{buildResearchView({records:snapshot.records,impacts:snapshot.impacts,count:snapshot.count,points:snapshot.points});return snapshot;}),
+  data.githubAccounts?publishedAccounts():null,data.federation?publishedFederation():null,
+ ]);
+ if(research.status==='fulfilled'){
+  currentView={mode:'published',snapshot:research.value};records=[...research.value.records];impacts=[...research.value.impacts];nextEnd=0;
+  $('status').textContent=openSnapshotLabel(research.value,{refreshing:true});
+ }
+ if(accounts.status==='fulfilled'&&accounts.value){
+  accountView={mode:'published',snapshot:accounts.value};identities.clear();
+  for(const user of accounts.value.accounts)if(user.login)identities.set(user.github_author_id,user);
+  $('accounts-status').textContent=githubAccountsSnapshotLabel(accounts.value,{refreshing:true});
+ }
+ if(federation.status==='fulfilled'&&federation.value){
+  federationView={mode:'published',snapshot:federation.value};
+  $('federation-status').textContent=federationSnapshotLabel(federation.value,{refreshing:true});
+ }
+ if(currentView?.snapshot)renderAll();else{renderLeaderboard();renderFederation();route();}
+}
 async function refresh(){
- if(busy||!data||data.preview)return;busy=true;$('refresh').disabled=true;$('older').disabled=true;$('status').textContent='Reading finalized research records…';
+ if(busy||!data||data.preview)return;busy=true;$('refresh').disabled=true;$('older').disabled=true;$('status').textContent=currentView?.mode==='published'?openSnapshotLabel(currentView.snapshot,{refreshing:true}):'Reading finalized research records…';
  try{const view=await chooseOpenLedgerView({loadLive:()=>collectOpenSnapshot({problem:data,read}),loadPublished:published,current:currentView});
   if(view.changed){const candidateRecords=view.snapshot.records,candidateImpacts=view.snapshot.impacts;buildResearchView({records:candidateRecords,impacts:candidateImpacts,count:view.snapshot.count,points:view.snapshot.points});currentView=view;records=[...candidateRecords];impacts=[...candidateImpacts];nextEnd=view.mode==='live'?view.snapshot.offset:0;renderAll();}else currentView=view;
   if(view.mode==='published')$('status').textContent=openSnapshotLabel(view.snapshot);
   else if(view.mode==='live')$('status').textContent=view.unavailable?`Live refresh unavailable. Keeping the last successful view from ${view.snapshot.completedAt}; these records may be stale.`:`Live finalized views · checked ${new Date(view.snapshot.completedAt).toLocaleString()} · read interval ${view.snapshot.startedAt}–${view.snapshot.completedAt}. Not an atomic snapshot.`;
   else $('status').textContent='Live ledger and validated published snapshot unavailable. No example records have been substituted.';
- }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;await refreshAccounts();await refreshFederation();}
+ }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{
+  try{await refreshAccounts();await refreshFederation();}
+  finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;}
+ }
 }
 async function earlier(){
  if(busy||!nextEnd||currentView?.mode!=='live')return;busy=true;$('older').disabled=true;$('refresh').disabled=true;
@@ -206,7 +234,9 @@ try{
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;
  if(data.federation===true){$('federation-nav').hidden=false;$('unclaimed-heading').hidden=false;$('author-points-heading').textContent='Current initial';$('earned-heading').textContent='Current PNP';$('leaderboard-intro').textContent='Current native attribution by stable GitHub account, including unclaimed external authors. Names come from dated on-chain profile checks; names and wallet claims do not establish original mathematical discovery.';$('correction-rule').textContent='Evidence-backed attribution cases can redistribute the existing settled author pool and explicitly set a separate future incoming-impact route. They do not create a new budget or rewrite settled historical impact.';}
  route();
- const client=createClient({chain:studionet});read=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:d.contract,functionName:method,args,transactionHashVariant:'latest-final'}));
- if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);accountRead=async(method,args=[])=>normalizeOpenRead(await client.readContract({address:data.githubAccounts.contract,functionName:method,args,transactionHashVariant:'latest-final'}));$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
- if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;route();}else await refresh();
+ if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
+ ({read,accountRead}=createDashboardReaders({client:createClient({chain:studionet}),contract:d.contract,accountsContract:data.githubAccounts?.contract}));
+ if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;route();}else{
+  busy=true;$('refresh').disabled=true;$('older').disabled=true;await showPublishedViews();busy=false;await refresh();
+ }
 }catch(error){console.warn('Configuration failed',error);$('status').textContent='Reviewed configuration unavailable. The contribution guide is still available; live records cannot be displayed.';$('refresh').disabled=true;}

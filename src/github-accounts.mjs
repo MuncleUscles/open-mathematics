@@ -170,8 +170,8 @@ export function githubAccountsCoverage(snapshot,researchSnapshot){
  return {complete,ranked:complete,sourceMatches,accountsComplete,status,label};
 }
 
-export function githubAccountsSnapshotLabel(snapshot){
- return `Published account snapshot from ${snapshot.completedAt}; live unavailable. On-chain views collected ${snapshot.startedAt}–${snapshot.completedAt}, not atomically. Showing ${snapshot.accounts.length} of ${snapshot.count} accounts. This copy cannot authorize identities, merges or points.`;
+export function githubAccountsSnapshotLabel(snapshot,{refreshing=false}={}){
+ return `Published account snapshot from ${snapshot.completedAt}; ${refreshing?'live refresh in progress':'live unavailable'}. On-chain views collected ${snapshot.startedAt}–${snapshot.completedAt}, not atomically. Showing ${snapshot.accounts.length} of ${snapshot.count} accounts. This copy cannot authorize identities, merges or points.`;
 }
 
 export async function chooseGitHubAccountsView({loadLive,loadPublished,current=null}){

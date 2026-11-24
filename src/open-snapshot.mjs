@@ -188,8 +188,8 @@ export async function collectOpenSnapshot({problem, read, now = () => new Date()
     ...(inheritances.some(item => item.inherited) ? {inheritances} : {})}, problem);
 }
 
-export function openSnapshotLabel(snapshot) {
-  return `Published snapshot from ${snapshot.completedAt}; live unavailable. Finalized views collected ${snapshot.startedAt}–${snapshot.completedAt}, not an atomic snapshot. Showing ${snapshot.records.length} newest contributions. This read-only copy cannot authorize merges or points.`;
+export function openSnapshotLabel(snapshot,{refreshing=false}={}) {
+  return `Published snapshot from ${snapshot.completedAt}; ${refreshing?'live refresh in progress':'live unavailable'}. Finalized views collected ${snapshot.startedAt}–${snapshot.completedAt}, not an atomic snapshot. Showing ${snapshot.records.length} newest contributions. This read-only copy cannot authorize merges or points.`;
 }
 
 export async function chooseOpenLedgerView({loadLive, loadPublished, current = null}) {
