@@ -147,6 +147,39 @@ fetch URL. The collector resolves source identity from GitHub. Preserve the retu
 packet and journal. Reusing the same journal verifies the original receipt;
 ambiguous broadcasts are not blindly repeated.
 
+### Exact JSON for workflow dispatch
+
+`register` and `verify-author` read normalized JSON both from local files and
+from the **Research federation** workflow's `payload` input. After removing
+trailing whitespace, that text must equal `JSON.stringify(request, null, 2)`:
+two-space indentation, ordinary newlines and literal Unicode where JavaScript
+emits it. Compact JSON and unnecessarily escaped Unicode are rejected before
+any transaction. Create the request from a reviewed object with that exact
+serializer; keep the displayed JSON above in the same format. This check also
+rejects duplicate keys. Do not parse and rewrite an unreviewed request merely
+to bypass the check.
+
+For example, validate an existing `source.json` and prepare a dispatch body
+without changing its inner payload:
+
+```sh
+node --input-type=module - source.json /private/tmp/federation-dispatch.json <<'JS'
+import fs from 'node:fs';
+import {parseProblemJSON} from './src/problem.mjs';
+const [source, output]=process.argv.slice(2);
+const bytes=fs.readFileSync(source);
+parseProblemJSON(bytes);
+const dispatch={ref:'main',inputs:{operation:'register',payload:bytes.toString('utf8').trimEnd()}};
+fs.writeFileSync(output,JSON.stringify(dispatch,null,2)+'\n',{flag:'wx'});
+JS
+```
+
+This only prepares the body; it does not dispatch the workflow. Send its `payload`
+as a string, preserving embedded newlines and Unicode. For `verify-author`, use
+that operation and its three-field request below. `attribution`,
+`reconcile-impact` and `settle-author` instead take the exact native ID as plain
+text, without JSON quotes.
+
 Contributor operations use `scripts/federation-agent.mjs TRUSTED_PROBLEM
 PUBLIC_REQUEST.json JOURNAL.json [--send]` and `CONTRIBUTOR_KEY_FILE`, an owner-only
 file outside repositories. A request has exactly `method` and `args`. Supported
