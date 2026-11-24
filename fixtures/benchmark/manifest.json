@@ -2,7 +2,7 @@
   "schema_version": 1,
   "benchmark_id": "pnp-federation-pilot-v1",
   "capture_date": "2026-11-23",
-  "capture_notes": "GitHub snapshots preserve connected-tool-returned UTF-8 text with a trailing newline. Hashes bind these local snapshot bytes, not HTTP wire bytes. Mutable issue/PR records remain dated snapshots. Commit-addressed files bind a particular revision. Bibliographic excerpts are explicitly derived.",
+  "capture_notes": "GitHub snapshots preserve connected-tool-returned UTF-8 text with a trailing newline. Hashes bind these local snapshot bytes, not HTTP wire bytes. Mutable issue/PR records remain dated snapshots. Commit-addressed files bind a particular revision. Bibliographic excerpts are explicitly derived. The 2026-11-24 federation extension reconstructs exact contract-level initial prompts from proven context; it is not provider wire capture. Native receipts were collected with the existing journaled checker and are replay-checked offline. The original JSP edition is preserved separately.",
   "rubric_revision": "documentary-priority-v1",
   "sources": [
     {
@@ -74,6 +74,76 @@
       "commit": null,
       "bytes": 21853,
       "sha256": "47f88586dda51271724cd98c191aa09d70c61e02a5ee592e53256cd66ee2f776"
+    },
+    {
+      "id": "federation-a-prompt",
+      "path": "captures/federation-2026-11-24/inputs/A.prompt.txt",
+      "kind": "exact_prompt",
+      "role": "input",
+      "url": null,
+      "commit": null,
+      "bytes": 16090,
+      "sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10"
+    },
+    {
+      "id": "federation-a-native-capture",
+      "path": "captures/federation-2026-11-24/native/A.capture.json",
+      "kind": "native_receipt_capture",
+      "role": "measurement",
+      "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/375d2607c3523b102bc3fb44b26a32ea689d9535",
+      "commit": null,
+      "bytes": 106579,
+      "sha256": "417bc3273a89011876aac62f74dbfa79ba2230f56a5ddc54ab083a07de8c92d9"
+    },
+    {
+      "id": "federation-b-prompt",
+      "path": "captures/federation-2026-11-24/inputs/B.prompt.txt",
+      "kind": "exact_prompt",
+      "role": "input",
+      "url": null,
+      "commit": null,
+      "bytes": 20566,
+      "sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc"
+    },
+    {
+      "id": "federation-b-native-capture",
+      "path": "captures/federation-2026-11-24/native/B.capture.json",
+      "kind": "native_receipt_capture",
+      "role": "measurement",
+      "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/f458038e2fa7eeb42a355a92b8976ccb1b8c88f9",
+      "commit": null,
+      "bytes": 162840,
+      "sha256": "671ba10801d75733e2f00ccb6b53c894fee0995a4074a0e656118b085477b83b"
+    },
+    {
+      "id": "federation-capture-provenance",
+      "path": "captures/federation-2026-11-24/capture-artifacts.json",
+      "kind": "capture_provenance",
+      "role": "measurement",
+      "url": null,
+      "commit": null,
+      "bytes": 4409,
+      "sha256": "5ec575bc0e7fba47662355c5dde6d3006bd4d8542bb9eb1b0e9c0bf1f9765a1d"
+    },
+    {
+      "id": "federation-a-native-receipt",
+      "path": "captures/federation-2026-11-24/native/A.normalized.json",
+      "kind": "normalized_native_receipt",
+      "role": "measurement",
+      "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/375d2607c3523b102bc3fb44b26a32ea689d9535",
+      "commit": null,
+      "bytes": 4700,
+      "sha256": "52127ef4d9b09e0c0c76794072d720295f3824c923881afbd7dc549e8beeafc7"
+    },
+    {
+      "id": "federation-b-native-receipt",
+      "path": "captures/federation-2026-11-24/native/B.normalized.json",
+      "kind": "normalized_native_receipt",
+      "role": "measurement",
+      "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/f458038e2fa7eeb42a355a92b8976ccb1b8c88f9",
+      "commit": null,
+      "bytes": 5246,
+      "sha256": "cc9d0f12995a0b0b5f27b4c382ed8919fddbce163cfcdd2df0fe61abbd2cd62a"
     }
   ],
   "cases": [
@@ -148,18 +218,38 @@
     {
       "id": "federation-a",
       "kind": "research-merit",
-      "input_status": "pending_fixture",
-      "input_source_ids": [],
+      "input_status": "ready",
+      "input_source_ids": [
+        "federation-a-prompt"
+      ],
       "question": "Review federation contribution A under its exact pinned policy.",
-      "missing_reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+      "prompt_source_id": "federation-a-prompt",
+      "allowed_refs": [
+        "pr-27-dfe76b37c950-d08c386809b2",
+        "historical-ledger"
+      ],
+      "native_receipt_source_id": "federation-a-native-receipt",
+      "prompt_capture_kind": "exact_reconstructed_contract_prompt",
+      "raw_provider_wire_capture": false,
+      "comparison_scope": "initial round-zero judgment; not full contribution workflow completion"
     },
     {
       "id": "federation-b",
       "kind": "research-merit",
-      "input_status": "pending_fixture",
-      "input_source_ids": [],
+      "input_status": "ready",
+      "input_source_ids": [
+        "federation-b-prompt"
+      ],
       "question": "Review federation contribution B under its exact pinned policy.",
-      "missing_reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+      "prompt_source_id": "federation-b-prompt",
+      "allowed_refs": [
+        "pr-29-574730b7e55c-9f1a7872c261",
+        "historical-ledger"
+      ],
+      "native_receipt_source_id": "federation-b-native-receipt",
+      "prompt_capture_kind": "exact_reconstructed_contract_prompt",
+      "raw_provider_wire_capture": false,
+      "comparison_scope": "initial round-zero judgment; not full contribution workflow completion"
     },
     {
       "id": "federation-c",
@@ -175,6 +265,9 @@
     "Historical decisions are comparison references, not expert mathematical ground truth.",
     "Model agreement does not demonstrate correctness or decentralized neutrality.",
     "No model call, native judgment, appeal or points mutation is performed by this harness.",
-    "This is a bounded pilot, not an estimate of general false acceptance or false rejection rates."
+    "This is a bounded pilot, not an estimate of general false acceptance or false rejection rates.",
+    "Federation prompts are exact reconstructed contract strings, not provider request wire captures; provider wrapping and exact model revisions are unobserved.",
+    "Paired federation measurements cover initial adjudication decisions; a finalized adjudication transaction does not establish merge, payout, attribution settlement or full protocol completion.",
+    "Two observed paired agreements have no independent expert labels and do not demonstrate mathematical accuracy or system superiority."
   ]
 }

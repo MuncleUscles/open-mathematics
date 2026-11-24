@@ -3,6 +3,7 @@ import {constants} from 'node:fs';
 import {open,realpath,writeFile} from 'node:fs/promises';
 import {dirname,isAbsolute,join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
+import {checkNativeBenchmarkCapture} from './check-benchmark-native.mjs';
 
 const DEFAULT_FIXTURES=resolve(dirname(fileURLToPath(import.meta.url)),'../fixtures/benchmark');
 const ARMS=['centralized_single','centralized_panel','genlayer'];
@@ -127,7 +128,7 @@ function outcomeErrors(outcome,caseInfo){
  return errors;
 }
 
-function validateRun(run,caseInfo,caseManifest,sources){
+async function validateRun(run,caseInfo,caseManifest,sources){
  need(object(run)&&ARMS.includes(run.arm)&&['completed','failed','unresolved'].includes(run.status),'supported measured run required');
  need(caseInfo.input_status==='ready','cannot measure a case without its exact prepared input');
  need(run.prompt_sha256===caseInfo.prompt_sha256,'measured prompt differs from frozen input');
@@ -142,6 +143,15 @@ function validateRun(run,caseInfo,caseManifest,sources){
   need(source?.role==='measurement'&&run.receipt_source_id===source.id&&source.kind==='normalized_native_receipt','frozen reviewed native receipt required');
   need(source.data?.verification==='independently-finalized-receipt'&&source.data.prompt_sha256===run.prompt_sha256&&
    source.data.status===run.status&&canonical(source.data.outcome??null)===canonical(run.outcome??null),'native outcome does not match frozen normalized receipt');
+  const raw=sources.get(source.data.raw_capture_source_id);
+  need(raw?.role==='measurement'&&raw.kind==='native_receipt_capture','native receipt requires its frozen raw capture');
+  need(source.data.raw_capture_sha256===raw.sha256&&raw.data.case_id===run.case_id,
+   'native raw capture commitment or case mismatch');
+  const checked=await checkNativeBenchmarkCapture({capture:raw.data,prompt:caseInfo.prompt});
+  need(canonical(checked.outcome)===canonical(run.outcome)&&checked.award===source.data.award,
+   'native outcome does not match checked receipt return');
+  need(source.data.judgment_phase==='initial_adjudication'&&source.data.full_protocol_completion_claimed===false,
+   'native measurement must distinguish initial judgment from full protocol completion');
  }
  if(run.status!=='completed')need(run.outcome===null&&bounded(run.failure_reason,2000),'failed/unresolved attempts require a reason and no invented outcome');
  return run.status==='completed'?outcomeErrors(run.outcome,caseInfo):[];
@@ -163,8 +173,9 @@ function factualMetrics(run,caseManifest){
 }
 
 /** Import recorded measurements; this function never invokes a model or native RPC.
- * Normalized native receipt fixtures are supplied by a separate trusted receipt
- * checker. This report validates their hashes and matching outcomes, not finality.
+ * Native captures were collected separately through the trusted receipt checker.
+ * This report rechecks the frozen receipt with the same journaled checker using
+ * an in-memory read-only client; it does not query current network state.
  */
 export async function reportBenchmark({fixturesDir=DEFAULT_FIXTURES,measurements={schema_version:1,runs:[]}}={}){
  const loaded=await loadFixtures(fixturesDir),prepared=prepareLoaded(loaded),{manifest,sources}=loaded;
@@ -175,7 +186,7 @@ export async function reportBenchmark({fixturesDir=DEFAULT_FIXTURES,measurements
   need(caseInfo,'unknown measurement case');
   const key=run.case_id+':'+run.arm;
   need(!runs.has(key)&&!ids.has(run.run_id),'duplicate attempt or run ID; preserve failures instead of replacing them');
-  const errors=validateRun(run,caseInfo,caseManifest,sources);
+  const errors=await validateRun(run,caseInfo,caseManifest,sources);
   runs.set(key,{...run,outcome_errors:errors});ids.add(run.run_id);
  }
  const rows=prepared.cases.map(caseInfo=>{
@@ -205,7 +216,7 @@ export async function reportBenchmark({fixturesDir=DEFAULT_FIXTURES,measurements
    latency_ms:values.filter(r=>r.elapsed_ms!==null).map(r=>r.elapsed_ms),reported_cost_usd:values.some(r=>r.cost_usd!==null)?values.filter(r=>r.cost_usd!==null).reduce((sum,r)=>sum+r.cost_usd,0):null,
    missing_cost_measurements:values.filter(r=>r.cost_usd===null).length,execution_independently_verified_by_harness:false},
   expert_ground_truth:null,accuracy:null,false_acceptance_rate:null,false_rejection_rate:null,
-  native_receipt_validation:'Normalized receipt fixtures must be produced by a separate trusted checker; this offline report checks their hash and outcome correspondence.',
+  native_receipt_validation:'Frozen native captures are rechecked offline through journaledTransaction, including exact calldata, sender, finalized consensus, independent validator agreement and returned verdict. No current network read or new judgment occurs.',
   limitations:manifest.limitations,rows};
 }
 

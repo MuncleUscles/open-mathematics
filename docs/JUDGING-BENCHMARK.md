@@ -6,7 +6,8 @@ or claim that consensus makes a mathematical conclusion correct.
 
 ## Current evidence and status
 
-`fixtures/benchmark/manifest.json` commits to seven bounded source snapshots.
+`fixtures/benchmark/manifest.json` commits to bounded documentary snapshots,
+exact reconstructed federation prompts, their provenance, and native receipt captures.
 GitHub captures are tool-returned UTF-8 text with a trailing newline: their hashes
 bind those local bytes, not raw HTTP wire bytes. Issue and PR records are dated
 snapshots of mutable records. Repository files and commits identify immutable
@@ -27,24 +28,39 @@ exact original judging prompts and complete pre-verdict context have not been
 reconstructed here. They therefore have no paired baseline result. A historical
 native outcome is not an independent expert label or a fresh benchmark run.
 
-Federation A, B and C are explicit placeholders pending exact inputs and final
-receipts. The [committed measurements](../fixtures/benchmark/measurements.json)
-now contain one actual first-answer centralized baseline for JSP-000007. The
-[published report](../fixtures/benchmark/report.json) has one valid completed
-cell and 17 `not_run` cells. No accuracy or false acceptance/rejection rate is
-reported.
+Federation A and B now have exact reconstructed initial contract prompts and
+paired first-answer centralized/native judgments. The [committed measurements](../fixtures/benchmark/measurements.json)
+and [published report](../fixtures/benchmark/report.json) contain five valid
+completed cells and 13 `not_run` cells. Both paired comparisons agree on
+acceptance and all three merit bands: A rejects with 0/0/0; B accepts with 1/1/1.
+These are two observations of judgment agreement, not mathematical accuracy,
+expert agreement, model superiority, or evidence of general reliability.
+Federation C and the historical PR21/22 comparisons remain unrun.
 
-The fresh Codex agent received the frozen prompt without inherited parent-chat
-context and returned `insufficient_evidence`. Its exact model identifier and
-revision were not exposed: `Codex session model` is a display description and
-`not-exposed` records an unknown revision, not an immutable model pin. Cost and
-latency remain null; the start and observation timestamps do not establish
-inference latency. There is no expert label, centralized panel, or paired
-GenLayer run. The [raw prompt, first answer, start/completion metadata and hash
-manifest](../fixtures/benchmark/runs/codex-fresh-agent-jsp-2026-11-24/README.md)
-are preserved. Publication checks verify their correspondence. The offline
-reporter validates imported measurements; it does not independently prove model
-execution or isolation.
+The A/B native measurements cover the finalized round-zero `adjudicate`
+transactions. They do not claim completion of protected merge, credit payment,
+attribution settlement, or the full contribution workflow. B's readback in the
+capture is `approved`; its 300-point value is the result budget returned by
+adjudication, not proof of a 300-point transfer. The report compares judgment
+outputs and strips the contract-added `award` field from the six-field outcome.
+
+Each centralized baseline used a fresh Codex agent without inherited parent-chat
+context, received only its frozen prompt, and preserved its first answer.
+Exact model identifiers and revisions were not exposed: `Codex session model`
+is a display description and `not-exposed` records that limitation. Cost and
+latency remain null; start or observation times are not inference latency.
+No centralized panel or independent expert ground truth has been supplied.
+The reporter cannot independently prove execution or isolation of these agents.
+
+The original JSP-000007 baseline returned `insufficient_evidence`. Its
+[raw prompt, first answer, metadata and audit](../fixtures/benchmark/runs/codex-fresh-agent-jsp-2026-11-24/README.md)
+remain byte-for-byte unchanged. The original manifest, one-run measurements,
+and one-completed/17-unrun report are preserved under that run's
+`original-edition/` directory. The old audit's root `measurements.json` and
+`report.json` commitments refer to those preserved edition files, while the
+root benchmark files now describe the expanded edition. The original manifest
+hash is checked against `original-edition/manifest.json`, not rewritten to imply
+that the first JSP run saw later federation evidence.
 
 Four reported milestones match the four predeclared records. One additional
 announcement milestone is unmatched by that list and remains for review; the
@@ -125,28 +141,52 @@ six fields: `accept`, `novelty`, `significance`, `reusability`, `reason`, and
 `evidence_refs`. Invalid responses remain counted as `invalid_output`. A failed
 or unresolved attempt has `outcome: null` and a bounded `failure_reason`.
 
-## Adding an exact federation case
+## Exact federation inputs and receipt checks
 
-Archive the full original prompt as an `exact_prompt` source with role `input`,
-bytes and SHA256. Mark the case `ready`, set its `prompt_source_id`, include that
-source in `input_source_ids`, and preserve the exact `allowed_refs`. Archive all
-supporting pre-verdict evidence as separately hashed sources. Do not reconstruct
-missing prior context from a subsequent verdict or use today's policy in place
-of the original pinned policy. New results that lack a complete archive remain
-`pending_fixture`.
+The [federation capture](../fixtures/benchmark/captures/federation-2026-11-24/manifest.json)
+records every field in each original prompt. Registration JSON was matched
+byte-for-byte to native calldata and its hash to the native record. Integer
+fields were preserved from that JSON rather than inferred from stringified RPC
+views. The deployed contract source matches both original protocol revisions.
+Constructor evidence, the complete append-only registration order, distinct
+content hashes, and round-zero records establish empty credited prior context,
+empty historical references and challenges, and null previous verdict/content
+ceiling. No missing context was filled from an outcome.
 
-Native receipt verification belongs to the existing trusted receipt checker.
-After that separate check, freeze a `normalized_native_receipt` source with role
-`measurement` and set the case's `native_receipt_source_id`. Its JSON contains
-`verification: "independently-finalized-receipt"`, `status`, `prompt_sha256` and
-the normalized six-field `outcome` (or null for failure). Preserve exact raw
-receipts, transaction hashes, contract/policy/round identities and the checker
-revision alongside it. The run supplies the matching `receipt_source_id`.
+These are exact reconstructions of the string passed to
+`gl.nondet.exec_prompt(prompt, response_format="json")`. They are not raw
+provider request captures and do not expose provider system instructions,
+runtime wrapping, model revisions, or sampling parameters. The checked-in
+`reconstruct.py` evaluates only the deployed contract's prompt-building
+expressions; it never calls a model. All pre-verdict provenance and original
+baseline outputs have byte/hash commitments in `capture-artifacts.json`.
 
-This harness checks the normalized source commitment and outcome correspondence;
-it does not independently verify chain finality or turn a self-authored status
-label into evidence. A report states this boundary explicitly. A pair is scored
-only when both arms have valid outcomes for the same prompt.
+Each native capture contains the SDK-normalized receipt and exact journal intent,
+transaction hash, contract, policy, round, original registration JSON, readback,
+and immutable GitHub report blob reference. Original receipt representations,
+including ABI return bytes and idle/error validator telemetry, are retained.
+They are not raw HTTP wire captures. Source hashes identify the existing
+receipt checker revision used for collection.
+
+Collection independently called the existing `journaledTransaction` checker
+against Studio in recovery-only mode with a read-only client. Reporting calls
+that same checker offline against the frozen receipt, then decodes the leader
+and agreeing validator returns, checks the exact pre-award nondeterministic
+result and native record verdict, and normalizes only bounded numeric fields.
+A self-authored `verification` label without a valid raw capture is rejected.
+The report does not query fresh chain state or submit another judgment.
+
+The contract enforces independently obtained validator agreement on the outcome
+bands. Validator returned values preserve the leader's accepted result; they are
+not separately captured model explanations. Duplicate/idle entries do not
+establish additional independent judges. Native model identities, inference
+latency, and dollar cost are not established by these captures.
+
+New federation cases without complete context or verified judgment receipts
+remain pending. Exact raw prompts are input sources; native outcomes and all
+post-verdict capture metadata have role `measurement` and cannot enter prepared
+evaluator inputs. A pair is scored only when both arms have valid outcomes for
+the same prompt. Full protocol completion is tracked separately.
 
 ## Interpretation
 

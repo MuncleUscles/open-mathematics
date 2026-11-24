@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "scope": "Original inputs, pre-verdict context proof, first-answer baseline records and independently collected initial native adjudication receipts. Outcome-bearing artifacts are excluded from evaluator inputs.",
+  "raw_provider_wire_capture": false,
+  "new_judgment_performed": false,
+  "source_base_commit": "1946bc9b5e915319e52b58e0aaf8ed79adb32bd3",
+  "existing_checker_files": {
+    "github/journaled-transaction.mjs": {
+      "sha256": "7fe3670af879e8cafe808b32bc0510c4324ed2938558d6165d20fe43d2208e9b"
+    },
+    "github/runtime.mjs": {
+      "sha256": "709f159156c8e4807365b03d5b04eea41c29debf6d4729cf28733a8dc3947239"
+    },
+    "src/studio.mjs": {
+      "sha256": "57fbf6e5ef3f0603c4626976fc07129ef7bdb9fb93344c71f62afbeda37331c4"
+    }
+  },
+  "artifacts": {
+    "baselines/A.output.json": {
+      "bytes": 1155,
+      "sha256": "3e086fb16a1b9993a22dc2499c949ed61a5eb8d6d6db9e59e9bb2f78ac036d7f"
+    },
+    "baselines/A.start.json": {
+      "bytes": 335,
+      "sha256": "4ce77fff2674b935ed12e0f7959347507f517983b5a53c0c6933c43cfb4b7bdc"
+    },
+    "baselines/B.output.json": {
+      "bytes": 1384,
+      "sha256": "08b219f3365328283e9b6edfb1678c88a69dfcc4a33b4189fa9bd4840864d763"
+    },
+    "baselines/B.start.json": {
+      "bytes": 335,
+      "sha256": "25b54b917046fd722c3b1aa686c145dcd47e1e5ea85c116789f88546886e1672"
+    },
+    "inputs/A.data.json": {
+      "bytes": 12287,
+      "sha256": "d282982519e18321932e0a1e203660a7bbb1fcd4c04127dc9d3c7723e968ae4b"
+    },
+    "inputs/A.prompt.txt": {
+      "bytes": 16090,
+      "sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10"
+    },
+    "inputs/B.data.json": {
+      "bytes": 16763,
+      "sha256": "24051bea79cf57692bf1fe8cac620a3b065a6c33c6ad7dbad10ab9d812de0586"
+    },
+    "inputs/B.prompt.txt": {
+      "bytes": 20566,
+      "sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc"
+    },
+    "manifest.json": {
+      "bytes": 6157,
+      "sha256": "60a5b7777f9d427da37c7651f2671d56e62eccc2deaf2d8a6c88499c2d2249a6"
+    },
+    "native/A.capture.json": {
+      "bytes": 106579,
+      "sha256": "417bc3273a89011876aac62f74dbfa79ba2230f56a5ddc54ab083a07de8c92d9"
+    },
+    "native/B.capture.json": {
+      "bytes": 162840,
+      "sha256": "671ba10801d75733e2f00ccb6b53c894fee0995a4074a0e656118b085477b83b"
+    },
+    "provenance/A.register-receipt-verification.json": {
+      "bytes": 16677,
+      "sha256": "489c481abeb6d93894da764c54ac3d44fe3c5b9a354c1954f8077b370814bd5f"
+    },
+    "provenance/A.registration-source.json": {
+      "bytes": 29785,
+      "sha256": "b2975c15520991319aea1f671b633cc5b509a4d5c031df3ac8abd0b6d9dfc41f"
+    },
+    "provenance/B.register-receipt-verification.json": {
+      "bytes": 22205,
+      "sha256": "431b8a562174365911d31c2849de03ee482d80242b265970ec56c92b140bbae6"
+    },
+    "provenance/B.registration-source.json": {
+      "bytes": 39702,
+      "sha256": "7516c2205de61171f371d5299b2db492d837644994003de5673d191822bfdaf6"
+    },
+    "provenance/deployment-contract-source.py": {
+      "bytes": 123415,
+      "sha256": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27"
+    },
+    "provenance/native-context-snapshot.json": {
+      "bytes": 31309,
+      "sha256": "ddabb5338d201709bd6380591cae3d199e492f599b5f63eebde16027906546dc"
+    },
+    "provenance/native-contract-source.py": {
+      "bytes": 123415,
+      "sha256": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27"
+    },
+    "provenance/native-register-receipt-readback.json": {
+      "bytes": 569,
+      "sha256": "3d05a632cca99df0d46c8984de0a51110f42a271a6fd972a9fa9577bb3551e0f"
+    },
+    "provenance/registration-validation.json": {
+      "bytes": 3451,
+      "sha256": "b11b9c141badab40f1ca973f9eabaa519bb1538a160a57b02b92ea1abc81c14c"
+    },
+    "reconstruct.py": {
+      "bytes": 9464,
+      "sha256": "638358d48eb3a74c9c05d08edb2c4a9fdf19929b01f02fa643d6004f417309da"
+    },
+    "native/A.normalized.json": {
+      "bytes": 4700,
+      "sha256": "52127ef4d9b09e0c0c76794072d720295f3824c923881afbd7dc549e8beeafc7"
+    },
+    "native/B.normalized.json": {
+      "bytes": 5246,
+      "sha256": "cc9d0f12995a0b0b5f27b4c382ed8919fddbce163cfcdd2df0fe61abbd2cd62a"
+    }
+  },
+  "offline_checker": {
+    "path": "scripts/check-benchmark-native.mjs",
+    "sha256": "e13000ddcc363f56ddcc2a7f1211d6e68eaaf24fe953c796c2c635fd9c2775fb"
+  }
+}
