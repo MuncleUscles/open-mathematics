@@ -29,7 +29,7 @@ function fixture({commit=HEAD}={}){
  const routes=new Map([
   ['',{id:42,full_name:'lab/proofs',private:false,owner:{id:99,login:'lab'}}],
   ['/pulls/7',pull],
-  ['/pulls/7/files?per_page=100&page=1',[{filename:PATH,status:'added',sha:gitHash(source)}]],
+  ['/pulls/7/files?per_page=10&page=1',[{filename:PATH,status:'added',sha:gitHash(source)}]],
   ['/git/commits/'+commit,{sha:commit,tree:{sha:'d'.repeat(40)},author:{name:'Untrusted display name',email:'not-an-identity@example.invalid'}}],
   ['/contents/'+PATH+'?ref='+commit,file(PATH,source)],
   ['/git/blobs/'+gitHash(source),blob(source)],
@@ -55,6 +55,13 @@ function fixture({commit=HEAD}={}){
   return typeof override==='function'?override(url,options):response(url,structuredClone(routes.get(suffix)),override);
  };
  return {routes,calls,overrides,fetchImpl,pull};
+}
+function paginate(f,count,{targetIndex=count-1}={}){
+ const files=Array.from({length:count},(_,i)=>i===targetIndex?{filename:PATH,status:'added',sha:gitHash(source)}:
+  {filename:`other${i}.lean`,status:'modified',sha:'e'.repeat(40)});
+ f.pull.changed_files=count;
+ for(let start=0;start<count;start+=10)f.routes.set('/pulls/7/files?per_page=10&page='+(start/10+1),files.slice(start,start+10));
+ return files;
 }
 
 test('captures exact immutable bytes, PR submitter identity, license and native evidence digest',async()=>{
@@ -126,7 +133,7 @@ test('rejects invented statements and wrong or partial theorem tokens despite va
 
 test('a file in the PR head is not attributable to an unrelated PR or removed file',async()=>{
  for(const update of [files=>files[0].filename='unrelated.lean',files=>files[0].status='removed',files=>files[0].status='modified',files=>files[0].status='renamed',files=>files[0].sha='f'.repeat(40)]){
-  const f=fixture();update(f.routes.get('/pulls/7/files?per_page=100&page=1'));
+  const f=fixture();update(f.routes.get('/pulls/7/files?per_page=10&page=1'));
   await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/source file must be added|PR-head blob/);
  }
 });
@@ -150,14 +157,56 @@ test('rejects a changed merge artifact even when the same head blob later reappe
  await assert.rejects(collectGithubProvenance(input({commit:LATER}),{fetchImpl:f.fetchImpl}),/merge changed/);
 });
 
-test('requires complete bounded PR file listings including later pages',async()=>{
- const f=fixture();f.pull.changed_files=101;
- f.routes.set('/pulls/7/files?per_page=100&page=1',Array.from({length:100},(_,i)=>({filename:`other${i}.lean`,status:'modified',sha:'e'.repeat(40)})));
- f.routes.set('/pulls/7/files?per_page=100&page=2',[{filename:PATH,status:'added',sha:gitHash(source)}]);
- assert.equal((await collectGithubProvenance(input(),{fetchImpl:f.fetchImpl})).evidence.pr,7);
- for(const mutate of [f=>{f.pull.changed_files=301;},f=>{f.pull.changed_files=2;},f=>{f.pull.changed_files=2;const files=f.routes.get('/pulls/7/files?per_page=100&page=1');files.push({...files[0]});}]){
-  const bad=fixture();mutate(bad);await assert.rejects(collectGithubProvenance(input(),{fetchImpl:bad.fetchImpl}),/file list|PR files/);
+test('collects all 333 changed files in bounded pages even after finding the requested source',async()=>{
+ const f=fixture({commit:MERGE});paginate(f,333,{targetIndex:166});
+ const result=await collectGithubProvenance(input({commit:MERGE}),{fetchImpl:f.fetchImpl});
+ assert.equal(result.evidence.pr,7);assert.equal(result.packet.changed_file.filename,PATH);
+ const pages=f.calls.filter(call=>call.url.includes('/files?'));
+ assert.equal(pages.length,34);assert.equal(pages.at(-1).url,ROOT+'/pulls/7/files?per_page=10&page=34');
+ assert.equal(result.packet.requests.length,42);
+});
+
+test('the 500-file maximum and descendant checks fit the fixed request budget',async()=>{
+ const f=fixture({commit:LATER});paginate(f,500);
+ const result=await collectGithubProvenance(input({commit:LATER}),{fetchImpl:f.fetchImpl});
+ assert.equal(result.packet.association.kind,'merge-descendant-unchanged-blob');
+ assert.equal(result.packet.requests.length,60);
+ assert.equal(f.calls.filter(call=>call.url.includes('/files?')).length,50);
+ const oversized=fixture();oversized.pull.changed_files=501;
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:oversized.fetchImpl}),/bounded complete PR file list/);
+ assert.equal(oversized.calls.length,2);
+});
+
+test('rejects incomplete, oversized and duplicate later pages even after finding the source',async()=>{
+ const mutations=[
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=2').pop(),
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=2').push({filename:'extra.lean'}),
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=3').pop(),
+  f=>{f.routes.get('/pulls/7/files?per_page=10&page=3')[0]={...f.routes.get('/pulls/7/files?per_page=10&page=1')[1]};},
+  f=>{f.routes.get('/pulls/7/files?per_page=10&page=3')[0]={filename:42};},
+ ];
+ for(const mutate of mutations){
+  const f=fixture();paginate(f,23,{targetIndex:0});mutate(f);
+  await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/file list|PR files/);
+  assert.ok(!f.calls.some(call=>call.url.includes('/contents/')));
  }
+});
+
+test('small file pages retain the 512 KiB response limit',async()=>{
+ const f=fixture();paginate(f,13);
+ f.overrides.set('/pulls/7/files?per_page=10&page=2',url=>{
+  const r=response(url,null,{raw:Buffer.alloc(512*1024+1,32)});r.headers.delete('content-length');return r;
+ });
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/response exceeds byte limit/);
+ assert.equal(f.calls.length,4);
+});
+
+test('the single retrieval deadline also bounds a stalled final file page',async()=>{
+ const f=fixture();paginate(f,333,{targetIndex:0});
+ f.overrides.set('/pulls/7/files?per_page=10&page=34',()=>new Promise(()=>{}));
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl,timeoutMs:100}),/deadline/);
+ assert.equal(f.calls.length,36);
+ assert.ok(!f.calls.some(call=>call.url.includes('/contents/')));
 });
 
 test('rejects corrupt, truncated, noncanonical or falsely sized Git blobs',async()=>{

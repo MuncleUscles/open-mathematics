@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "scope": "Read-only GitHub provenance collection of eval_one_line; not native consensus, acceptance, points, wallet binding, or full-project verification.",
+  "started_at": "2026-11-23T23:57:41.861Z",
+  "elapsed_ms": 25258,
+  "collector_base_commit": "421740e654a18f730a07abb6bb3ed3112f5fef7a",
+  "collector_script_sha256": "2aba52578b6165b0da1845234e7a5cfbf50e555cc37ac59c13b73e612d549b2c",
+  "limits": {
+    "changed_files": 500,
+    "files_per_page": 10,
+    "requests": 64,
+    "response_bytes": 524288,
+    "file_bytes": 262144,
+    "timeout_ms": 30000
+  },
+  "observed": {
+    "changed_files": 333,
+    "requests": 42,
+    "maximum_response_bytes": 283235,
+    "aggregate_response_bytes": 3859660
+  },
+  "source_hash": "c1ebb2e15003f93910224ceb6b35a55c7d39856cb1e2fb1c043e684ad0479ae8",
+  "additional_project_notice": {
+    "path": "vp-vnp/NOTICE",
+    "commit": "11b6c7e3c927df2658f513b6b68ea7f8929c62c5",
+    "blob_sha": "19f7fc0dd9ecc46f2de6c35ec26c94b9816ffdda",
+    "content_sha256": "42b2fe65085baead3d52c97df1d951f82b3d6d7e14e2ac42692b37f31b236fd2",
+    "retrieval": "Fetched separately from the pinned GitHub Contents API and verified against its Git blob hash. The collector does not automatically collect project notices."
+  },
+  "artifacts": {
+    "LICENSE": {
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "LowDegree.lean": {
+      "bytes": 1869,
+      "sha256": "ae26842182c09a0154db023ecb736b11e86137632f5e852c0f192e3e1c28316b"
+    },
+    "NOTICE": {
+      "bytes": 920,
+      "sha256": "42b2fe65085baead3d52c97df1d951f82b3d6d7e14e2ac42692b37f31b236fd2"
+    },
+    "input.json": {
+      "bytes": 2367,
+      "sha256": "1ef3888dbe660084436a826b3f515a6d2a136855937617e1b4c349b4662569bb"
+    },
+    "provenance.json": {
+      "bytes": 73356,
+      "sha256": "8cc0d839cf7eeb0acae41cbb91592d7a2b82b0322d05c60a6e2696763706684a"
+    }
+  }
+}

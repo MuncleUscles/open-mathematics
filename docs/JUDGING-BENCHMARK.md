@@ -141,6 +141,10 @@ control and repository administration remain separate governance questions.
 
 `github/github-provenance.mjs` accepts public GitHub files newly added by a
 merged PR. Modified/renamed files and bot submitters are excluded from this pilot.
+Complete PR listings are limited to 500 changed files in pages of ten, with at
+most 64 requests under one 30-second deadline. The 512 KiB JSON-response and
+256 KiB source/license-file limits still apply. Large or incomplete responses
+fail closed; finding the selected source never skips the remaining file pages.
 A later source revision must descend from the PR's merge and preserve the same
 head/merge/source blob. The exact changed-file record and patch, PR metadata,
 source bytes, and commit-pinned license bytes are retained outside the native
@@ -152,3 +156,9 @@ semantic verification. The PR submitter ID establishes neither original
 mathematical authorship nor a wallet. SPDX metadata does not prove discovery or
 complete reuse permission; the preserved license and any applicable notices
 still need review. No CI status is used as mathematical verification.
+
+The [Anthropic collection fixture](../fixtures/federation/anthropic/README.md)
+records an actual read-only collection from the 333-file `formal-math` PR #51.
+Its project NOTICE is retained separately; the collector does not discover all
+applicable notices. This is source-collection evidence, not a new benchmark
+measurement, a full VP–VNP verification, or a native contribution outcome.
