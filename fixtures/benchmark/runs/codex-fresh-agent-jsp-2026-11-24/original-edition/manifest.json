@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "pnp-federation-pilot-v1",
+  "capture_date": "2026-11-23",
+  "capture_notes": "GitHub snapshots preserve connected-tool-returned UTF-8 text with a trailing newline. Hashes bind these local snapshot bytes, not HTTP wire bytes. Mutable issue/PR records remain dated snapshots. Commit-addressed files bind a particular revision. Bibliographic excerpts are explicitly derived.",
+  "rubric_revision": "documentary-priority-v1",
+  "sources": [
+    {
+      "id": "objection",
+      "path": "sources/issue-5582-api.json",
+      "kind": "github_issue",
+      "role": "input",
+      "url": "https://api.github.com/repos/TheJustinSunPrize/awards/issues/5582",
+      "commit": null,
+      "bytes": 7158,
+      "sha256": "61dc7c3c202159599d571ae92e7c3729777b53ac29f9f29852e4510a742e006c"
+    },
+    {
+      "id": "organizer-response",
+      "path": "sources/issue-5582-comments-api.json",
+      "kind": "github_comments",
+      "role": "historical",
+      "url": "https://api.github.com/repos/TheJustinSunPrize/awards/issues/5582/comments?per_page=100",
+      "commit": null,
+      "bytes": 6834,
+      "sha256": "d6a777f11ed812e56ded83b9533195b96c6da3e5676738a31be488bdd6e9df86"
+    },
+    {
+      "id": "qin-commit",
+      "path": "sources/qin-commit-api.json",
+      "kind": "git_commit",
+      "role": "input",
+      "url": "https://api.github.com/repos/qinz1yang/differential-geometry/git/commits/7a48598d35109aa99d1cc678e2724c213cdf4ff3",
+      "commit": "7a48598d35109aa99d1cc678e2724c213cdf4ff3",
+      "bytes": 2753,
+      "sha256": "bc8fac921a6f910699bee2740552d980d3206e402b5f0ab898d8ac60dfc06e44"
+    },
+    {
+      "id": "frenzy-verification",
+      "path": "sources/frenzymath-verification.json",
+      "kind": "verification_log",
+      "role": "input",
+      "url": "https://github.com/frenzymath/Poincare-Conjecture/blob/08f06794dd88b786ae560b5db1116f50322c4629/archive/PoincareConjecture/references/ricci-flow/mapher/integration-verification/verification.json",
+      "commit": "08f06794dd88b786ae560b5db1116f50322c4629",
+      "bytes": 3365,
+      "sha256": "fc959917b776e37ad9a24490a0742d7ae063c2f9721958c833ab04fa0eb0c823"
+    },
+    {
+      "id": "mathdb-adapter",
+      "path": "sources/mathdb-submission.lean",
+      "kind": "source_text",
+      "role": "input",
+      "url": "https://github.com/liao9yuan/differential-geometry-mathdb/blob/9f65eaf95b9ff5f1b39cfb2d2d24e51aed891568/Submission.lean",
+      "commit": "9f65eaf95b9ff5f1b39cfb2d2d24e51aed891568",
+      "bytes": 1119,
+      "sha256": "db4036ee6c647e93438c9bfac116bd830a2c2a0ec6c745ce187e1552777efef7"
+    },
+    {
+      "id": "bibliography",
+      "path": "sources/bibliographic-excerpts.json",
+      "kind": "bibliography",
+      "role": "input",
+      "url": null,
+      "commit": null,
+      "bytes": 1277,
+      "sha256": "fbe04c11828af649c9c444eceab47067368ce1fd1ddcb1aaf58cacdadfd557ac"
+    },
+    {
+      "id": "historical-trials",
+      "path": "sources/pr-32-historical-summary.json",
+      "kind": "github_pr",
+      "role": "historical",
+      "url": "https://api.github.com/repos/MuncleUscles/open-mathematics/pulls/32",
+      "commit": null,
+      "bytes": 21853,
+      "sha256": "47f88586dda51271724cd98c191aa09d70c61e02a5ee592e53256cd66ee2f776"
+    }
+  ],
+  "cases": [
+    {
+      "id": "jsp-000007",
+      "kind": "documentary",
+      "input_status": "ready",
+      "input_source_ids": [
+        "objection",
+        "qin-commit",
+        "frenzy-verification",
+        "mathdb-adapter",
+        "bibliography"
+      ],
+      "question": "Assess what the supplied record supports about priority of the competing Lean formalizations. Distinguish public formalization, publication, independent verification and later adaptation; identify uncertainty. Do not determine prize entitlement or allocate points.",
+      "historical_reference": {
+        "source_id": "organizer-response",
+        "priority_assessment": "qin_supported",
+        "status": "organizer_decision_not_ground_truth"
+      },
+      "documentary_facts": [
+        {
+          "source_ref": "source:qin-commit",
+          "kind": "commit",
+          "timestamp_utc": "2026-09-27T08:15:33Z"
+        },
+        {
+          "source_ref": "source:bibliography",
+          "kind": "publication",
+          "timestamp_utc": "2026-09-27T18:48:56Z"
+        },
+        {
+          "source_ref": "source:frenzy-verification",
+          "kind": "self_reported_verification",
+          "timestamp_utc": "2026-09-28T21:13:31.666678+00:00"
+        },
+        {
+          "source_ref": "source:bibliography",
+          "kind": "publication",
+          "timestamp_utc": "2026-10-06T13:27:51Z"
+        }
+      ]
+    },
+    {
+      "id": "pnp-pr21",
+      "kind": "research-merit",
+      "input_status": "missing_original_context",
+      "input_source_ids": [],
+      "question": "Review P vs NP contribution PR21 under its original fixed policy.",
+      "missing_reason": "The exact original prompt and complete pre-verdict context have not been archived in this fixture. The historical verdict must not be substituted for input.",
+      "historical_reference": {
+        "source_id": "historical-trials",
+        "accept": false,
+        "award": 0,
+        "status": "published_trial_summary_not_independent_ground_truth"
+      }
+    },
+    {
+      "id": "pnp-pr22",
+      "kind": "research-merit",
+      "input_status": "missing_original_context",
+      "input_source_ids": [],
+      "question": "Review P vs NP contribution PR22 under its original fixed policy.",
+      "missing_reason": "The exact original prompt and complete pre-verdict context have not been archived in this fixture. The historical verdict must not be substituted for input.",
+      "historical_reference": {
+        "source_id": "historical-trials",
+        "accept": true,
+        "award": 300,
+        "status": "published_trial_summary_not_independent_ground_truth"
+      }
+    },
+    {
+      "id": "federation-a",
+      "kind": "research-merit",
+      "input_status": "pending_fixture",
+      "input_source_ids": [],
+      "question": "Review federation contribution A under its exact pinned policy.",
+      "missing_reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+    },
+    {
+      "id": "federation-b",
+      "kind": "research-merit",
+      "input_status": "pending_fixture",
+      "input_source_ids": [],
+      "question": "Review federation contribution B under its exact pinned policy.",
+      "missing_reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+    },
+    {
+      "id": "federation-c",
+      "kind": "research-merit",
+      "input_status": "pending_fixture",
+      "input_source_ids": [],
+      "question": "Review federation contribution C under its exact pinned policy.",
+      "missing_reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+    }
+  ],
+  "expert_ground_truth": null,
+  "limitations": [
+    "Historical decisions are comparison references, not expert mathematical ground truth.",
+    "Model agreement does not demonstrate correctness or decentralized neutrality.",
+    "No model call, native judgment, appeal or points mutation is performed by this harness.",
+    "This is a bounded pilot, not an estimate of general false acceptance or false rejection rates."
+  ]
+}

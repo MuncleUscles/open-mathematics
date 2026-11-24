@@ -1,0 +1,20 @@
+{
+  "chainId": 61999,
+  "readOnly": true,
+  "checks": [
+    {
+      "case": "A",
+      "hash": "0x6f1d7911ed7313d6f6d8e7d6d03a7f4d7e0a717b2c2b7a521919b7140800f438",
+      "calldataVerifiedAgainstOriginalJSON": true,
+      "finalizedSuccessVerified": true,
+      "capturedAt": "2026-11-24T00:31:40.587Z"
+    },
+    {
+      "case": "B",
+      "hash": "0xd38ff2c55cfd117c1ad1d0d0efe3fe010373a8d831a90fa65956f4c35b53bf9d",
+      "calldataVerifiedAgainstOriginalJSON": true,
+      "finalizedSuccessVerified": true,
+      "capturedAt": "2026-11-24T00:31:41.616Z"
+    }
+  ]
+}

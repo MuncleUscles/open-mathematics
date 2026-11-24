@@ -33,10 +33,10 @@ function run(prepared,changes={}){return {run_id:'synthetic-local-test',case_id:
  prompt_sha256:prepared.cases.find(c=>c.case_id==='jsp-000007').prompt_sha256,
  models:[{provider:'test-only',model:'synthetic-fixture',revision:'fixture-v1'}],parameters:{temperature:0},elapsed_ms:123,cost_usd:null,outcome:documentary(),...changes};}
 
-test('prepares a reproducible blinded documentary input and leaves five other cases unavailable',async()=>{
+test('prepares three reproducible blinded inputs and leaves missing original cases unavailable',async()=>{
  const first=await prepareBenchmark(),second=await prepareBenchmark();assert.deepEqual(first,second);
  assert.equal(first.execution_performed,false);assert.equal(first.cases.length,6);
- const ready=first.cases.filter(c=>c.input_status==='ready');assert.equal(ready.length,1);
+ const ready=first.cases.filter(c=>c.input_status==='ready');assert.equal(ready.length,3);
  const item=ready[0];assert.equal(item.prompt_sha256,digest(item.prompt));
  assert.ok(!item.prompt.includes('wontfix'));assert.ok(!item.prompt.includes('closing this issue'));
  assert.ok(!item.prompt.includes('historical_reference'));assert.ok(!item.prompt.includes('organizer-response'));
@@ -48,7 +48,7 @@ test('prepares a reproducible blinded documentary input and leaves five other ca
 });
 
 test('default report claims preparation only and keeps all measurement and accuracy cells absent',async()=>{
- const report=await reportBenchmark();assert.equal(report.preparation.sources_verified,7);
+ const report=await reportBenchmark();assert.equal(report.preparation.sources_verified,(await manifest(FIXTURES)).sources.length);
  assert.equal(report.measurements.imported_attempts,0);assert.equal(report.measurements.reported_cost_usd,null);
  assert.ok(report.rows.every(row=>row.cells.every(cell=>cell.status==='not_run')));
  assert.equal(report.expert_ground_truth,null);assert.equal(report.accuracy,null);
@@ -63,28 +63,38 @@ test('the recorded first-answer baseline is bound to its unchanged prompt, raw a
  const originals=['benchmark-jsp-prompt.txt','benchmark-jsp-output.json','benchmark-jsp-start.json','benchmark-jsp-completion.json'];
  assert.deepEqual(Object.keys(audit.artifacts).sort(),[...originals.map(name=>prefix+name),'measurements.json','report.json'].sort());
  for(const [path,expected] of Object.entries(audit.artifacts)){
-  const bytes=await readFile(join(FIXTURES,path));assert.equal(bytes.length,expected.bytes);assert.equal(digest(bytes),expected.sha256);
+  const archived=['measurements.json','report.json'].includes(path)?join(root,'original-edition',path):join(FIXTURES,path);
+  const bytes=await readFile(archived);assert.equal(bytes.length,expected.bytes);assert.equal(digest(bytes),expected.sha256);
  }
  const prepared=await prepareBenchmark(),item=prepared.cases.find(c=>c.case_id==='jsp-000007');
  const prompt=await readFile(join(root,'benchmark-jsp-prompt.txt'));
  assert.deepEqual(prompt,Buffer.from(item.prompt));assert.equal(audit.prompt_sha256,item.prompt_sha256);
- assert.equal(audit.benchmark_manifest_sha256,prepared.manifest_hash);
+ const original=await prepareBenchmark({fixturesDir:join(root,'original-edition')});
+ assert.equal(audit.benchmark_manifest_sha256,original.manifest_hash);
+ assert.equal(original.cases.find(c=>c.case_id==='jsp-000007').prompt,item.prompt);
  const start=JSON.parse(await readFile(join(root,'benchmark-jsp-start.json'),'utf8'));
  const completion=JSON.parse(await readFile(join(root,'benchmark-jsp-completion.json'),'utf8'));
  assert.equal(start.prompt_sha256,item.prompt_sha256);assert.equal(completion.first_attempt,true);
  assert.equal(audit.execution_record.parent_conversation_inherited,false);
  assert.equal(audit.execution_record.independently_verified_by_reporter,false);
  const measurements=JSON.parse(await readFile(join(FIXTURES,'measurements.json'),'utf8'));
- assert.equal(measurements.runs.length,1);const recorded=measurements.runs[0];
+ assert.equal(measurements.runs.length,5);const recorded=measurements.runs[0];
+ const originalMeasurements=JSON.parse(await readFile(join(root,'original-edition/measurements.json'),'utf8'));
+ assert.deepEqual(recorded,originalMeasurements.runs[0]);
+ const originalReport=JSON.parse(await readFile(join(root,'original-edition/report.json'),'utf8'));
+ assert.equal(originalReport.measurements.completed_valid,1);
+ assert.equal(originalReport.rows.flatMap(row=>row.cells).filter(cell=>cell.status==='not_run').length,17);
  assert.equal(recorded.run_id,runId);assert.equal(recorded.prompt_sha256,item.prompt_sha256);
  assert.deepEqual(recorded.outcome,JSON.parse(await readFile(join(root,'benchmark-jsp-output.json'),'utf8')));
  assert.equal(recorded.models[0].revision,'not-exposed');assert.equal(audit.model_identity.exact_model_identifier,null);assert.equal(audit.model_identity.exact_revision,null);
  assert.equal(recorded.elapsed_ms,null);assert.equal(recorded.cost_usd,null);
  const report=await reportBenchmark({measurements});
  assert.deepEqual(report,JSON.parse(await readFile(join(FIXTURES,'report.json'),'utf8')));
- assert.equal(report.measurements.completed_valid,1);assert.equal(report.measurements.execution_independently_verified_by_harness,false);
- assert.equal(report.rows.flatMap(row=>row.cells).filter(cell=>cell.status==='not_run').length,17);
- assert.ok(report.rows.every(row=>row.comparisons.every(comparison=>comparison.paired===false)));
+ assert.equal(report.measurements.completed_valid,5);assert.equal(report.measurements.execution_independently_verified_by_harness,false);
+ assert.equal(report.rows.flatMap(row=>row.cells).filter(cell=>cell.status==='not_run').length,13);
+ const pairs=report.rows.flatMap(row=>row.comparisons).filter(comparison=>comparison.paired);
+ assert.equal(pairs.length,2);assert.ok(pairs.every(comparison=>comparison.outcome_agreement===true&&comparison.interpretation==='agreement_not_accuracy'));
+ assert.ok(report.rows.find(row=>row.case_id==='jsp-000007').comparisons.every(comparison=>comparison.paired===false));
  assert.equal(report.rows[0].cells[0].outcome.priority_assessment,'insufficient_evidence');
  assert.equal(report.rows[0].cells[0].metrics.milestones_matching_frozen_records,4);assert.equal(report.rows[0].cells[0].metrics.unmatched_milestones,1);
  for(const field of ['expert_ground_truth','accuracy','false_acceptance_rate','false_rejection_rate'])assert.equal(report[field],null);
@@ -95,6 +105,31 @@ test('the recorded first-answer baseline is bound to its unchanged prompt, raw a
 test('source hashes reject edits rather than silently refreshing documentary evidence',async t=>{
  const root=await copyFixture(t);await writeFile(join(root,'sources/mathdb-submission.lean'),'changed source');
  await assert.rejects(prepareBenchmark({fixturesDir:root}),/hash or size mismatch/);
+});
+
+test('paired capture preserves all original artifacts and reproduces each full prompt without invoking an evaluator',async t=>{
+ const root=await copyFixture(t),prefix='captures/federation-2026-11-24',capture=join(root,prefix);
+ const audit=JSON.parse(await readFile(join(capture,'capture-artifacts.json'),'utf8'));
+ for(const [path,expected] of Object.entries(audit.artifacts)){
+  const bytes=await readFile(join(capture,path));assert.equal(bytes.length,expected.bytes,path);assert.equal(digest(bytes),expected.sha256,path);
+ }
+ for(const [path,expected] of Object.entries(audit.existing_checker_files))assert.equal(digest(await readFile(path)),expected.sha256,path);
+ assert.equal(digest(await readFile(audit.offline_checker.path)),audit.offline_checker.sha256);
+ const manifestBefore=await readFile(join(capture,'manifest.json'));
+ const inputs=await Promise.all(['A','B'].map(id=>readFile(join(capture,'inputs',id+'.prompt.txt'))));
+ await exec('python3',[join(capture,'reconstruct.py')]);
+ assert.deepEqual(await readFile(join(capture,'manifest.json')),manifestBefore);
+ const measurements=JSON.parse(await readFile(join(root,'measurements.json'),'utf8'));
+ for(const [index,id] of ['A','B'].entries()){
+  const prompt=await readFile(join(capture,'inputs',id+'.prompt.txt'));assert.deepEqual(prompt,inputs[index]);
+  const start=JSON.parse(await readFile(join(capture,'baselines',id+'.start.json'),'utf8'));
+  const output=JSON.parse(await readFile(join(capture,'baselines',id+'.output.json'),'utf8'));
+  const run=measurements.runs.find(r=>r.case_id==='federation-'+id.toLowerCase()&&r.arm==='centralized_single');
+  assert.equal(start.prompt_sha256,digest(prompt));assert.deepEqual(run.outcome,output);
+  assert.equal(run.parameters.parent_conversation_inherited,false);assert.equal(run.parameters.first_answer_preserved,true);
+  assert.equal(run.parameters.exact_model_identifier,null);assert.equal(run.parameters.exact_revision,null);
+  assert.equal(run.elapsed_ms,null);assert.equal(run.cost_usd,null);
+ }
 });
 
 test('historical outcomes cannot be included as model input',async t=>{
@@ -162,7 +197,7 @@ test('centralized panel declares at least two pinned models and a fixed aggregat
  assert.equal((await reportBenchmark({measurements:{schema_version:1,runs:[r]}})).measurements.completed_valid,1);
 });
 
-test('generic federation fixture compares identical inputs to a separately frozen normalized receipt',async t=>{
+test('a synthetic verification label without a raw checked receipt cannot create a native measurement',async t=>{
  const root=await copyFixture(t),m=await manifest(root),item=m.cases.find(c=>c.id==='federation-a');
  const prompt='Synthetic local test prompt only. Review contribution test-a under this test policy. UNTRUSTED_DATA={"id":"test-a"}';
  await addSource(root,m,{id:'a-prompt',kind:'exact_prompt',role:'input',text:prompt});
@@ -174,10 +209,7 @@ test('generic federation fixture compares identical inputs to a separately froze
  assert.ok(!JSON.stringify(prepared).includes('a-receipt'));
  const central=run(prepared,{case_id:'federation-a',prompt_sha256:digest(prompt),outcome});
  const native={...central,run_id:'synthetic-native-test',arm:'genlayer',receipt_source_id:'a-receipt',models:[]};
- const report=await reportBenchmark({fixturesDir:root,measurements:{schema_version:1,runs:[central,native]}});
- assert.equal(report.rows.find(r=>r.case_id==='federation-a').comparisons[0].outcome_agreement,true);assert.equal(report.accuracy,null);
- native.outcome={...outcome,significance:2};
- await assert.rejects(reportBenchmark({fixturesDir:root,measurements:{schema_version:1,runs:[native]}}),/does not match/);
+ await assert.rejects(reportBenchmark({fixturesDir:root,measurements:{schema_version:1,runs:[central,native]}}),/frozen raw capture/);
 });
 
 test('CLI reports without invoking evaluators and refuses to overwrite a prior artifact',async t=>{

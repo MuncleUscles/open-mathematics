@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "verification": "independently-finalized-receipt",
+  "status": "completed",
+  "case_id": "federation-b",
+  "prompt_sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc",
+  "outcome": {
+    "accept": true,
+    "novelty": 1,
+    "significance": 1,
+    "reusability": 1,
+    "reason": "The submission provides a formal integration bridge between a graph-theoretic restriction lemma (L_meta_253) and a specific list-based CNF evaluation protocol. While the core graph result is acknowledged as upstream work (lshhhhhhh), the contributor has implemented the semantic mapping (relationCNF) and proven the compatibility lemmas (relationCNF_semantics, relationCNF_complement, and complement_update) necessary to relate vertex deletion in a graph to assignment updates in the CNF representation. This is useful incremental formalization work that connects two different representations of the same problem. The work is modest in scope and does not claim to resolve the full P versus NP problem.",
+    "evidence_refs": [
+      "pr-29-574730b7e55c-9f1a7872c261"
+    ]
+  },
+  "award": "300",
+  "raw_capture_source_id": "federation-b-native-capture",
+  "raw_capture_sha256": "671ba10801d75733e2f00ccb6b53c894fee0995a4074a0e656118b085477b83b",
+  "judgment_phase": "initial_adjudication",
+  "full_protocol_completion_claimed": false,
+  "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+  "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+  "round": 0,
+  "transaction": "0xe6ae87437f62ca83a6a235ba0571a3f2dfb91e4ab4b549b3db2b39333a6a2a61",
+  "related_transactions": {
+    "register": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x9686a4f167600c764c4af3c0c58536f9b7fb8f90",
+        "method": "register",
+        "argsSha256": "fd0f87d26d4afaa132b7e7d3bc1cd3f31086947657e88b136454c1c6a25fc941",
+        "independent": false
+      },
+      "hash": "0xd38ff2c55cfd117c1ad1d0d0efe3fe010373a8d831a90fa65956f4c35b53bf9d"
+    },
+    "begin-adjudicate-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "begin_adjudication",
+        "argsSha256": "b1a3facc2bc165706f522c6cddda734c26f526ca9c58f2e0bf18da6576dfd378",
+        "independent": false
+      },
+      "hash": "0x963841cb9298a11a35f64fe8ea71281c80c305ef40c87dea76549164058922a4"
+    },
+    "adjudicate-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "adjudicate",
+        "argsSha256": "b1a3facc2bc165706f522c6cddda734c26f526ca9c58f2e0bf18da6576dfd378",
+        "independent": true
+      },
+      "hash": "0xe6ae87437f62ca83a6a235ba0571a3f2dfb91e4ab4b549b3db2b39333a6a2a61"
+    },
+    "finalize-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "finalize",
+        "argsSha256": "b1a3facc2bc165706f522c6cddda734c26f526ca9c58f2e0bf18da6576dfd378",
+        "independent": false
+      },
+      "hash": "0x781c1c1f8f1b731f76a31ced48d91200cf9b550fc19f18b4ab0c7b84a0b38273"
+    }
+  },
+  "source_report": {
+    "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/f458038e2fa7eeb42a355a92b8976ccb1b8c88f9",
+    "git_blob": "f458038e2fa7eeb42a355a92b8976ccb1b8c88f9",
+    "path": "reports/pr-29-574730b7e55c-9f1a7872c261.json"
+  },
+  "receipt_checker": {
+    "base_commit": "1946bc9b5e915319e52b58e0aaf8ed79adb32bd3",
+    "module": "github/journaled-transaction.mjs",
+    "offline_normalizer": "scripts/check-benchmark-native.mjs",
+    "offline_normalizer_sha256": "e13000ddcc363f56ddcc2a7f1211d6e68eaaf24fe953c796c2c635fd9c2775fb"
+  },
+  "validation": {
+    "checker": "journaledTransaction -> finalized -> verifyReceipt",
+    "read_only": true,
+    "network_calls": 0,
+    "model_calls": 0,
+    "receipt_reads": 1,
+    "journal_copy_saves": 0,
+    "transaction_finalized": true,
+    "execution_succeeded": true,
+    "independent_validator_agreement": true,
+    "exact_call_and_sender_verified": true,
+    "original_evidence_digest_verified": true,
+    "original_numeric_types_preserved": true,
+    "prompt_submission_binding_verified": true,
+    "leader_return_matches_native_record": true,
+    "leader_eq_output_matches_return": true,
+    "agreeing_validator_returns_match": true,
+    "agreeing_validator_return_entries": 2,
+    "validator_entries": 4,
+    "distinct_validator_count": null,
+    "independent_validator_model_responses_captured": false,
+    "protocol_phase": "initial_adjudication",
+    "full_protocol_completion_claimed": false,
+    "award_semantics": "total_result_budget_not_credited_points",
+    "native_model_identities": null,
+    "tx_hash": "0xe6ae87437f62ca83a6a235ba0571a3f2dfb91e4ab4b549b3db2b39333a6a2a61",
+    "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+    "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+    "round": 0,
+    "source_code_sha256": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27"
+  }
+}

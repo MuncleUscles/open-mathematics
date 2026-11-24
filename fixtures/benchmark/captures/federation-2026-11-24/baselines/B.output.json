@@ -1,0 +1,10 @@
+{
+  "accept": true,
+  "novelty": 1,
+  "significance": 1,
+  "reusability": 1,
+  "reason": "Accept for modest repository integration credit. The contributed work defines a finite-relation-to-list-CNF representation, establishes its evaluation semantics and complement correspondence, and connects assignment updates to the explicitly attributed upstream graph restriction lemma. This supplies a reusable compatibility result for the protocol-style evaluator, beyond merely reproducing the upstream statement. The underlying mathematics is elementary and known: setting a positive variable to true satisfies its incident clauses, leaving the remaining edge clauses unchanged. Neither that observation nor the retained upstream proof merits discovery credit. The evidence reports formal verification, but the mathematical scope is only positive two-literal graph CNFs; it supplies no complexity bound, arbitrary-CNF result, or resolution of P versus NP. The noncomputable conversion and locally reproduced evaluator definitions further limit practical significance. Treat the semantic bridge and its supporting lemmas as one small contribution, with honest upstream attribution and no separate merit for the reproduced material. No supplied prior or related record establishes that this integration was already credited.",
+  "evidence_refs": [
+    "pr-29-574730b7e55c-9f1a7872c261"
+  ]
+}

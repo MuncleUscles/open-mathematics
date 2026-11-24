@@ -1,0 +1,98 @@
+{
+  "checks": [
+    {
+      "case": "A",
+      "id": "pr-27-dfe76b37c950-d08c386809b2",
+      "registrationHash": "0x6f1d7911ed7313d6f6d8e7d6d03a7f4d7e0a717b2c2b7a521919b7140800f438",
+      "registrationFinalized": true,
+      "registrationExecutionSucceeded": true,
+      "originalEvidenceMatchesCalldata": true,
+      "evidenceMatchesNativeRecord": true,
+      "evidenceSha256": "0afa582f69a8f1fc24f29aac44caa533aeba0b4a08eaaf06555e140a4fadd5af",
+      "calldataSha256": "d42a6476e09873fa8800ee90c9be9cdc554cfac3804890df6d44f5b0dceaf67d",
+      "argsSha256": "93a6e43f26e2180959382b3a0349d4fba8139d5c64ed9aa3db37967501c77f4b",
+      "numericTypes": {
+        "pr": {
+          "type": "number",
+          "value": 27
+        },
+        "github_author_id": {
+          "type": "number",
+          "value": 2372232
+        },
+        "github_account_created_at": {
+          "type": "number",
+          "value": 1347988519
+        },
+        "claim_comment_id": {
+          "type": "number",
+          "value": 7117664740
+        }
+      },
+      "protocolCommit": "421740e654a18f730a07abb6bb3ed3112f5fef7a"
+    },
+    {
+      "case": "B",
+      "id": "pr-29-574730b7e55c-9f1a7872c261",
+      "registrationHash": "0xd38ff2c55cfd117c1ad1d0d0efe3fe010373a8d831a90fa65956f4c35b53bf9d",
+      "registrationFinalized": true,
+      "registrationExecutionSucceeded": true,
+      "originalEvidenceMatchesCalldata": true,
+      "evidenceMatchesNativeRecord": true,
+      "evidenceSha256": "c96c10e30a916e106d008e530c15ffc994e44c753a31272ad352e2809fb98ed4",
+      "calldataSha256": "9efad86fdc22205736d3c975d12e9c264d4ec0c63f9dc0f27c96d3de85535b05",
+      "argsSha256": "fd0f87d26d4afaa132b7e7d3bc1cd3f31086947657e88b136454c1c6a25fc941",
+      "numericTypes": {
+        "pr": {
+          "type": "number",
+          "value": 29
+        },
+        "github_author_id": {
+          "type": "number",
+          "value": 2372232
+        },
+        "github_account_created_at": {
+          "type": "number",
+          "value": 1347988519
+        },
+        "claim_comment_id": {
+          "type": "number",
+          "value": 7117998390
+        }
+      },
+      "protocolCommit": "7669a2cdd54dee1f828f02f86723b4d5ff526075"
+    }
+  ],
+  "deployment": {
+    "hash": "0x50dfc335e1782bc428c1982be381d2c21544709988071a8eb6dff66daec8fe4a",
+    "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+    "codeHash": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27",
+    "configJSONHash": "8df6d3e0fb54ab447c22b83ca28bd573849376af712aed0934ef5ae7e6b68c89",
+    "constructor": {
+      "version": 5,
+      "problem": "p-vs-np",
+      "repository": "MuncleUscles/p-vs-np",
+      "branch": "research",
+      "verifier": "0x9686A4F167600c764C4af3c0c58536f9B7fB8F90",
+      "executor": "0x06BAb7179c48F0dcd1afC93C48d3D22C5a6377f2",
+      "window": 300,
+      "minimum_account_age_days": 30,
+      "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+      "objective": "Resolve P versus NP; useful work toward either outcome is welcome. Contributors choose intermediate questions and research directions.",
+      "legacy_ledgers": []
+    },
+    "finalized": true,
+    "receiptDataFields": [
+      "calldata",
+      "fee_value",
+      "salt_nonce",
+      "user_value",
+      "valid_until",
+      "contract_code",
+      "fee_accounting",
+      "contract_address",
+      "fees_distribution",
+      "message_allocations_count"
+    ]
+  }
+}

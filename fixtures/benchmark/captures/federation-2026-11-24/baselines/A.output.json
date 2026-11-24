@@ -1,0 +1,10 @@
+{
+  "accept": false,
+  "novelty": 0,
+  "significance": 0,
+  "reusability": 0,
+  "reason": "The verified statement is an elementary cubic polarization identity over commutative rings, established by polynomial expansion. Kernel validity does not establish research significance. The evidence explicitly attributes the identical theorem and ring proof to an existing upstream formalization; the local contribution consists only of source packaging, removing an unused import, and narrowing the Mathlib import. This is honest reuse, but it supplies no new proof, strengthened statement, substantive formalization or demonstrated integration into a useful research component. No connection to a complexity bound, algorithm or specific P-versus-NP argument is established. The underlying identity can be reused, but that utility already exists upstream and does not establish independently useful marginal work here. These packaging changes therefore merit no new result budget; the rejection concerns incremental contribution, not correctness, attribution, research direction or affiliation.",
+  "evidence_refs": [
+    "pr-27-dfe76b37c950-d08c386809b2"
+  ]
+}

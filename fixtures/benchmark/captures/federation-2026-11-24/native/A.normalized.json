@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "verification": "independently-finalized-receipt",
+  "status": "completed",
+  "case_id": "federation-a",
+  "prompt_sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10",
+  "outcome": {
+    "accept": false,
+    "novelty": 0,
+    "significance": 0,
+    "reusability": 0,
+    "reason": "Submission reuses an existing upstream theorem via packaging and import narrowing only, with no new mathematical content, proof, or relevance to P versus NP.",
+    "evidence_refs": [
+      "pr-27-dfe76b37c950-d08c386809b2"
+    ]
+  },
+  "award": "0",
+  "raw_capture_source_id": "federation-a-native-capture",
+  "raw_capture_sha256": "417bc3273a89011876aac62f74dbfa79ba2230f56a5ddc54ab083a07de8c92d9",
+  "judgment_phase": "initial_adjudication",
+  "full_protocol_completion_claimed": false,
+  "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+  "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+  "round": 0,
+  "transaction": "0xdc7033637d61a8a28e75122b42aeb8f96dffb1fbb1e91826c75c4c74b8fd7577",
+  "related_transactions": {
+    "register": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x9686a4f167600c764c4af3c0c58536f9b7fb8f90",
+        "method": "register",
+        "argsSha256": "93a6e43f26e2180959382b3a0349d4fba8139d5c64ed9aa3db37967501c77f4b",
+        "independent": false
+      },
+      "hash": "0x6f1d7911ed7313d6f6d8e7d6d03a7f4d7e0a717b2c2b7a521919b7140800f438"
+    },
+    "begin-adjudicate-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "begin_adjudication",
+        "argsSha256": "9abf6db913fe10bf852575268d5779340570848788bee979f897e7bd52d3900e",
+        "independent": false
+      },
+      "hash": "0x3e5208792b640a42a0c04cc1a93fc0f17d55f104067d1cb64befd7a29a519755"
+    },
+    "adjudicate-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "adjudicate",
+        "argsSha256": "9abf6db913fe10bf852575268d5779340570848788bee979f897e7bd52d3900e",
+        "independent": true
+      },
+      "hash": "0xdc7033637d61a8a28e75122b42aeb8f96dffb1fbb1e91826c75c4c74b8fd7577"
+    },
+    "finalize-r0": {
+      "intent": {
+        "address": "0x3a8be4aa97375e4e38e1b351722ae45454de611e",
+        "sender": "0x06bab7179c48f0dcd1afc93c48d3d22c5a6377f2",
+        "method": "finalize",
+        "argsSha256": "9abf6db913fe10bf852575268d5779340570848788bee979f897e7bd52d3900e",
+        "independent": false
+      },
+      "hash": "0x12f6ace3379e399435facdbf0d5048b54ef549c8682d02477460f5cc396a192b"
+    }
+  },
+  "source_report": {
+    "url": "https://api.github.com/repos/MuncleUscles/p-vs-np/git/blobs/375d2607c3523b102bc3fb44b26a32ea689d9535",
+    "git_blob": "375d2607c3523b102bc3fb44b26a32ea689d9535",
+    "path": "reports/pr-27-dfe76b37c950-d08c386809b2.json"
+  },
+  "receipt_checker": {
+    "base_commit": "1946bc9b5e915319e52b58e0aaf8ed79adb32bd3",
+    "module": "github/journaled-transaction.mjs",
+    "offline_normalizer": "scripts/check-benchmark-native.mjs",
+    "offline_normalizer_sha256": "e13000ddcc363f56ddcc2a7f1211d6e68eaaf24fe953c796c2c635fd9c2775fb"
+  },
+  "validation": {
+    "checker": "journaledTransaction -> finalized -> verifyReceipt",
+    "read_only": true,
+    "network_calls": 0,
+    "model_calls": 0,
+    "receipt_reads": 1,
+    "journal_copy_saves": 0,
+    "transaction_finalized": true,
+    "execution_succeeded": true,
+    "independent_validator_agreement": true,
+    "exact_call_and_sender_verified": true,
+    "original_evidence_digest_verified": true,
+    "original_numeric_types_preserved": true,
+    "prompt_submission_binding_verified": true,
+    "leader_return_matches_native_record": true,
+    "leader_eq_output_matches_return": true,
+    "agreeing_validator_returns_match": true,
+    "agreeing_validator_return_entries": 2,
+    "validator_entries": 4,
+    "distinct_validator_count": null,
+    "independent_validator_model_responses_captured": false,
+    "protocol_phase": "initial_adjudication",
+    "full_protocol_completion_claimed": false,
+    "award_semantics": "total_result_budget_not_credited_points",
+    "native_model_identities": null,
+    "tx_hash": "0xdc7033637d61a8a28e75122b42aeb8f96dffb1fbb1e91826c75c4c74b8fd7577",
+    "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+    "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+    "round": 0,
+    "source_code_sha256": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27"
+  }
+}

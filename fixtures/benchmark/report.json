@@ -1,34 +1,37 @@
 {
   "schema_version": 1,
   "benchmark_id": "pnp-federation-pilot-v1",
-  "manifest_hash": "ebab5b185f1df8e251fec4514c5e94379b261c67b7e43bcd03169597931bacdd",
+  "manifest_hash": "426f8c59f165acd5444fe94d35c0cae3450641b1a028ecae6f91bba7d9ef63e1",
   "preparation": {
     "cases": 6,
-    "ready_cases": 1,
-    "sources_verified": 7,
+    "ready_cases": 3,
+    "sources_verified": 14,
     "execution_performed": false
   },
   "measurements": {
-    "imported_attempts": 1,
-    "completed_valid": 1,
+    "imported_attempts": 5,
+    "completed_valid": 5,
     "invalid_outputs": 0,
     "failed": 0,
     "unresolved": 0,
     "latency_ms": [],
     "reported_cost_usd": null,
-    "missing_cost_measurements": 1,
+    "missing_cost_measurements": 5,
     "execution_independently_verified_by_harness": false
   },
   "expert_ground_truth": null,
   "accuracy": null,
   "false_acceptance_rate": null,
   "false_rejection_rate": null,
-  "native_receipt_validation": "Normalized receipt fixtures must be produced by a separate trusted checker; this offline report checks their hash and outcome correspondence.",
+  "native_receipt_validation": "Frozen native captures are rechecked offline through journaledTransaction, including exact calldata, sender, finalized consensus, independent validator agreement and returned verdict. No current network read or new judgment occurs.",
   "limitations": [
     "Historical decisions are comparison references, not expert mathematical ground truth.",
     "Model agreement does not demonstrate correctness or decentralized neutrality.",
     "No model call, native judgment, appeal or points mutation is performed by this harness.",
-    "This is a bounded pilot, not an estimate of general false acceptance or false rejection rates."
+    "This is a bounded pilot, not an estimate of general false acceptance or false rejection rates.",
+    "Federation prompts are exact reconstructed contract strings, not provider request wire captures; provider wrapping and exact model revisions are unobserved.",
+    "Paired federation measurements cover initial adjudication decisions; a finalized adjudication transaction does not establish merge, payout, attribution settlement or full protocol completion.",
+    "Two observed paired agreements have no independent expert labels and do not demonstrate mathematical accuracy or system superiority."
   ],
   "rows": [
     {
@@ -228,31 +231,73 @@
     },
     {
       "case_id": "federation-a",
-      "input_status": "pending_fixture",
+      "input_status": "ready",
       "historical_reference": null,
       "cells": [
         {
           "arm": "centralized_single",
-          "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "status": "completed",
+          "run_id": "codex-fresh-agent-federation-a-2026-11-24",
+          "models": [
+            {
+              "provider": "OpenAI",
+              "model": "Codex session model",
+              "revision": "not-exposed"
+            }
+          ],
+          "elapsed_ms": null,
+          "cost_usd": null,
+          "outcome": {
+            "accept": false,
+            "novelty": 0,
+            "significance": 0,
+            "reusability": 0,
+            "reason": "The verified statement is an elementary cubic polarization identity over commutative rings, established by polynomial expansion. Kernel validity does not establish research significance. The evidence explicitly attributes the identical theorem and ring proof to an existing upstream formalization; the local contribution consists only of source packaging, removing an unused import, and narrowing the Mathlib import. This is honest reuse, but it supplies no new proof, strengthened statement, substantive formalization or demonstrated integration into a useful research component. No connection to a complexity bound, algorithm or specific P-versus-NP argument is established. The underlying identity can be reused, but that utility already exists upstream and does not establish independently useful marginal work here. These packaging changes therefore merit no new result budget; the rejection concerns incremental contribution, not correctness, attribution, research direction or affiliation.",
+            "evidence_refs": [
+              "pr-27-dfe76b37c950-d08c386809b2"
+            ]
+          },
+          "outcome_errors": [],
+          "failure_reason": null,
+          "metrics": {
+            "evidence_reference_membership_valid": true
+          }
         },
         {
           "arm": "centralized_panel",
           "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "reason": "No recorded measurement supplied."
         },
         {
           "arm": "genlayer",
-          "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "status": "completed",
+          "run_id": "genlayer-initial-federation-a-2026-11-24",
+          "models": [],
+          "elapsed_ms": null,
+          "cost_usd": null,
+          "outcome": {
+            "accept": false,
+            "novelty": 0,
+            "significance": 0,
+            "reusability": 0,
+            "reason": "Submission reuses an existing upstream theorem via packaging and import narrowing only, with no new mathematical content, proof, or relevance to P versus NP.",
+            "evidence_refs": [
+              "pr-27-dfe76b37c950-d08c386809b2"
+            ]
+          },
+          "outcome_errors": [],
+          "failure_reason": null,
+          "metrics": {
+            "evidence_reference_membership_valid": true
+          }
         }
       ],
       "comparisons": [
         {
           "arm": "centralized_single",
-          "paired": false,
-          "outcome_agreement": null,
-          "reason": "Both arms need valid measurements of the same frozen input."
+          "paired": true,
+          "outcome_agreement": true,
+          "interpretation": "agreement_not_accuracy"
         },
         {
           "arm": "centralized_panel",
@@ -264,31 +309,73 @@
     },
     {
       "case_id": "federation-b",
-      "input_status": "pending_fixture",
+      "input_status": "ready",
       "historical_reference": null,
       "cells": [
         {
           "arm": "centralized_single",
-          "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "status": "completed",
+          "run_id": "codex-fresh-agent-federation-b-2026-11-24",
+          "models": [
+            {
+              "provider": "OpenAI",
+              "model": "Codex session model",
+              "revision": "not-exposed"
+            }
+          ],
+          "elapsed_ms": null,
+          "cost_usd": null,
+          "outcome": {
+            "accept": true,
+            "novelty": 1,
+            "significance": 1,
+            "reusability": 1,
+            "reason": "Accept for modest repository integration credit. The contributed work defines a finite-relation-to-list-CNF representation, establishes its evaluation semantics and complement correspondence, and connects assignment updates to the explicitly attributed upstream graph restriction lemma. This supplies a reusable compatibility result for the protocol-style evaluator, beyond merely reproducing the upstream statement. The underlying mathematics is elementary and known: setting a positive variable to true satisfies its incident clauses, leaving the remaining edge clauses unchanged. Neither that observation nor the retained upstream proof merits discovery credit. The evidence reports formal verification, but the mathematical scope is only positive two-literal graph CNFs; it supplies no complexity bound, arbitrary-CNF result, or resolution of P versus NP. The noncomputable conversion and locally reproduced evaluator definitions further limit practical significance. Treat the semantic bridge and its supporting lemmas as one small contribution, with honest upstream attribution and no separate merit for the reproduced material. No supplied prior or related record establishes that this integration was already credited.",
+            "evidence_refs": [
+              "pr-29-574730b7e55c-9f1a7872c261"
+            ]
+          },
+          "outcome_errors": [],
+          "failure_reason": null,
+          "metrics": {
+            "evidence_reference_membership_valid": true
+          }
         },
         {
           "arm": "centralized_panel",
           "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "reason": "No recorded measurement supplied."
         },
         {
           "arm": "genlayer",
-          "status": "not_run",
-          "reason": "Awaiting the exact pre-verdict prompt, complete evidence and independently checked final native receipt. No run is represented by this placeholder."
+          "status": "completed",
+          "run_id": "genlayer-initial-federation-b-2026-11-24",
+          "models": [],
+          "elapsed_ms": null,
+          "cost_usd": null,
+          "outcome": {
+            "accept": true,
+            "novelty": 1,
+            "significance": 1,
+            "reusability": 1,
+            "reason": "The submission provides a formal integration bridge between a graph-theoretic restriction lemma (L_meta_253) and a specific list-based CNF evaluation protocol. While the core graph result is acknowledged as upstream work (lshhhhhhh), the contributor has implemented the semantic mapping (relationCNF) and proven the compatibility lemmas (relationCNF_semantics, relationCNF_complement, and complement_update) necessary to relate vertex deletion in a graph to assignment updates in the CNF representation. This is useful incremental formalization work that connects two different representations of the same problem. The work is modest in scope and does not claim to resolve the full P versus NP problem.",
+            "evidence_refs": [
+              "pr-29-574730b7e55c-9f1a7872c261"
+            ]
+          },
+          "outcome_errors": [],
+          "failure_reason": null,
+          "metrics": {
+            "evidence_reference_membership_valid": true
+          }
         }
       ],
       "comparisons": [
         {
           "arm": "centralized_single",
-          "paired": false,
-          "outcome_agreement": null,
-          "reason": "Both arms need valid measurements of the same frozen input."
+          "paired": true,
+          "outcome_agreement": true,
+          "interpretation": "agreement_not_accuracy"
         },
         {
           "arm": "centralized_panel",
