@@ -5,7 +5,7 @@ import {federationCaseAttestation,processAttribution,routedImpactCall,nativeExte
 import {readEvidenceFile} from '../github/evidence-file.mjs';
 const evidence={repository_id:123,pr:4,github_author_id:56,statement:'untrusted source text'};
 const source={id:'external-a',evidence,source_hash:digest(evidence)};
-const base=()=>({id:'attribution-a',target:'proof-a',status:'submitted',revision:'0',round:'0',request_hash:'a'.repeat(64),request:{sources:[{id:source.id,source_hash:source.source_hash}]}});
+const base=()=>({id:'attribution-a',target:'proof-a',status:'submitted',revision:'0',round:'0',started_round:'-1',request_hash:'a'.repeat(64),request:{sources:[{id:source.id,source_hash:source.source_hash}]}});
 test('identity preflight avoids poisoning exact settlement intent during its challenge window',()=>{
  const claim={status:'provisional',expiry:900,deadline:300};
  assert.equal(authorClaimPreflight(claim,{operation:'settle',windowSeconds:300,now:0}).wait,true);
