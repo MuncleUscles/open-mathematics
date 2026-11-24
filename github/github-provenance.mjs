@@ -3,8 +3,11 @@ import {createHash} from 'node:crypto';
 const API='https://api.github.com';
 const MAX_FILE_BYTES=256*1024;
 const MAX_RESPONSE_BYTES=512*1024;
-const MAX_FILES=300;
-const MAX_REQUESTS=16;
+const MAX_FILES=500;
+// Keep patch-heavy PR responses inside the unchanged per-response byte cap.
+const FILES_PER_PAGE=10;
+// Fifty file pages plus at most ten source, ancestry and license requests.
+const MAX_REQUESTS=64;
 const SHA=/^[a-f0-9]{40}$/;
 const REPOSITORY=/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/;
 const need=(condition,message)=>{if(!condition)throw Error('GitHub provenance: '+message);};
@@ -48,7 +51,10 @@ async function jsonRequest(url,{fetchImpl,headers,signal,requests}){
  try{response=await abortable(fetchImpl(url,{method:'GET',headers,redirect:'error',signal}),signal);}
  catch{need(false,signal.aborted?'retrieval deadline exceeded':'GitHub request failed');}
  need(response?.url===url&&!response.redirected,'redirected or foreign response URL');
- need(response.status===200,'complete HTTP 200 response required');
+ const status=Number.isInteger(response.status)&&response.status>=100&&response.status<=599?response.status:'unknown';
+ // Only our validated, constructed API path and numeric status enter journals.
+ // Never echo a server message, status text, response URL, headers or credential.
+ need(response.status===200,`HTTP ${status} for ${url.slice(API.length,API.length+512)}; complete HTTP 200 response required`);
  const contentType=response.headers?.get('content-type')||'';
  need(/^application\/(?:[a-z0-9.+-]+\+)?json(?:\s*;\s*charset=(?:utf-8|us-ascii))?$/i.test(contentType),'JSON content type required');
  const encoding=response.headers.get('content-encoding');
@@ -139,8 +145,8 @@ export async function collectGithubProvenance(input,{fetchImpl=globalThis.fetch,
   need(id(pull.changed_files)&&pull.changed_files<=MAX_FILES,'bounded complete PR file list required');
   const files=[];
   for(let page=1;files.length<pull.changed_files;page++){
-   const batch=await request('/pulls/'+pr+'/files?per_page=100&page='+page);
-   need(Array.isArray(batch)&&batch.length===Math.min(100,pull.changed_files-files.length),'incomplete or oversized PR file list');
+   const batch=await request('/pulls/'+pr+'/files?per_page='+FILES_PER_PAGE+'&page='+page);
+   need(Array.isArray(batch)&&batch.length===Math.min(FILES_PER_PAGE,pull.changed_files-files.length),'incomplete or oversized PR file list');
    files.push(...batch);
   }
   need(files.every(file=>object(file)&&typeof file.filename==='string')&&new Set(files.map(file=>file.filename)).size===files.length,'duplicate or malformed PR files');

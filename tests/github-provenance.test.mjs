@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {collectGithubProvenance} from '../github/github-provenance.mjs';
+import {collectPublicSource} from '../scripts/manage-federation.mjs';
 
 const ROOT='https://api.github.com/repos/lab/proofs';
 const HEAD='a'.repeat(40),MERGE='b'.repeat(40),LATER='c'.repeat(40);
@@ -29,7 +30,7 @@ function fixture({commit=HEAD}={}){
  const routes=new Map([
   ['',{id:42,full_name:'lab/proofs',private:false,owner:{id:99,login:'lab'}}],
   ['/pulls/7',pull],
-  ['/pulls/7/files?per_page=100&page=1',[{filename:PATH,status:'added',sha:gitHash(source)}]],
+  ['/pulls/7/files?per_page=10&page=1',[{filename:PATH,status:'added',sha:gitHash(source)}]],
   ['/git/commits/'+commit,{sha:commit,tree:{sha:'d'.repeat(40)},author:{name:'Untrusted display name',email:'not-an-identity@example.invalid'}}],
   ['/contents/'+PATH+'?ref='+commit,file(PATH,source)],
   ['/git/blobs/'+gitHash(source),blob(source)],
@@ -56,6 +57,13 @@ function fixture({commit=HEAD}={}){
  };
  return {routes,calls,overrides,fetchImpl,pull};
 }
+function paginate(f,count,{targetIndex=count-1}={}){
+ const files=Array.from({length:count},(_,i)=>i===targetIndex?{filename:PATH,status:'added',sha:gitHash(source)}:
+  {filename:`other${i}.lean`,status:'modified',sha:'e'.repeat(40)});
+ f.pull.changed_files=count;
+ for(let start=0;start<count;start+=10)f.routes.set('/pulls/7/files?per_page=10&page='+(start/10+1),files.slice(start,start+10));
+ return files;
+}
 
 test('captures exact immutable bytes, PR submitter identity, license and native evidence digest',async()=>{
  const f=fixture(),result=await collectGithubProvenance(input(),{fetchImpl:f.fetchImpl,token:'test-token'});
@@ -81,6 +89,20 @@ test('captures exact immutable bytes, PR submitter identity, license and native 
  assert.ok(f.calls.every(call=>call.options.headers.Authorization==='Bearer test-token'));
  assert.ok(f.calls.every(call=>!call.url.includes('attacker')));
  assert.ok(!JSON.stringify(result).includes('test-token'));
+});
+
+test('the operator public-source path never forwards its ambient workflow token',async()=>{
+ const f=fixture(),originalFetch=globalThis.fetch,originalToken=process.env.GITHUB_TOKEN;
+ try{
+  process.env.GITHUB_TOKEN='ambient-workflow-token-must-stay-local';globalThis.fetch=f.fetchImpl;
+  const result=await collectPublicSource(input());
+  assert.equal(result.evidence.content_sha256,digest(source));
+  assert.ok(f.calls.every(call=>!Object.hasOwn(call.options.headers,'Authorization')));
+  assert.ok(!JSON.stringify(result).includes(process.env.GITHUB_TOKEN));
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalToken===undefined)delete process.env.GITHUB_TOKEN;else process.env.GITHUB_TOKEN=originalToken;
+ }
 });
 
 test('accepts unchanged descendant only with exact merge ancestry and three matching file objects',async()=>{
@@ -126,7 +148,7 @@ test('rejects invented statements and wrong or partial theorem tokens despite va
 
 test('a file in the PR head is not attributable to an unrelated PR or removed file',async()=>{
  for(const update of [files=>files[0].filename='unrelated.lean',files=>files[0].status='removed',files=>files[0].status='modified',files=>files[0].status='renamed',files=>files[0].sha='f'.repeat(40)]){
-  const f=fixture();update(f.routes.get('/pulls/7/files?per_page=100&page=1'));
+  const f=fixture();update(f.routes.get('/pulls/7/files?per_page=10&page=1'));
   await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/source file must be added|PR-head blob/);
  }
 });
@@ -150,14 +172,56 @@ test('rejects a changed merge artifact even when the same head blob later reappe
  await assert.rejects(collectGithubProvenance(input({commit:LATER}),{fetchImpl:f.fetchImpl}),/merge changed/);
 });
 
-test('requires complete bounded PR file listings including later pages',async()=>{
- const f=fixture();f.pull.changed_files=101;
- f.routes.set('/pulls/7/files?per_page=100&page=1',Array.from({length:100},(_,i)=>({filename:`other${i}.lean`,status:'modified',sha:'e'.repeat(40)})));
- f.routes.set('/pulls/7/files?per_page=100&page=2',[{filename:PATH,status:'added',sha:gitHash(source)}]);
- assert.equal((await collectGithubProvenance(input(),{fetchImpl:f.fetchImpl})).evidence.pr,7);
- for(const mutate of [f=>{f.pull.changed_files=301;},f=>{f.pull.changed_files=2;},f=>{f.pull.changed_files=2;const files=f.routes.get('/pulls/7/files?per_page=100&page=1');files.push({...files[0]});}]){
-  const bad=fixture();mutate(bad);await assert.rejects(collectGithubProvenance(input(),{fetchImpl:bad.fetchImpl}),/file list|PR files/);
+test('collects all 333 changed files in bounded pages even after finding the requested source',async()=>{
+ const f=fixture({commit:MERGE});paginate(f,333,{targetIndex:166});
+ const result=await collectGithubProvenance(input({commit:MERGE}),{fetchImpl:f.fetchImpl});
+ assert.equal(result.evidence.pr,7);assert.equal(result.packet.changed_file.filename,PATH);
+ const pages=f.calls.filter(call=>call.url.includes('/files?'));
+ assert.equal(pages.length,34);assert.equal(pages.at(-1).url,ROOT+'/pulls/7/files?per_page=10&page=34');
+ assert.equal(result.packet.requests.length,42);
+});
+
+test('the 500-file maximum and descendant checks fit the fixed request budget',async()=>{
+ const f=fixture({commit:LATER});paginate(f,500);
+ const result=await collectGithubProvenance(input({commit:LATER}),{fetchImpl:f.fetchImpl});
+ assert.equal(result.packet.association.kind,'merge-descendant-unchanged-blob');
+ assert.equal(result.packet.requests.length,60);
+ assert.equal(f.calls.filter(call=>call.url.includes('/files?')).length,50);
+ const oversized=fixture();oversized.pull.changed_files=501;
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:oversized.fetchImpl}),/bounded complete PR file list/);
+ assert.equal(oversized.calls.length,2);
+});
+
+test('rejects incomplete, oversized and duplicate later pages even after finding the source',async()=>{
+ const mutations=[
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=2').pop(),
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=2').push({filename:'extra.lean'}),
+  f=>f.routes.get('/pulls/7/files?per_page=10&page=3').pop(),
+  f=>{f.routes.get('/pulls/7/files?per_page=10&page=3')[0]={...f.routes.get('/pulls/7/files?per_page=10&page=1')[1]};},
+  f=>{f.routes.get('/pulls/7/files?per_page=10&page=3')[0]={filename:42};},
+ ];
+ for(const mutate of mutations){
+  const f=fixture();paginate(f,23,{targetIndex:0});mutate(f);
+  await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/file list|PR files/);
+  assert.ok(!f.calls.some(call=>call.url.includes('/contents/')));
  }
+});
+
+test('small file pages retain the 512 KiB response limit',async()=>{
+ const f=fixture();paginate(f,13);
+ f.overrides.set('/pulls/7/files?per_page=10&page=2',url=>{
+  const r=response(url,null,{raw:Buffer.alloc(512*1024+1,32)});r.headers.delete('content-length');return r;
+ });
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/response exceeds byte limit/);
+ assert.equal(f.calls.length,4);
+});
+
+test('the single retrieval deadline also bounds a stalled final file page',async()=>{
+ const f=fixture();paginate(f,333,{targetIndex:0});
+ f.overrides.set('/pulls/7/files?per_page=10&page=34',()=>new Promise(()=>{}));
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl,timeoutMs:100}),/deadline/);
+ assert.equal(f.calls.length,36);
+ assert.ok(!f.calls.some(call=>call.url.includes('/contents/')));
 });
 
 test('rejects corrupt, truncated, noncanonical or falsely sized Git blobs',async()=>{
@@ -205,6 +269,28 @@ test('rejects redirects and hostile response URLs without following metadata lin
   await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl}),/response URL|HTTP 200/);
   assert.equal(f.calls.length,1);
  }
+});
+
+test('HTTP failures expose only numeric status and the constructed API path, without bodies or retries',async()=>{
+ const suffix='/pulls/7/files?per_page=10&page=2';
+ for(const status of [401,403,404,429,500,503]){
+  const f=fixture();paginate(f,13);f.overrides.set(suffix,url=>{
+   const r=response(url,null,{status,headers:{'x-secret':'header-secret'},raw:Buffer.from('body-secret')});
+   Object.defineProperty(r,'statusText',{value:'status-secret'});
+   Object.defineProperty(r,'body',{value:{getReader(){assert.fail('Must not read an error body');}}});
+   return r;
+  });
+  await assert.rejects(collectGithubProvenance(input(),{fetchImpl:f.fetchImpl,token:'credential-secret'}),error=>{
+   assert.equal(error.message,`GitHub provenance: HTTP ${status} for /repos/lab/proofs${suffix}; complete HTTP 200 response required`);
+   assert.ok(!error.message.includes('secret'));return true;
+  });
+  assert.equal(f.calls.length,4);
+ }
+ const foreign=fixture();foreign.overrides.set('',{status:403,responseURL:'https://evil.invalid/response-secret'});
+ await assert.rejects(collectGithubProvenance(input(),{fetchImpl:foreign.fetchImpl}),error=>{
+  assert.equal(error.message,'GitHub provenance: redirected or foreign response URL');return true;
+ });
+ assert.equal(foreign.calls.length,1);
 });
 
 test('rejects oversized, compressed, truncated, malformed and non-JSON API responses',async()=>{

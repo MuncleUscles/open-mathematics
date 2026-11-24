@@ -147,6 +147,64 @@ fetch URL. The collector resolves source identity from GitHub. Preserve the retu
 packet and journal. Reusing the same journal verifies the original receipt;
 ambiguous broadcasts are not blindly repeated.
 
+### Public-source access and HTTP failures
+
+The operator collects external public GitHub sources without an Authorization
+header. The workflow's `GITHUB_TOKEN` remains available to its separate
+own-repository evidence-journal client. GitHub limits that token's permissions
+to the repository containing the workflow; it is not a general credential for
+other repositories. The source collector still requires a public repository and
+all exact PR, commit, source and license checks. See GitHub's
+[token scope](https://docs.github.com/en/actions/concepts/security/github_token)
+and [public pull-request API access](https://docs.github.com/en/rest/pulls/pulls).
+
+Anonymous public reads share GitHub's
+[60-request-per-hour IP limit](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+A rate limit or access failure stops collection before source registration;
+there is no automatic credential fallback or retry. The collector's explicit
+`token` option remains available to local library callers, but the Actions
+operator does not inherit or request a personal token for upstream reads.
+
+HTTP failures report only a bounded numeric status and the internally constructed
+API path, for example `HTTP 403 for /repos/owner/repo/pulls/2; complete HTTP 200
+response required`. They never include response bodies, status text, headers,
+server-supplied URLs or credentials. A status alone does not establish the cause:
+access scope, rate limits, missing resources and transient failures must be
+distinguished from the observed endpoint and surrounding evidence.
+
+### Exact JSON for workflow dispatch
+
+`register` and `verify-author` read normalized JSON both from local files and
+from the **Research federation** workflow's `payload` input. After removing
+trailing whitespace, that text must equal `JSON.stringify(request, null, 2)`:
+two-space indentation, ordinary newlines and literal Unicode where JavaScript
+emits it. Compact JSON and unnecessarily escaped Unicode are rejected before
+any transaction. Create the request from a reviewed object with that exact
+serializer; keep the displayed JSON above in the same format. This check also
+rejects duplicate keys. Do not parse and rewrite an unreviewed request merely
+to bypass the check.
+
+For example, validate an existing `source.json` and prepare a dispatch body
+without changing its inner payload:
+
+```sh
+node --input-type=module - source.json /private/tmp/federation-dispatch.json <<'JS'
+import fs from 'node:fs';
+import {parseProblemJSON} from './src/problem.mjs';
+const [source, output]=process.argv.slice(2);
+const bytes=fs.readFileSync(source);
+parseProblemJSON(bytes);
+const dispatch={ref:'main',inputs:{operation:'register',payload:bytes.toString('utf8').trimEnd()}};
+fs.writeFileSync(output,JSON.stringify(dispatch,null,2)+'\n',{flag:'wx'});
+JS
+```
+
+This only prepares the body; it does not dispatch the workflow. Send its `payload`
+as a string, preserving embedded newlines and Unicode. For `verify-author`, use
+that operation and its three-field request below. `attribution`,
+`reconcile-impact` and `settle-author` instead take the exact native ID as plain
+text, without JSON quotes.
+
 Contributor operations use `scripts/federation-agent.mjs TRUSTED_PROBLEM
 PUBLIC_REQUEST.json JOURNAL.json [--send]` and `CONTRIBUTOR_KEY_FILE`, an owner-only
 file outside repositories. A request has exactly `method` and `args`. Supported
