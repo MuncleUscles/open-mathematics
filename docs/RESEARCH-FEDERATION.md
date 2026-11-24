@@ -91,10 +91,33 @@ That broader attribution-dispute path requires a separate evidence-linkage polic
 the A/B/C experiment does not demonstrate general plagiarism detection.
 Begun/failed/undetermined consensus attempts remain in native state and durable
 transaction journals. They are not invitations to create another favorable draw.
-An admitted case whose consensus remains unresolved currently keeps dependent
-impact routing blocked; there is no terminal withdrawal operation yet. Author
+New deployments give each admitted review round a one-hour deadline, starting
+at admission (and again on a substantive challenge). Begin/resume never extends
+it. Anyone can call `expire_attribution(case, round, attestationHash)` after that
+deadline while the round remains verified/challenged. A completed provisional
+verdict instead follows its normal challenge/settlement window. Expiry preserves
+all balances, budgets, attribution revisions, settled route hashes and history;
+it discards no journals and applies no prior provisional verdict. Routing resumes
+using the last settled allocation. This is a policy choice that favors the
+existing allocation until a future protocol policy can reopen the dispute.
+The terminal case pointer remains an admission fence for that target/revision,
+including alternative source sets. Expiry never authorizes another model draw.
+The old deployed contract has no such deadline or expiry method. Author
 claim requests also have a 512-record pilot capacity without expired-slot
 reclamation. These are test-deployment limits, not production spam resistance.
+
+### Attribution consensus
+
+The leader proposes two separately justified, fixed-pool allocations. Validators
+first enforce the exact schema, eligible subjects and total-ten conservation,
+then independently audit the proposal against the same evidence. They must
+explicitly support both complete vectors (or the rejection), cite the affected
+sources and any latest challenge, and reject unsupported or excessive shares.
+They do not generate new percentages and require exact equality. The local
+`contributor` role is already authenticated; a source account identifies a
+qualified formal contributor, not necessarily the original discoverer. All
+claims and model reasons remain untrusted evidence. Substantive disagreements
+can still fail consensus; this is not a guarantee of a favorable allocation.
 
 ## Identity claims
 
@@ -167,10 +190,11 @@ resuming fails closed unless the original review can be recovered and verified.
 This deliberately leaves even a never-submitted
 review unfinished rather than treating absent history as permission to send it.
 
-This is worker protection, not a change to native authority or allocation rules.
-The contract's executor can still call its existing review method; serialization
-and exact-call recovery remain required. No neutral terminal exit is introduced,
-and unresolved admitted attribution continues to block affected impact routing.
+The worker's recovery fence remains necessary: the contract cannot persist an
+attempt marker inside a rolled-back consensus transaction. Serialization and
+exact-call recovery remain required. On new deployments, after the native review
+deadline the worker expires the case deterministically instead of recovering or
+resubmitting a judgment. The immutable older deployment still has no exit.
 Preserve terminal failures; do not bypass the journal or rerun a case to obtain
 a favorable outcome.
 

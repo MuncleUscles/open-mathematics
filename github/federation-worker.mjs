@@ -53,6 +53,17 @@ export async function processAttribution({id,read,tx,collect,save=async()=>{},no
   await tx('verifier','attest-r0','attest_attribution',[id,0,JSON.stringify(attestation)]);
   c=await read('get_attribution_case',[id]);
  }
+ // New contracts precommit a one-hour lease. This deterministic operation
+ // leaves the failed review journal untouched and never requests a judgment.
+ if(['verified','challenged'].includes(c.status)&&c.review_deadline!==undefined){
+  if(!uint(c.review_deadline)||Number(c.review_deadline)===0)throw Error('Exact attribution review deadline required');
+  if((Number(c.review_deadline)+2)*1000<=now()){
+   if(!uint(c.round)||!hash(c.attestation_hash))throw Error('Exact attribution expiry identity required');
+   await tx('executor',`expire-r${Number(c.round)}`,'expire_attribution',[id,Number(c.round),c.attestation_hash]);
+   c=await read('get_attribution_case',[id]);
+  }
+ }
+ if(c.status==='expired')return {status:'expired',case:c,attribution:await read('get_attribution',[c.target])};
  if(['verified','challenged'].includes(c.status)){
   const round=Number(c.round),startedRound=Number(c.started_round);
   if(!uint(c.round)||!(c.started_round===-1||c.started_round==='-1'||uint(c.started_round))||startedRound>round||!hash(c.attestation_hash))throw Error('Exact round, started round and admitted source hash required');

@@ -267,16 +267,118 @@ def test_consensus_cannot_inflate_or_choose_unverified_recipients(open_protocol,
     assert c.get_external_author("github:777")["unclaimed_points"] == "0"
 
 
-def test_independent_validator_requires_exact_both_route_vectors(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+@pytest.mark.parametrize("mutation, expected", [
+    (lambda v: None, True),
+    (lambda v: v.update(supported=False), False),
+    (lambda v: v.update(supported="true"), False),
+    (lambda v: v.update(reason="yes"), False),
+    (lambda v: v.update(initial_bands=band(3, 7)), False),
+    (lambda v: v.update(evidence_refs=v["evidence_refs"][:-1]), False),
+    (lambda v: v.update(evidence_refs=v["evidence_refs"][1:]), False),
+    (lambda v: v["evidence_refs"].append("invented-source"), False),
+])
+def test_independent_validator_audits_proposal_instead_of_inventing_vectors(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, mutation, expected):
     c = open_protocol
     ext, _ = prepared(c, direct_vm, direct_alice, direct_bob, direct_owner)
     key = request(c, direct_vm, direct_owner, "local", ext)
     admit(c, direct_vm, direct_alice, key)
-    review(c, direct_vm, direct_bob, key)
-    assert direct_vm.run_validator() is True
+    proposal = verdict(c, key)
+    review(c, direct_vm, direct_bob, key, proposal)
+    check = {"supported": True, "reason": "The documentary linkage supports both proposed distributions; local integration and upstream formalization receive proportionate credit.", "evidence_refs": proposal["evidence_refs"]}
+    mutation(check)
     direct_vm.clear_mocks()
-    direct_vm.mock_llm(".*", json.dumps(verdict(c, key, future=band(3, 7))))
-    assert direct_vm.run_validator() is False
+    direct_vm.mock_llm(".*Independently audit the proposed verdict.*", json.dumps(check))
+    assert direct_vm.run_validator() is expected
+
+
+@pytest.mark.parametrize("phase", ["admitted", "started", "challenged"])
+def test_expiry_preserves_accounting_releases_routes_and_fences_source_variants(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie, phase):
+    c = open_protocol
+    ext, upstream = prepared(c, direct_vm, direct_alice, direct_bob, direct_owner)
+    credited(c, direct_vm, direct_alice, direct_bob, direct_charlie, "downstream", github_author_id=2, dependencies=["local"], verified_dependencies=[use(upstream)])
+    route_before = c.get_impact_route_proposal("downstream")
+    key = request(c, direct_vm, direct_owner, "local", ext)
+    admitted = admit(c, direct_vm, direct_alice, key)
+    direct_vm.sender = direct_bob
+    if phase == "challenged":
+        review(c, direct_vm, direct_bob, key)
+        c.challenge_attribution(key, "The upstream share may overstate the source's role in the target; independently inspect the exact reuse.")
+    if phase != "admitted":
+        case = c.get_attribution_case(key)
+        c.begin_attribution_review(key, case["round"], case["attestation_hash"])
+    case = c.get_attribution_case(key)
+    before = c.get_attribution("local")
+    total = c.get_federation_state()
+    balances = [c.get_points(address(direct_owner)), c.get_external_author("github:777"), c.get_account_attribution("1")]
+    with direct_vm.expect_revert("active attribution case"):
+        c.get_impact_route_proposal("downstream")
+    with direct_vm.expect_revert("deadline must elapse"):
+        c.expire_attribution(key, case["round"], case["attestation_hash"])
+    # Repeated begin cannot extend the deadline.
+    if phase != "admitted":
+        c.begin_attribution_review(key, case["round"], case["attestation_hash"])
+        assert c.get_attribution_case(key)["review_deadline"] == case["review_deadline"]
+    direct_vm.warp(datetime.fromtimestamp(case["review_deadline"], timezone.utc).isoformat())
+    direct_vm.clear_mocks()
+    with direct_vm.expect_revert("exact attribution expiry"):
+        c.expire_attribution(key, case["round"] + 1, case["attestation_hash"])
+    with direct_vm.expect_revert("exact attribution expiry"):
+        c.expire_attribution(key, case["round"], "f" * 64)
+    # Permissionless expiry at the exact deadline. No model call is possible.
+    direct_vm.sender = direct_charlie
+    c.expire_attribution(key, case["round"], case["attestation_hash"])
+    expired = c.get_attribution_case(key)
+    assert expired["status"] == "expired" and expired["history"][:-1] == case["history"]
+    c.expire_attribution(key, case["round"], case["attestation_hash"])
+    assert c.get_attribution_case(key) == expired
+    assert c.get_attribution("local") == before
+    assert [c.get_points(address(direct_owner)), c.get_external_author("github:777"), c.get_account_attribution("1")] == balances
+    assert {k:v for k,v in c.get_federation_state().items() if k != "state_revision"} == {k:v for k,v in total.items() if k != "state_revision"}
+    assert c.get_impact_route_proposal("downstream") == route_before
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert():
+        c.review_attribution(key, case["round"], case["attestation_hash"])
+    with direct_vm.expect_revert():
+        c.begin_attribution_review(key, case["round"], case["attestation_hash"])
+    with direct_vm.expect_revert():
+        c.settle_attribution(key, case["round"], case["attestation_hash"])
+    assert request(c, direct_vm, direct_charlie, "local", ext) == key
+    direct_vm.sender = direct_alice
+    alternate = c.register_external_result(json.dumps(source(theorem="Component.other")))
+    alternative = request(c, direct_vm, direct_charlie, "local", alternate)
+    assert alternative != key
+    with direct_vm.expect_revert("active attribution case"):
+        admit(c, direct_vm, direct_alice, alternative)
+    impact_review(direct_vm, "downstream", [("local", 3)])
+    direct_vm.sender = direct_bob
+    c.review_impact("downstream", 0)
+    after(direct_vm, c.get_impact("downstream")["deadline"])
+    c.settle_impact("downstream", 0)
+    conserved(c, [direct_owner, direct_charlie])
+
+
+def test_successful_review_wins_expiry_race_and_late_review_cannot_begin(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+    c = open_protocol
+    ext, _ = prepared(c, direct_vm, direct_alice, direct_bob, direct_owner)
+    key = request(c, direct_vm, direct_owner, "local", ext)
+    case = admit(c, direct_vm, direct_alice, key)
+    direct_vm.warp(datetime.fromtimestamp(case["review_deadline"] - 1, timezone.utc).isoformat())
+    review(c, direct_vm, direct_bob, key)
+    after(direct_vm, case["review_deadline"])
+    with direct_vm.expect_revert("unfinished attribution"):
+        c.expire_attribution(key, 0, case["attestation_hash"])
+    settle(c, direct_vm, direct_bob, key)
+    with direct_vm.expect_revert():
+        c.expire_attribution(key, 0, case["attestation_hash"])
+    key2 = request(c, direct_vm, direct_owner, "local", ext)
+    case2 = admit(c, direct_vm, direct_alice, key2)
+    direct_vm.sender = direct_bob
+    c.begin_attribution_review(key2, 0, case2["attestation_hash"])
+    after(direct_vm, case2["review_deadline"])
+    with direct_vm.expect_revert("deadline closed"):
+        c.begin_attribution_review(key2, 0, case2["attestation_hash"])
+    with direct_vm.expect_revert("deadline closed"):
+        c.review_attribution(key2, 0, case2["attestation_hash"])
 
 
 def test_challenge_preserves_unupheld_allocations_and_settles_exact_round(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, direct_charlie):
@@ -496,3 +598,22 @@ def test_route_preflight_before_first_review_detects_active_case_without_poisoni
     impact_review(direct_vm, "downstream", [("local", 3)])
     actual = c.review_impact("downstream", 0)
     assert actual["route_commitments"] == ready["route_commitments"]
+
+
+def test_semantic_validator_requires_latest_challenge_support(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+    c = open_protocol
+    ext, _ = prepared(c, direct_vm, direct_alice, direct_bob, direct_owner)
+    key = request(c, direct_vm, direct_owner, "local", ext)
+    admit(c, direct_vm, direct_alice, key)
+    review(c, direct_vm, direct_bob, key)
+    c.challenge_attribution(key, "The separate future-impact vector needs a better evidence-based justification of the upstream formalizer's contribution.")
+    proposal = verdict(c, key, upheld=False)
+    review(c, direct_vm, direct_bob, key, proposal)
+    check = {"supported": True, "reason": "Both complete vectors remain supported by the source and local integration evidence; the challenge supplies no reason to change them.", "evidence_refs": proposal["evidence_refs"][:-1]}
+    direct_vm.clear_mocks()
+    direct_vm.mock_llm(".*Independently audit the proposed verdict.*", json.dumps(check))
+    assert direct_vm.run_validator() is False
+    check["evidence_refs"] = proposal["evidence_refs"]
+    direct_vm.clear_mocks()
+    direct_vm.mock_llm(".*Independently audit the proposed verdict.*", json.dumps(check))
+    assert direct_vm.run_validator() is True

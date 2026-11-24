@@ -101,10 +101,12 @@ export function validateFederationAttribution(value,key,completed=Date.now()){
  return value;
 }
 function attributionCase(value,key,completed){
- need(object(value)&&value.id===key&&caseId(key)&&id(value.target)&&safe(value.revision)&&safe(value.round)&&Number(value.round)<=2&&['submitted','verified','provisional','challenged','settled'].includes(value.status)&&timestamp(value.created_at,completed),'invalid attribution case');
+ need(object(value)&&value.id===key&&caseId(key)&&id(value.target)&&safe(value.revision)&&safe(value.round)&&Number(value.round)<=2&&['submitted','verified','provisional','challenged','settled','expired'].includes(value.status)&&timestamp(value.created_at,completed),'invalid attribution case');
  need(exact(value.request,['claim','sources'])&&text(value.request.claim,3000,40)&&Array.isArray(value.request.sources)&&value.request.sources.length>=1&&value.request.sources.length<=4&&value.request.sources.every(s=>exact(s,['id','source_hash'])&&sourceId(s.id)&&hash(s.source_hash))&&new Set(value.request.sources.map(s=>s.id)).size===value.request.sources.length,'invalid case source commitments');
  need(hash(value.request_hash)&&nativeHash(value.request)===value.request_hash&&key==='attribution-'+nativeHash({target:value.target,revision:Number(value.revision),sources:value.request.sources}).slice(0,32),'case commitment mismatch');
  if(value.verdict!==null){need(object(value.verdict)&&typeof value.verdict.apply==='boolean'&&text(value.verdict.reason,4000,40),'invalid case verdict');if(value.verdict.apply){bands(value.verdict.initial_bands);bands(value.verdict.impact_bands);}else need(Array.isArray(value.verdict.initial_bands)&&!value.verdict.initial_bands.length&&Array.isArray(value.verdict.impact_bands)&&!value.verdict.impact_bands.length,'rejected correction changed allocation');}
+ if(value.review_deadline!==undefined)need(safe(value.review_deadline),'invalid attribution review deadline');
+ if(value.status==='expired')need(timestamp(value.review_deadline,completed)&&Number(value.review_deadline)>0&&Array.isArray(value.history)&&value.history.some(h=>h.event==='expired'&&Number(h.round)===Number(value.round)&&Number(h.at)>=Number(value.review_deadline)),'expired case lacks deadline and terminal history');
  need(Array.isArray(value.history)&&value.history.length<=32&&value.history.every(h=>object(h)&&timestamp(h.at,completed)),'invalid case history');
  return value;
 }

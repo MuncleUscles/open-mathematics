@@ -120,3 +120,12 @@ test('dated published fallback never replaces a successful live view and cannot 
  assert.match(federationSnapshotLabel(snapshot),/Published federation snapshot from.*live unavailable/);assert.match(federationSnapshotLabel(snapshot),/not atomically/);assert.match(federationSnapshotLabel(snapshot),/cannot authorize a correction, claim, merge or award/);
  assert.equal(validateFederationAttribution(snapshot.contributions.rows[0].attribution,'pr-0').initial_pool,'400');
 });
+
+test('expired attribution is visible only with elapsed native deadline and terminal history',async()=>{
+ const f=fixture();const c=f.cases[0];c.status='expired';c.review_deadline=at;c.history.push({event:'expired',round:0,at});
+ const snap=await collectFederationSnapshot({problem,read:f.read});
+ assert.equal(validateFederationSnapshot(snap,problem).cases.rows[0].status,'expired');
+ for(const mutate of [v=>delete v.review_deadline,v=>v.review_deadline=at+1000,v=>v.history.pop(),v=>v.history.at(-1).round=1]){
+  const copy=structuredClone(snap);mutate(copy.cases.rows[0]);assert.throws(()=>validateFederationSnapshot(copy,problem),/expired case/);
+ }
+});
