@@ -91,14 +91,60 @@ test('captures exact immutable bytes, PR submitter identity, license and native 
  assert.ok(!JSON.stringify(result).includes('test-token'));
 });
 
-test('the operator public-source path never forwards its ambient workflow token',async()=>{
+test('the operator forwards only its supplied workflow token to the bounded public collector',async()=>{
  const f=fixture(),originalFetch=globalThis.fetch,originalToken=process.env.GITHUB_TOKEN;
  try{
-  process.env.GITHUB_TOKEN='ambient-workflow-token-must-stay-local';globalThis.fetch=f.fetchImpl;
+  process.env.GITHUB_TOKEN='ephemeral-workflow-token';globalThis.fetch=f.fetchImpl;
   const result=await collectPublicSource(input());
   assert.equal(result.evidence.content_sha256,digest(source));
-  assert.ok(f.calls.every(call=>!Object.hasOwn(call.options.headers,'Authorization')));
+  assert.equal(f.calls.length,8);
+  assert.ok(f.calls.every(call=>call.options.headers.Authorization==='Bearer ephemeral-workflow-token'));
+  assert.ok(f.calls.every(call=>call.url.startsWith(ROOT)&&call.options.method==='GET'&&call.options.redirect==='error'));
   assert.ok(!JSON.stringify(result).includes(process.env.GITHUB_TOKEN));
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalToken===undefined)delete process.env.GITHUB_TOKEN;else process.env.GITHUB_TOKEN=originalToken;
+ }
+});
+
+test('missing workflow token uses anonymous reads without discovering a personal credential',async()=>{
+ const f=fixture(),originalFetch=globalThis.fetch,originalToken=process.env.GITHUB_TOKEN,originalGH=process.env.GH_TOKEN;
+ try{
+  delete process.env.GITHUB_TOKEN;process.env.GH_TOKEN='personal-token-must-not-be-discovered';globalThis.fetch=f.fetchImpl;
+  const anonymous=await collectPublicSource(input());
+  assert.ok(f.calls.every(call=>!Object.hasOwn(call.options.headers,'Authorization')));
+  const authenticated=await collectGithubProvenance(input(),{fetchImpl:fixture().fetchImpl,token:'comparison-token'});
+  assert.equal(anonymous.source_hash,authenticated.source_hash);
+  assert.deepEqual(anonymous.evidence,authenticated.evidence);
+  assert.ok(!JSON.stringify(anonymous).includes(process.env.GH_TOKEN));
+ }finally{
+  globalThis.fetch=originalFetch;
+  if(originalToken===undefined)delete process.env.GITHUB_TOKEN;else process.env.GITHUB_TOKEN=originalToken;
+  if(originalGH===undefined)delete process.env.GH_TOKEN;else process.env.GH_TOKEN=originalGH;
+ }
+});
+
+test('invalid workflow credentials and authenticated failures never fall back or retry',async()=>{
+ const originalFetch=globalThis.fetch,originalToken=process.env.GITHUB_TOKEN;
+ try{
+  for(const token of ['', 'invalid token', 'invalid\ncredential']){
+   const f=fixture();globalThis.fetch=f.fetchImpl;process.env.GITHUB_TOKEN=token;
+   await assert.rejects(collectPublicSource(input()),/invalid GitHub credential/);
+   assert.equal(f.calls.length,0);
+  }
+  for(const failure of [{status:401},{status:403},{status:429},{status:503},{redirected:true}]){
+   const f=fixture();f.overrides.set('',failure);globalThis.fetch=f.fetchImpl;process.env.GITHUB_TOKEN='ephemeral-secret';
+   await assert.rejects(collectPublicSource(input()),error=>{
+    assert.match(error.message,/GitHub provenance: (HTTP|redirected or foreign response URL)/);
+    assert.ok(!error.message.includes('ephemeral-secret'));return true;
+   });
+   assert.equal(f.calls.length,1);
+   assert.equal(f.calls[0].options.headers.Authorization,'Bearer ephemeral-secret');
+  }
+  const privateRepo=fixture();privateRepo.routes.get('').private=true;
+  globalThis.fetch=privateRepo.fetchImpl;process.env.GITHUB_TOKEN='ephemeral-secret';
+  await assert.rejects(collectPublicSource(input()),/exact public repository identity required/);
+  assert.equal(privateRepo.calls.length,1);
  }finally{
   globalThis.fetch=originalFetch;
   if(originalToken===undefined)delete process.env.GITHUB_TOKEN;else process.env.GITHUB_TOKEN=originalToken;

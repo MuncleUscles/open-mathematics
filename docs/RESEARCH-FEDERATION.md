@@ -149,21 +149,32 @@ ambiguous broadcasts are not blindly repeated.
 
 ### Public-source access and HTTP failures
 
-The operator collects external public GitHub sources without an Authorization
-header. The workflow's `GITHUB_TOKEN` remains available to its separate
-own-repository evidence-journal client. GitHub limits that token's permissions
-to the repository containing the workflow; it is not a general credential for
-other repositories. The source collector still requires a public repository and
-all exact PR, commit, source and license checks. See GitHub's
-[token scope](https://docs.github.com/en/actions/concepts/security/github_token)
-and [public pull-request API access](https://docs.github.com/en/rest/pulls/pulls).
+The operator passes its supplied `GITHUB_TOKEN` to the public-source collector.
+In Actions this is the existing ephemeral workflow credential, also used by the
+separate evidence-journal client; no new secret or personal token is needed.
+It is sent only to the collector's constructed `https://api.github.com/repos/…`
+GET endpoints, with redirects forbidden. The repository must still be public,
+and all exact PR, commit, source, ancestry, license and byte checks remain in force.
+Authentication does not change source hashes or authorize private source admission.
 
-Anonymous public reads share GitHub's
-[60-request-per-hour IP limit](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
-A rate limit or access failure stops collection before source registration;
-there is no automatic credential fallback or retry. The collector's explicit
-`token` option remains available to local library callers, but the Actions
-operator does not inherit or request a personal token for upstream reads.
+The [complete B-source diagnostic](https://github.com/MuncleUscles/p-vs-np/actions/runs/45302208353)
+collected all required public endpoints successfully with the repository workflow
+token: 11 requests and source hash
+`1b2122f52e9b588d48a8c93a4445a550bfeb3a20d7dd0abc78c272f630f5b450`.
+Anonymous collection in that same diagnostic returned the identical hash in
+11 requests. This establishes the current pilot credential's access to those
+public endpoints, not universal access to other repositories. Earlier anonymous
+HTTP 403 failures on other runners do not by themselves establish a rate-limit
+or permission cause.
+
+If `GITHUB_TOKEN` is absent, the collector can read anonymously under GitHub's
+[public API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+A supplied but malformed credential fails before any request. The operator does
+not discover `GH_TOKEN`, invoke a credential manager, request a personal token,
+retry transport failures, or switch to anonymous reads after an authenticated
+failure. A rate-limit, permission, transport or source-validation failure stops
+collection before its dependent native write. Existing transaction journals and
+native outcomes remain preserved; changing credentials is not a new merit attempt.
 
 HTTP failures report only a bounded numeric status and the internally constructed
 API path, for example `HTTP 403 for /repos/owner/repo/pulls/2; complete HTTP 200

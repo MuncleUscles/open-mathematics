@@ -13,8 +13,10 @@ import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 import {collectGithubProvenance} from '../github/github-provenance.mjs';
 import {processAttribution,authorClaimPreflight} from '../github/federation-worker.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
-// Public upstream reads must not inherit the workflow's own-repository token.
-export const collectPublicSource=input=>collectGithubProvenance(input);
+// Use only the operator's supplied workflow credential. The collector still
+// requires a public repository, fixed GitHub GET endpoints and no redirects.
+// Missing credentials permit anonymous reads; failures never switch identity.
+export const collectPublicSource=input=>collectGithubProvenance(input,{token:process.env.GITHUB_TOKEN});
 export async function run(argv=process.argv.slice(2),{loadJournal,saveJournal,output=value=>console.log(JSON.stringify(clean(value),null,2))}={}){
  const [command,directory,selection,journalDir,...flags]=argv;
  if(!['register','attribution','reconcile-impact','verify-author','settle-author'].includes(command)||!directory||!selection||!journalDir||flags.length>1||flags.some(x=>x!=='--send'))throw Error('Usage: manage-federation.mjs register|attribution|reconcile-impact|verify-author|settle-author TRUSTED_PROBLEM REQUEST_FILE_OR_ID JOURNAL_DIRECTORY [--send]');
