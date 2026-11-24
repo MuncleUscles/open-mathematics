@@ -93,6 +93,30 @@ export function openClaimFailureOutcome(report,error){
  return claimFailureOutcome(report,error);
 }
 
+export async function recordOpenFailure({report,error,failure=String(error.message),save,check,finalizedCheck}){
+ const {status,registrationRejection}=openClaimFailureOutcome(report,error);
+ report.status=status;
+ if(registrationRejection){
+  report.registrationRejection=registrationRejection;
+  report.completedAt=new Date().toISOString();
+  delete report.blockedConsensus;
+ }else{
+  report.blockedConsensus=blockedOpenConsensus(error,failure);
+ }
+ // This marker comes only from this run's verified native decision and check
+ // publication, never from a saved report. Stale-claim expiry still revokes it.
+ const preserveFinalized=!registrationRejection&&finalizedCheck&&['approved','credited'].includes(report.record?.status);
+ report.error=failure;
+ if(preserveFinalized){
+  report.operationalErrors??=[];
+  report.operationalErrors.push({stage:'post-finalization',message:failure,at:new Date().toISOString(),
+   finalizedCheck,recordStatus:report.record.status});
+ }
+ await save();
+ if(registrationRejection)await check('open-mathematics/finalized','failure','GenLayer registration rejected',registrationRejection.reason,registrationRejection.hash);
+ else if(report.status!=='credited'&&!preserveFinalized)await check(report.attestation?'open-mathematics/finalized':'open-mathematics/evidence','failure','Contribution processing stopped',report.error,report.id);
+}
+
 export async function bindOpenRegistration({github,report,candidate,problem,expire,save}){
  const {claim,envelope,commentId,createdAt}=candidate;
  try{
@@ -254,7 +278,7 @@ async function main(){
   if(!Number.isSafeInteger(deadline))throw Error('Invalid native deadline');
   while(Date.now()<=deadline)await sleep(Math.min(5000,Math.max(500,deadline-Date.now())));
  }
- let evidenceValidated=false;
+ let evidenceValidated=false,finalizedCheck;
  async function recordState({settledImpact}={}){
   const record=requireOpenRecord(await native('get',[id]),report.evidenceJSON,{settledImpact});
   report.record=record;
@@ -348,7 +372,10 @@ async function main(){
    const chain=new StudioAuthority({client:executor,contract:d.contract,chainId:d.chainId,
     policy:problem.policyHash,registry,github,appId:d.appId,verifierAppId:d.verifierAppId,branch:d.branch});
    chain.confirmMerge=async(_,head,merge)=>tx('merge',executor,'confirm_merge',[id,head,merge],record.status==='credited');
-   report.outcome=await executeDecision({id,chain,github,evidenceCheck:'open-mathematics/evidence',journal:{record:async(_,sha)=>{report.mergeCommit=sha;await save();}}});
+   report.outcome=await executeDecision({id,chain,github,evidenceCheck:'open-mathematics/evidence',journal:{
+    finalizedCheck:async check=>{finalizedCheck=check;report.finalizedCheck=check;await save();},
+    record:async(_,sha)=>{report.mergeCommit=sha;await save();},
+   }});
    record=await recordState();
    let impact=await native('get_impact',[id]);
    if(['not-requested','challenged'].includes(impact.status)){
@@ -404,19 +431,7 @@ async function main(){
    try{await expireIfStale(await github.pr(claim.pr));}
    catch(recovery){failure+='\nStale-claim recovery: '+safeError(recovery);}
   }
-  const {status,registrationRejection}=openClaimFailureOutcome(report,error);
-  report.status=status;
-  if(registrationRejection){
-   report.registrationRejection=registrationRejection;
-   report.completedAt=new Date().toISOString();
-   delete report.blockedConsensus;
-  }else{
-   report.blockedConsensus=blockedOpenConsensus(error,failure);
-  }
-  report.error=failure;
-  await save();
-  if(registrationRejection)await check('open-mathematics/finalized','failure','GenLayer registration rejected',registrationRejection.reason,registrationRejection.hash);
-  else if(report.status!=='credited')await check(report.attestation?'open-mathematics/finalized':'open-mathematics/evidence','failure','Contribution processing stopped',report.error,id);
+  await recordOpenFailure({report,error,failure,save,check,finalizedCheck});
   throw Error(failure);
  }
 }
