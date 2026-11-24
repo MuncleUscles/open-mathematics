@@ -59,16 +59,75 @@ export class GitHub {
     if(sets.some(s=>s.enforcement!=='active'||s.bypass_actors?.length))throw Error('Active rules without bypass required');
     if(!rules.some(r=>r.type==='deletion')||!rules.some(r=>r.type==='non_fast_forward')||!rules.some(r=>r.type==='pull_request'))throw Error('PR-only protected branch required');
     const checks=rules.filter(r=>r.type==='required_status_checks');
-    return {enforce_admins:{enabled:sets.length>0},required_status_checks:{strict:checks.some(r=>r.parameters.strict_required_status_checks_policy),checks:checks.flatMap(r=>r.parameters.required_status_checks.map(c=>({context:c.context,app_id:c.integration_id})))}};
+    return {rulesDigest:digest({rules,sets}),enforce_admins:{enabled:sets.length>0},required_status_checks:{strict:checks.some(r=>r.parameters.strict_required_status_checks_policy),checks:checks.flatMap(r=>r.parameters.required_status_checks.map(c=>({context:c.context,app_id:c.integration_id})))}};
+  }
+  async checks(head,name){
+    if(!/^[a-f0-9]{40}$/.test(head))throw Error('Invalid check head');
+    const result=await this.request(`/commits/${head}/check-runs?check_name=${encodeURIComponent(name)}&filter=latest&per_page=100`);
+    if(!Number.isSafeInteger(result.total_count)||result.total_count<0||result.total_count>100||
+       !Array.isArray(result.check_runs)||result.check_runs.length!==result.total_count)throw Error('Complete check-run snapshot required');
+    return result.check_runs;
   }
   async branchHead(branch){const ref=await this.request(`/git/ref/heads/${encodeURIComponent(branch)}`);if(ref.object?.type!=='commit'||!/^[a-f0-9]{40}$/.test(ref.object.sha))throw Error('Canonical commit ref required');return ref.object.sha;}
   commit(sha){if(!/^[a-f0-9]{40}$/.test(sha))throw Error('Invalid merge commit');return this.request(`/git/commits/${sha}`);}
   async canonicalMerge(branch,merge){const c=await this.request(`/compare/${merge}...${encodeURIComponent(branch)}`);return ['ahead','identical'].includes(c.status)&&c.merge_base_commit?.sha===merge;}
   merge(n,head){return this.request(`/pulls/${n}/merge`,{method:'PUT',body:{sha:head,merge_method:'merge'}});}
 }
+
+function requireMergePolicy(policy,d,evidenceCheck){
+  if(policy.enforce_admins?.enabled!==true||!policy.required_status_checks?.strict||!policy.required_status_checks.checks?.some(c=>c.context==='open-mathematics/finalized'&&c.app_id===d.appId)||!policy.required_status_checks.checks?.some(c=>c.context===evidenceCheck&&c.app_id===d.verifierAppId))throw Error('Protected branch and app-bound checks required');
+}
+
+function successfulCheck(check,{head,name,appId}){
+  return check?.head_sha===head&&check.name===name&&check.app?.id===appId&&check.status==='completed'&&check.conclusion==='success';
+}
+
+function latestCheck(checks,{head,name,appId}){
+  const matching=checks.filter(check=>check.head_sha===head&&check.name===name&&check.app?.id===appId);
+  if(matching.some(check=>!Number.isSafeInteger(check.id)||check.id<1))throw Error('Invalid check-run identity');
+  return matching.reduce((latest,check)=>!latest||check.id>latest.id?check:latest,null);
+}
+
+async function waitForMerge({d,github,policy,finalCheck,evidenceCheck,wait,now}){
+  const deadline=now()+60000;
+  const timeout=()=>{throw Error('GitHub merge readiness timed out; finalized approval remains valid for this exact head');};
+  async function snapshot(){
+    const current=await github.pr(d.pr);
+    if(current.head.sha!==d.head||current.base.ref!==d.branch||(!current.merged&&current.base.sha!==d.base))throw Error('PR changed before merge');
+    if(!current.merged&&await github.branchHead(d.branch)!==d.base)throw Error('Canonical branch advanced before merge');
+    const currentPolicy=await github.protection(d.branch);
+    requireMergePolicy(currentPolicy,d,evidenceCheck);
+    if(canonical(currentPolicy)!==canonical(policy))throw Error('Branch protection changed before merge');
+    if(!current.merged&&(current.state!=='open'||current.draft===true||current.mergeable===false))throw Error('PR not mechanically mergeable');
+    return current;
+  }
+  // GitHub's check store and rules engine can lag the successful POST. Only
+  // observe here: never replace a native decision or bypass repository rules.
+  for(let attempt=0;attempt<13;attempt++){
+    if(attempt)await wait(Math.min(5000,Math.max(0,deadline-now())));
+    if(now()>=deadline)timeout();
+    const current=await snapshot();
+    if(current.merged)return current;
+    const [finalChecks,evidenceChecks]=await Promise.all([
+      github.checks(d.head,'open-mathematics/finalized'),github.checks(d.head,evidenceCheck),
+    ]);
+    const finalBinding={head:d.head,name:'open-mathematics/finalized',appId:d.appId};
+    const evidenceBinding={head:d.head,name:evidenceCheck,appId:d.verifierAppId};
+    const observed=latestCheck(finalChecks,finalBinding);
+    const visible=observed?.id===finalCheck.id&&observed.external_id===d.receiptHash&&successfulCheck(observed,finalBinding);
+    const verified=successfulCheck(latestCheck(evidenceChecks,evidenceBinding),evidenceBinding);
+    if(now()>=deadline)timeout();
+    if(visible&&verified&&current.mergeable===true&&current.mergeable_state==='clean'){
+      const ready=await snapshot();
+      if(now()>=deadline)timeout();
+      if(ready.merged||(ready.mergeable===true&&ready.mergeable_state==='clean'))return ready;
+    }
+  }
+  timeout();
+}
 // The caller supplies a chain adapter, never a user-provided verdict. The chain
 // adapter must verify successful FINALIZED execution and the exact transaction.
-export async function executeDecision({id,chain,github,journal,evidenceCheck='open-mathematics/lean'}){
+export async function executeDecision({id,chain,github,journal,evidenceCheck='open-mathematics/lean',wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),now=Date.now}){
   const d=await chain.finalizedDecision(id);
   if(d.authority!=='genlayer-finalized'||d.leaderOnly!==false||!d.validatorAgreement||d.mode!=='live'||!d.executionSucceeded)throw Error('Finalized independent GenLayer judgment required');
   if(d.repository!==github.repository||d.id!==id)throw Error('Decision identity mismatch');
@@ -78,13 +137,15 @@ export async function executeDecision({id,chain,github,journal,evidenceCheck='op
   if(pr.head.sha!==d.head||(!pr.merged&&pr.base.sha!==d.base)||pr.base.ref!==d.branch)throw Error('Stale head or base: reverify and readjudicate');
   if(!pr.merged&&await github.branchHead(d.branch)!==d.base)throw Error('Canonical branch advanced: rebase, reverify and sign again');
   const policy=await github.protection(d.branch);
-  if(policy.enforce_admins?.enabled!==true||!policy.required_status_checks?.strict||!policy.required_status_checks.checks?.some(c=>c.context==='open-mathematics/finalized'&&c.app_id===d.appId)||!policy.required_status_checks.checks?.some(c=>c.context===evidenceCheck&&c.app_id===d.verifierAppId))throw Error('Protected branch and app-bound checks required');
+  requireMergePolicy(policy,d,evidenceCheck);
   // checkPublisher owns only this contract's check and must bind its external_id
   // to the receipt hash. It cannot publish the independent verifier's check.
-  await chain.publishFinalCheck(d);
-  const current=await github.pr(d.pr);
-  if(current.head.sha!==d.head||current.base.ref!==d.branch||(!current.merged&&current.base.sha!==d.base))throw Error('PR changed before merge');
-  if(!current.merged&&await github.branchHead(d.branch)!==d.base)throw Error('Canonical branch advanced before merge');
+  const finalCheck=await chain.publishFinalCheck(d);
+  if(!Number.isSafeInteger(finalCheck?.id)||finalCheck.id<1||typeof d.receiptHash!=='string'||!d.receiptHash||
+     finalCheck.external_id!==d.receiptHash||!successfulCheck(finalCheck,{head:d.head,name:'open-mathematics/finalized',appId:d.appId}))
+    throw Error('Finalized check does not bind the approved head and receipt');
+  await journal.finalizedCheck?.({id:finalCheck.id,head:d.head,receiptHash:d.receiptHash});
+  const current=await waitForMerge({d,github,policy,finalCheck,evidenceCheck,wait,now});
   let merged;
   if(current.merged){merged={merged:true,sha:current.merge_commit_sha};}
   else {if(current.state!=='open'||current.mergeable!==true)throw Error('PR not mechanically mergeable');merged=await github.merge(d.pr,d.head);}
