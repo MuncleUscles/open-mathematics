@@ -3,6 +3,12 @@ import fs from 'node:fs';import path from 'node:path';import {isCommit} from '..
 const [directory,protocolCommit]=process.argv.slice(2);if(!directory||!isCommit(protocolCommit))throw Error('Usage: render-open-workflows.mjs PROBLEM_DIR PROTOCOL_SHA');
 const descriptor=JSON.parse(fs.readFileSync(path.join(directory,'.open-math/open.json'),'utf8'));
 if(descriptor.schemaVersion!==5||descriptor.protocol.repository!=='MuncleUscles/open-mathematics'||descriptor.protocol.commit!==protocolCommit)throw Error('Workflow pin must equal the reviewed open descriptor');
+const accountsFile=path.join(directory,'.open-math/github-accounts.json');
+if(fs.existsSync(accountsFile)){
+ const accounts=JSON.parse(fs.readFileSync(accountsFile,'utf8'));
+ // Account synchronization uses the same protocol checkout as every other job.
+ if(accounts?.implementationCommit!==protocolCommit)throw Error('GitHub account implementation pin must equal the workflow protocol commit');
+}
 const policy=JSON.parse(fs.readFileSync(path.join(directory,descriptor.policy.path),'utf8'));
 const buildScript=policy.version===6?'github/build-full-lean.sh':'github/build-verifier.sh';
 const checkouts=`      - name: Read this exact reviewed problem configuration
