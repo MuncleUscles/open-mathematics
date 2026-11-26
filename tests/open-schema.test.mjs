@@ -59,3 +59,16 @@ test('migration hash matches the native canonical Unicode and integer golden vec
  assert.equal(value.a[0],4);assert.equal(value.a[2],false);
  assert.notEqual(openMigrationHash(value),openMigrationHash({...value,z:'true'}));
 });
+
+test('each mission accepts its own contributions and rejects another mission’s signed claim',()=>{
+ for(const id of ['yang-mills','navier-stokes']){
+  const mission={...problem,descriptor:{...problem.descriptor,id},deployment:{...problem.deployment,problem:id,repository:'owner/'+id}};
+  const native=openNativeConfiguration(mission);
+  assert.equal(validateOpenConstructor(native).problem,id);
+  const submission={...record(),problem:id};
+  assert.equal(validateOpenSubmission(submission,{wallet,problem:mission}).problem,id);
+  assert.throws(()=>validateOpenSubmission(record(),{wallet,problem:mission}),/schema/);
+  const claim=claimFor(mission,{pr:1,head,base,recordPath:'research/submissions/result.json',recordBytes:Buffer.from('content'),wallet});
+  assert.throws(()=>validateOpenClaim({...claim,problem:'p-vs-np'},mission));
+ }
+});
