@@ -1,3 +1,4 @@
+import {getProblemTrack,showProblemTrack} from './problem-directory.mjs';
 import {initForecasts} from './forecasts.mjs';
 void initForecasts();
 import {createClient} from 'genlayer-js';
@@ -18,15 +19,24 @@ function contributorName(id){const user=identities.get(id);return user?'@'+user.
 function contributorLink(id){const user=identities.get(id);if(!user)return el('span',contributorName(id));const node=link('@'+user.login,'https://github.com/'+user.login,'github-user');node.title=`GitHub account #${id}. Name verified on chain ${new Date(Number(user.username_checked_at)*1000).toLocaleString()}.`;return node;}
 function renderIdentities(){if(model)renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}
 let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
-const viewMap={'/':['home','forecast-preview','problem','research','graph','federation','leaderboard','how','agent'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
+let trackClient;
+const viewMap={'/':['home','forecast-preview','directory','research','graph','federation','leaderboard','how','agent'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
- const isDetail=name.startsWith('/contributions/'),views=isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
+ const trackId=name.startsWith('/problems/') ? name.slice('/problems/'.length) : '';
+ const track=getProblemTrack(trackId);
+ const directory=name==='/problems';
+ document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory;});
+ const isDetail=name.startsWith('/contributions/'),views=track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
- document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
+ document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
+ if(track)showProblemTrack(trackId,track,address=>{
+  const client=trackClient??=createClient({chain:studionet});
+  return createDashboardReaders({client,contract:address}).read;
+ },data?.preview);
  if(isDetail){let id='';try{id=decodeURIComponent(name.slice('/contributions/'.length));}catch{}renderDetail(id);}
- const names={'/':'Apes together prove.','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
- document.title='pnp.fun — '+(isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(names[name]||names['/']));
+ const names={'/':'Apes together prove.','/problems':'Research problems','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
+ document.title='pnp.fun — '+(isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(track?.title||names[name]||names['/']));
 }
 window.addEventListener('hashchange',()=>{route();window.scrollTo(0,0);});
 route();
