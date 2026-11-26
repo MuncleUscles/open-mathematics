@@ -14,6 +14,7 @@ const need=(ok,msg)=>{if(!ok)throw Error('Open research: '+msg);};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const str=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.length<=max;
 const repo=v=>typeof v==='string'&&/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v);
+const supportedProblems=new Set(['p-vs-np','yang-mills','navier-stokes']);
 const wallet=v=>isAddress(v||'')&&!/^0x0{40}$/i.test(v);
 const slug='[a-z0-9][a-z0-9-]{0,63}';
 const recordPath=new RegExp(`^research/submissions/(${slug})\\.json$`);
@@ -22,7 +23,7 @@ const artifactPath=new RegExp(`^research/(artifacts|notes)/(${slug})\\.(json|md)
 export function loadOpenProblem(directory,{requireDeployment=true}={}){
  const root=fs.realpathSync(directory),descriptor=parseProblemJSON(readProblemFile(root,'.open-math/open.json'));
  need(exact(descriptor,['schemaVersion','id','repository','branch','configBranch','protocol','policy'])&&descriptor.schemaVersion===5,'exact open descriptor required');
- need(descriptor.id==='p-vs-np'&&repo(descriptor.repository)&&descriptor.branch==='research'&&descriptor.configBranch==='main','problem and canonical branches required');
+ need(supportedProblems.has(descriptor.id)&&repo(descriptor.repository)&&descriptor.branch==='research'&&descriptor.configBranch==='main','problem and canonical branches required');
  need(exact(descriptor.protocol,['repository','commit'])&&repo(descriptor.protocol.repository)&&isCommit(descriptor.protocol.commit),'pinned protocol required');
  need(exact(descriptor.policy,['path','sha256'])&&descriptor.policy.path==='.open-math/open-policy.json'&&isHash(descriptor.policy.sha256),'immutable evaluation policy required');
  const policyBytes=readProblemFile(root,descriptor.policy.path),policyHash=sha256(policyBytes),policy=parseProblemJSON(policyBytes);
@@ -76,7 +77,7 @@ export function openNativeConfiguration(problem){
 
 export function validateOpenConstructor(c){
  need(exact(c,['version','problem','repository','branch','verifier','executor','window','minimum_account_age_days','policy','objective','legacy_ledgers',...(c&&Object.hasOwn(c,'predecessor')?['predecessor']:[])])&&c.version===5,'exact v5 constructor required');
- need(c.problem==='p-vs-np'&&typeof c.repository==='string'&&/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(c.repository)&&!['.','..'].includes(c.repository.split('/')[1])&&c.branch==='research','constructor problem identity required');
+ need(supportedProblems.has(c.problem)&&typeof c.repository==='string'&&/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(c.repository)&&!['.','..'].includes(c.repository.split('/')[1])&&c.branch==='research','constructor problem identity required');
  need(wallet(c.verifier)&&wallet(c.executor)&&c.verifier.toLowerCase()!==c.executor.toLowerCase(),'distinct nonzero native roles required');
  need(Number.isSafeInteger(c.window)&&c.window>=300&&c.window<=604800&&isHash(c.policy)&&str(c.objective,30,2000),'bounded reviewed window, policy and objective required');
  need(Number.isSafeInteger(c.minimum_account_age_days)&&c.minimum_account_age_days>=1&&c.minimum_account_age_days<=3650,'bounded minimum GitHub account age required');
