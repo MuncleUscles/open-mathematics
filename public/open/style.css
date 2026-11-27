@@ -111,3 +111,12 @@
   .source-toggle { grid-area: 1 / 2 / span 2; }
   .source-body { grid-template-columns: minmax(0,1fr); }
 }
+
+.problem-directory article{display:flex;flex-direction:column}
+.problem-directory .track-activity{margin:auto 0 0;padding-top:1rem;color:var(--paper);font-weight:600}
+.track-activity time,#track-status time{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
+.footer-heading{font:600 1rem/1.4 var(--sans);color:var(--paper);margin:0 0 .75rem}
+.footer-tracks{list-style:none;margin:0;padding:0}
+.footer-tracks li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.25rem 1rem;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--rule)}
+.footer-tracks li>a{font-weight:600;color:var(--paper)}
+.footer-tracks li span{white-space:nowrap}

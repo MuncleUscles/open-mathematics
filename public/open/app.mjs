@@ -1,4 +1,5 @@
-import {getProblemTrack,showProblemTrack} from './problem-directory.mjs';
+import deployments from './wallet-tracks.json' with {type:'json'};
+import {getProblemTrack,showProblemTrack,activityLabel,readTrackActivity,otherTrackContracts} from './problem-directory.mjs';
 import {initWalletSubmission} from './wallet-submission.mjs';
 initWalletSubmission();
 import {showAppeal,leaveAppeal} from './appeals.mjs';
@@ -22,7 +23,36 @@ function contributorName(id){const user=identities.get(id);return user?'@'+user.
 function contributorLink(id){const user=identities.get(id);if(!user)return el('span',contributorName(id));const node=link('@'+user.login,'https://github.com/'+user.login,'github-user');node.title=`GitHub account #${id}. Name verified on chain ${new Date(Number(user.username_checked_at)*1000).toLocaleString()}.`;return node;}
 function renderIdentities(){if(model)renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}
 let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
-let trackClient;
+let trackReads;
+const activity = new Map();
+const attempted = new Map();
+function renderActivity(id, unavailable = false) {
+ const value = activity.get(id);
+ const label = value ? activityLabel(value) : data?.preview ? 'Local preview' : unavailable ? 'Activity unavailable' : 'Reading ledger…';
+ const nodes = [...document.querySelectorAll('[data-activity]')].filter(node => node.dataset.activity === id);
+ if (location.hash === '#/problems/' + id && getProblemTrack(id)) nodes.push($('track-status'));
+ for (const node of nodes) {
+  node.textContent = label;
+  if (value) {
+   const time = el('time', 'As of ' + new Date(value.checkedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'}));
+   time.dateTime = value.checkedAt;
+   node.append(time);
+  }
+ }
+}
+function loadActivity(id) {
+ const previous = attempted.get(id);
+ renderActivity(id, previous?.failed);
+ const lastRead = Math.max(previous?.at ?? 0, Date.parse(activity.get(id)?.checkedAt) || 0);
+ if (!trackReads || data?.preview || previous?.pending || Date.now() - lastRead < 300000) return;
+ const attempt = {at: Date.now(), pending: true, failed: false};
+ attempted.set(id, attempt);
+ readTrackActivity(id, trackReads[id])
+  .then(value => activity.set(id, value))
+  .catch(() => { attempt.failed = true; })
+  .finally(() => { attempt.pending = false; renderActivity(id, attempt.failed); });
+}
+
 const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/submit':['submit'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
@@ -35,10 +65,14 @@ function route(){
  const isDetail=name.startsWith('/contributions/'),views=isAppeal?['appeals']:track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
- if(track)showProblemTrack(trackId,track,address=>{
-  const client=trackClient??=createClient({chain:studionet});
-  return createDashboardReaders({client,contract:address}).read;
- },data?.preview);
+ $('pnp-ledger-view').hidden = !(isDetail || ['/problems/p-vs-np','/contributions','/graph','/leaderboard','/federation'].includes(name));
+ if (track) {
+  showProblemTrack(trackId, track);
+  loadActivity(trackId);
+ } else if (directory || name === '/') {
+  for (const id of Object.keys(otherTrackContracts)) loadActivity(id);
+  renderActivity('p-vs-np', data?.preview === false && currentView?.mode === 'unavailable');
+ }
  if(isDetail){let id='';try{id=decodeURIComponent(name.slice('/contributions/'.length));}catch{}renderDetail(id);}
  const names={'/submit':'Submit from your wallet','/':'Apes together prove.','/problems':'Research problems','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
  document.title='pnp.fun — '+(isAppeal?'Appeal a Studio transaction':isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(track?.title||names[name]||names['/']));
@@ -265,6 +299,8 @@ function renderLeaderboard(){
 }
 function renderAll(){
  const snapshot=currentView.snapshot;model=buildResearchView({records,impacts,count:snapshot.count,points:snapshot.points});
+ activity.set('p-vs-np', {count:String(snapshot.count),earned:String(snapshot.points.total_awarded),
+  upstream:String(snapshot.points.total_impact_points),checkedAt:snapshot.completedAt});
  $('count').textContent=fmt(snapshot.count);$('total').textContent=fmt(snapshot.points.total_awarded);$('impact').textContent=fmt(snapshot.points.total_impact_points);
  $('reserve-status').textContent=`${fmt(snapshot.points.total_award_budgets)} PNP in accepted result budgets; ${fmt(snapshot.points.total_reserved_points)} PNP awaiting attribution settlement.${data.deployment.predecessor?' Carried points are counted once.':''}`;
  renderFeed();renderGraph();renderLeaderboard();renderFederation();route();$('older').hidden=nextEnd===0;
@@ -317,6 +353,7 @@ async function refresh(){
  if(busy||!data||data.preview)return;busy=true;$('refresh').disabled=true;$('older').disabled=true;$('status').textContent=currentView?.mode==='published'?openSnapshotLabel(currentView.snapshot,{refreshing:true}):'Reading finalized research records…';
  try{const view=await chooseOpenLedgerView({loadLive:()=>collectOpenSnapshot({problem:data,read}),loadPublished:published,current:currentView});
   if(view.changed){const candidateRecords=view.snapshot.records,candidateImpacts=view.snapshot.impacts;buildResearchView({records:candidateRecords,impacts:candidateImpacts,count:view.snapshot.count,points:view.snapshot.points});currentView=view;records=[...candidateRecords];impacts=[...candidateImpacts];nextEnd=view.mode==='live'?view.snapshot.offset:0;renderAll();}else currentView=view;
+  if(view.mode==='unavailable')renderActivity('p-vs-np',true);
   if(view.mode==='published')$('status').textContent=openSnapshotLabel(view.snapshot);
   else if(view.mode==='live')$('status').textContent=view.unavailable?`Live refresh unavailable. Keeping the last successful view from ${view.snapshot.completedAt}; these records may be stale.`:`Live finalized views · checked ${new Date(view.snapshot.completedAt).toLocaleString()} · read interval ${view.snapshot.startedAt}–${view.snapshot.completedAt}. Not an atomic snapshot.`;
   else $('status').textContent='Live ledger and validated published snapshot unavailable. No example records have been substituted.';
@@ -337,19 +374,23 @@ $('refresh').addEventListener('click',refresh);$('older').addEventListener('clic
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('agent-instructions').value);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('agent-instructions').focus();$('agent-instructions').select();$('copy-status').textContent='Select and copy the instructions above, or share the full guide.';}});
 try{
  const response=await fetch('./problem.json');if(!response.ok)throw Error('Reviewed configuration unavailable');data=await response.json();const d=data.deployment;repository=`https://github.com/${data.descriptor.repository}`;const guide=repository+'/blob/main/AGENTS.md';
- $('source').href=repository;$('guide').href=guide;$('evidence').href=repository+'/tree/evidence';$('contract').href=`https://studio.genlayer.com/contracts?import-contract=${d.contract}`;
+ $('source').href=repository;$('guide').href=guide;
  $('challenge-window').textContent=`${d.windowSeconds/60} minutes`;
  $('proof-format').textContent=data.policy.version===6?'Formal submissions support ordinary Lean 4.36 source and pinned Mathlib. Independent kernel checks verify the exact theorem and standard axioms. Arbitrary project configurations and dependencies are not accepted.':data.policy.version===5?'This policy accepts restricted Lean 4.19 Core expressions; it does not support Mathlib or arbitrary Lean projects.':'Read the reviewed policy and contributor guide for the exact pinned proof environment.';
  $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. No daily quota. One active claim per GitHub author; agents sharing an account submit one at a time.`;
  $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. After posting your signed PR comment, send the submission on stable Studio from the same wallet using pnp submit. Send any eligible retry with pnp retry. Follow the Studio review check on your PR. Its short appeal window starts at the decision. Use the deadline in the live quote. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
+ $('pnp-history').hidden=false;
  for(const h of d.legacyLedgers){const p=el('p',h.description+' ');p.append(link('Historical contract',`https://studio.genlayer.com/contracts?import-contract=${h.address}`));$('history').append(p);}
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;
  if(data.federation===true){$('federation-nav').hidden=false;$('unclaimed-heading').hidden=false;$('author-points-heading').textContent='Current initial';$('earned-heading').textContent='Current PNP';$('leaderboard-intro').textContent='Current native attribution by stable GitHub account, including unclaimed external authors. Names come from dated on-chain profile checks; names and wallet claims do not establish original mathematical discovery.';$('correction-rule').textContent='Evidence-backed attribution cases can redistribute the existing settled author pool and explicitly set a separate future incoming-impact route. They do not create a new budget or rewrite settled historical impact.';}
- route();
+ for (const [id, value] of Object.entries(data.trackActivity ?? {})) {
+  if (getProblemTrack(id) && value.ledger === deployments[id].ledger) activity.set(id, value);
+ }
  if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
- ({read,accountRead}=createDashboardReaders({client:createClient({chain:studionet}),contract:d.contract,accountsContract:data.githubAccounts?.contract}));
+ ({read,accountRead,trackReads}=createDashboardReaders({client:createClient({chain:studionet}),contract:d.contract,accountsContract:data.githubAccounts?.contract,trackContracts:otherTrackContracts}));
+ route();
  if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;route();}else{
   busy=true;$('refresh').disabled=true;$('older').disabled=true;await showPublishedViews();busy=false;await refresh();
  }
-}catch(error){console.warn('Configuration failed',error);$('status').textContent='Reviewed configuration unavailable. The contribution guide is still available; live records cannot be displayed.';$('refresh').disabled=true;}
+}catch(error){for(const id of Object.keys(deployments))renderActivity(id,true);console.warn('Configuration failed',error);$('status').textContent='Reviewed configuration unavailable. The contribution guide is still available; live records cannot be displayed.';$('refresh').disabled=true;}
