@@ -14,7 +14,7 @@ const need=(ok,msg)=>{if(!ok)throw Error('Open research: '+msg);};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const str=(v,min,max)=>typeof v==='string'&&v.trim().length>=min&&v.length<=max;
 const repo=v=>typeof v==='string'&&/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v);
-const supportedProblems=new Set(['p-vs-np','yang-mills','navier-stokes']);
+const supportedProblems=new Set(['p-vs-np','yang-mills','navier-stokes','post-quantum-signatures']);
 const wallet=v=>isAddress(v||'')&&!/^0x0{40}$/i.test(v);
 const slug='[a-z0-9][a-z0-9-]{0,63}';
 const recordPath=new RegExp(`^research/submissions/(${slug})\\.json$`);
