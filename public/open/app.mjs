@@ -38,7 +38,20 @@ function route(){
  const names={'/':'Apes together prove.','/problems':'Research problems','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
  document.title='pnp.fun — '+(isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(track?.title||names[name]||names['/']));
 }
-window.addEventListener('hashchange',()=>{route();window.scrollTo(0,0);});
+const menuToggle=document.querySelector('.menu-toggle');
+const mainNavigation=document.getElementById('main-navigation');
+function closeMenu(){menuToggle.setAttribute('aria-expanded','false');}
+menuToggle.addEventListener('click',()=>{
+ const expanded=menuToggle.getAttribute('aria-expanded')==='true';
+ menuToggle.setAttribute('aria-expanded',String(!expanded));
+});
+mainNavigation.addEventListener('click',event=>{if(event.target.closest('a'))closeMenu();});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&menuToggle.getAttribute('aria-expanded')==='true'){
+  closeMenu();menuToggle.focus();
+ }
+});
+window.addEventListener('hashchange',()=>{closeMenu();route();window.scrollTo(0,0);});
 route();
 function badge(c){return el('span',c.stateLabel,'badge '+c.status);}
 function recordRow(c){
