@@ -20,7 +20,7 @@ function contributorLink(id){const user=identities.get(id);if(!user)return el('s
 function renderIdentities(){if(model)renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}
 let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
 let trackClient;
-const viewMap={'/':['home','forecast-preview','directory','research','graph','federation','leaderboard','how','agent'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
+const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
  const trackId=name.startsWith('/problems/') ? name.slice('/problems/'.length) : '';

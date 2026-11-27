@@ -71,3 +71,5 @@
   .hero .button { padding-inline: 14px; font-size: .875rem; }
   .hero .text-link { display: inline-flex; align-items: center; min-height: 44px; font-size: .9rem; }
 }
+
+.hero:not([hidden]) + #directory-view { border-top: 1px solid var(--rule); }
