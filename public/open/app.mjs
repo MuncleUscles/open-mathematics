@@ -26,7 +26,7 @@ function route(){
  const trackId=name.startsWith('/problems/') ? name.slice('/problems/'.length) : '';
  const track=getProblemTrack(trackId);
  const directory=name==='/problems';
- document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory;});
+ document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory||name==='/how-it-works';});
  const isDetail=name.startsWith('/contributions/'),views=track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
