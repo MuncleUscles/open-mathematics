@@ -2,7 +2,7 @@
 import fs from 'node:fs';import path from 'node:path';import {isCommit} from '../src/problem.mjs';
 const [directory,protocolCommit]=process.argv.slice(2);if(!directory||!isCommit(protocolCommit))throw Error('Usage: render-open-workflows.mjs PROBLEM_DIR PROTOCOL_SHA');
 const descriptor=JSON.parse(fs.readFileSync(path.join(directory,'.open-math/open.json'),'utf8'));
-if(descriptor.schemaVersion!==5||descriptor.protocol.repository!=='MuncleUscles/open-mathematics'||descriptor.protocol.commit!==protocolCommit)throw Error('Workflow pin must equal the reviewed open descriptor');
+if(descriptor.schemaVersion!==5||!['MuncleUscles/pnp.fun','MuncleUscles/open-mathematics'].includes(descriptor.protocol.repository)||descriptor.protocol.commit!==protocolCommit)throw Error('Workflow pin must equal the reviewed open descriptor');
 const accountsFile=path.join(directory,'.open-math/github-accounts.json');
 if(fs.existsSync(accountsFile)){
  const accounts=JSON.parse(fs.readFileSync(accountsFile,'utf8'));
@@ -20,7 +20,7 @@ const checkouts=`      - name: Read this exact reviewed problem configuration
       - name: Read the pinned protocol implementation
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          repository: MuncleUscles/open-mathematics
+          repository: MuncleUscles/pnp.fun
           ref: ${protocolCommit}
           path: protocol
           persist-credentials: false
@@ -105,57 +105,6 @@ ${checkouts}      - name: Reconcile native GitHub identity and points
           GITHUB_TOKEN: \${{ github.token }}
           EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
 `;
-const pages=`name: Open research dashboard
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-  workflow_run:
-    workflows: [Open research adjudication, Research federation]
-    types: [completed]
-    branches: [main]
-permissions:
-  contents: read
-  actions: read
-  pages: write
-  id-token: write
-concurrency:
-  group: github-pages
-  cancel-in-progress: false
-jobs:
-  deploy:
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: protocol
-    environment:
-      name: github-pages
-      url: \${{ steps.deployment.outputs.page_url }}
-    steps:
-${checkouts}      - name: Build dashboard with a dated finalized-native snapshot
-        run: node scripts/build-open-site.mjs ../problem ../site --snapshot
-      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
-      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
-        id: upload
-        with:
-          path: site
-          retention-days: 1
-      - name: Wait for this run's exact uploaded artifact
-        timeout-minutes: 5
-        env:
-          GITHUB_TOKEN: \${{ github.token }}
-          PAGES_ARTIFACT_ID: \${{ steps.upload.outputs.artifact_id }}
-        run: node github/wait-pages-artifact.mjs
-      - name: Publish problem dashboard
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
-`;
 const federation=`name: Research federation
 on:
   workflow_dispatch:
@@ -201,5 +150,5 @@ ${checkouts}      - name: Process exact federation evidence and native decision
           GITHUB_TOKEN: \${{ github.token }}
           EXECUTOR_SIGNING_KEY: \${{ secrets.EXECUTOR_SIGNING_KEY }}
 `;
-fs.mkdirSync(path.join(directory,'.github/workflows'),{recursive:true});for(const [name,value]of Object.entries({'research.yml':research,'pages.yml':pages,'federation.yml':federation}))fs.writeFileSync(path.join(directory,'.github/workflows',name),value);
-console.log(JSON.stringify({protocolCommit,files:['research.yml','pages.yml','federation.yml']}));
+fs.mkdirSync(path.join(directory,'.github/workflows'),{recursive:true});for(const [name,value]of Object.entries({'research.yml':research,'federation.yml':federation}))fs.writeFileSync(path.join(directory,'.github/workflows',name),value);
+console.log(JSON.stringify({protocolCommit,files:['research.yml','federation.yml']}));

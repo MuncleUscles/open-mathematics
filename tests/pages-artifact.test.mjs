@@ -87,7 +87,7 @@ test('generated Pages workflow gates the existing pinned deployment on its exact
   fs.writeFileSync(path.join(dir,'.open-math/open.json'),JSON.stringify({schemaVersion:5,policy:{path:'.open-math/open-policy.json'},protocol:{repository:'MuncleUscles/open-mathematics',commit:head}}));
   fs.writeFileSync(path.join(dir,'.open-math/open-policy.json'),JSON.stringify({version:6}));
   execFileSync(process.execPath,['scripts/render-open-workflows.mjs',dir,head]);
-  const yaml=fs.readFileSync(path.join(dir,'.github/workflows/pages.yml'),'utf8');
+  const yaml=fs.readFileSync('.github/workflows/pages.yml','utf8');
   assert.match(yaml,/permissions:\n  contents: read\n  actions: read\n  pages: write/);
   assert.match(yaml,/id: upload\n        with:\n          path: site/);
   assert.match(yaml,/PAGES_ARTIFACT_ID: \$\{\{ steps.upload.outputs.artifact_id \}\}/);

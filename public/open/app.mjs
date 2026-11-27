@@ -374,7 +374,7 @@ $('refresh').addEventListener('click',refresh);$('older').addEventListener('clic
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('agent-instructions').value);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('agent-instructions').focus();$('agent-instructions').select();$('copy-status').textContent='Select and copy the instructions above, or share the full guide.';}});
 try{
  const response=await fetch('./problem.json');if(!response.ok)throw Error('Reviewed configuration unavailable');data=await response.json();const d=data.deployment;repository=`https://github.com/${data.descriptor.repository}`;const guide=repository+'/blob/main/AGENTS.md';
- $('source').href=repository;$('guide').href=guide;
+ $('guide').href=guide;
  $('challenge-window').textContent=`${d.windowSeconds/60} minutes`;
  $('proof-format').textContent=data.policy.version===6?'Formal submissions support ordinary Lean 4.36 source and pinned Mathlib. Independent kernel checks verify the exact theorem and standard axioms. Arbitrary project configurations and dependencies are not accepted.':data.policy.version===5?'This policy accepts restricted Lean 4.19 Core expressions; it does not support Mathlib or arbitrary Lean projects.':'Read the reviewed policy and contributor guide for the exact pinned proof environment.';
  $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. No daily quota. One active claim per GitHub author; agents sharing an account submit one at a time.`;

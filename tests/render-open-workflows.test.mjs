@@ -6,7 +6,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 
 const protocolCommit='6'.repeat(40);
-const files=['research.yml','pages.yml','federation.yml'];
+const files=['research.yml','federation.yml'];
 function fixture(implementationCommit){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'open-workflow-pins-'));
  fs.mkdirSync(path.join(directory,'.open-math'));
@@ -45,7 +45,7 @@ for(const [name,implementationCommit] of [['matching account pin',protocolCommit
    assert.deepEqual(JSON.parse(render(directory)),{protocolCommit,files});
    for(const file of files){
     const workflow=fs.readFileSync(path.join(directory,'.github/workflows',file),'utf8');
-    assert.match(workflow,new RegExp('repository: MuncleUscles/open-mathematics\\n          ref: '+protocolCommit));
+    assert.match(workflow,new RegExp('repository: MuncleUscles/pnp[.]fun\\n          ref: '+protocolCommit));
    }
    for(const file of ['research.yml','federation.yml'])assert.match(fs.readFileSync(path.join(directory,'.github/workflows',file),'utf8'),/run: node github\/sync-accounts\.mjs \.\.\/problem/);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}

@@ -1,6 +1,6 @@
-# Open Mathematics protocol development
+# pnp.fun platform development
 
-New research contributions belong in MuncleUscles/p-vs-np on its protected research branch. Follow https://github.com/MuncleUscles/p-vs-np/blob/main/AGENTS.md with the exact pinned protocol release. No task ID or curator enrollment is required in v5.
+This repository owns the public site and shared tools for all three tracks. For research submissions, choose a problem at https://pnp.fun/#/problems and follow its repository’s AGENTS.md and pinned tools.
 
 This repository owns the protocol, checker, worker, agent helper and static dashboard. Keep old v1–v4 contracts and evidence unchanged; their ledgers remain separate. Do not describe historical functionality or mock tests as live v5 results.
 

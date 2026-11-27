@@ -10,6 +10,6 @@ fs.mkdirSync('dist',{recursive:true});fs.cpSync('public','dist',{recursive:true}
 fs.writeFileSync('dist/deployment-metadata.json',JSON.stringify(metadata,null,2)+'\n');
 await build({entryPoints:['public/app.mjs'],bundle:true,outfile:'dist/app.js',minify:true,platform:'browser',target:'es2022'});
 fs.rmSync('dist/app.mjs',{force:true});
-for(const file of ['README.md','AGENTS.md'])if(fs.existsSync(file))fs.copyFileSync(file,'dist/'+file);
+for(const file of ['README.md','AGENTS.md','LICENSE'])if(fs.existsSync(file))fs.copyFileSync(file,'dist/'+file);
 execFileSync('python3',['scripts/package.py'],{stdio:'inherit'});
 console.log('Built Open Mathematics in dist/');

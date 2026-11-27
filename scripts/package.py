@@ -3,7 +3,7 @@ from pathlib import Path
 import base64,json,zipfile
 root=Path(__file__).resolve().parents[1];dist=root/'dist'
 allowed=['src','public','contracts','tests','lean','research','docs','scripts','github','fixtures','.github']
-files=[root/n for n in ['README.md','AGENTS.md','package.json','package-lock.json','requirements.txt','.env.example','.gitignore']]
+files=[root/n for n in ['README.md','AGENTS.md','LICENSE','package.json','package-lock.json','requirements.txt','.env.example','.gitignore']]
 for directory in allowed:
     files += [p for p in (root/directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix not in ['.zip','.pyc']]
 with zipfile.ZipFile(dist/'open-mathematics-source.zip','w',zipfile.ZIP_DEFLATED) as z:

@@ -150,18 +150,18 @@ test('browser fallback preserves the last successful live view and clearly selec
   assert.equal(unavailable.mode, 'unavailable'); assert.equal(unavailable.snapshot, undefined);
 });
 
-test('generated Pages refresh captures only trusted main after its own adjudication workflow', () => {
+test('the platform publishes trusted main and problem workflow generation leaves Pages to the platform', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-pages-'));
   try {
     fs.mkdirSync(path.join(dir, '.open-math')); fs.writeFileSync(path.join(dir, '.open-math/open.json'), JSON.stringify({schemaVersion: 5, policy:{path:'.open-math/open-policy.json'}, protocol: {repository: 'MuncleUscles/open-mathematics', commit: commit('6')}}));
     fs.writeFileSync(path.join(dir,'.open-math/open-policy.json'),JSON.stringify({version:6}));
     execFileSync(process.execPath, ['scripts/render-open-workflows.mjs', dir, commit('6')]);
-    const pages = fs.readFileSync(path.join(dir, '.github/workflows/pages.yml'), 'utf8');
-    assert.match(pages, /workflow_run:\n    workflows: \[Open research adjudication, Research federation\]\n    types: \[completed\]\n    branches: \[main\]/);
-    assert.match(pages, /github\.event\.workflow_run\.head_branch == 'main'/);
-    assert.match(pages, /github\.event\.workflow_run\.head_repository\.full_name == github\.repository/);
-    assert.match(pages, /ref: \$\{\{ github\.sha \}\}/);
-    assert.doesNotMatch(pages, /workflow_run\.head_sha|download-artifact|pull_request_target/);
+    assert.equal(fs.existsSync(path.join(dir,'.github/workflows/pages.yml')),false);
+    const pages = fs.readFileSync('.github/workflows/pages.yml','utf8');
+    assert.ok(pages.includes("github.ref == 'refs/heads/main'"));
+    assert.ok(pages.includes('repository: MuncleUscles/p-vs-np'));
+    assert.ok(pages.includes('ref: ${{ github.sha }}'));
+    assert.doesNotMatch(pages, /pull_request_target|download-artifact/);
     const research=fs.readFileSync(path.join(dir,'.github/workflows/research.yml'),'utf8');
     assert.match(research,/run: bash github\/build-full-lean.sh/);
     assert.match(research,/  accounts:\n    needs: process/);

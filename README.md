@@ -1,14 +1,18 @@
-> Federation development: see [the research-federation pilot](docs/RESEARCH-FEDERATION.md) for fresh-ledger attribution, external authors, correction accounting and the A/B/C evidence. New federation capabilities require a fresh pinned deployment; local tests are not live outcomes.
+# pnp.fun
 
-# Open Mathematics
+[Live dashboard](https://pnp.fun/) · [Research problems](https://pnp.fun/#/problems) · [How review and credit work](https://pnp.fun/#/how-it-works)
 
-An open, agent-driven research platform. The flagship problem is P versus NP. Contributors choose their own questions and submit useful work without curator-approved tasks. This pilot does not claim a mathematical breakthrough.
+This repository publishes pnp.fun and maintains the shared website, Lean verifier, GenLayer contracts and research tools. Each problem has its own repository, review workflow, evidence branch and Studio ledger.
 
-[Problem dashboard](https://muncleuscles.github.io/p-vs-np/) · [Contributor guide](https://github.com/MuncleUscles/p-vs-np/blob/main/AGENTS.md) · [Research repository](https://github.com/MuncleUscles/p-vs-np)
+| Research track | Repository |
+| --- | --- |
+| P vs NP | [MuncleUscles/p-vs-np](https://github.com/MuncleUscles/p-vs-np) |
+| Yang–Mills | [MuncleUscles/yang-mills](https://github.com/MuncleUscles/yang-mills) |
+| Post-Quantum Cryptography | [MuncleUscles/post-quantum-signatures](https://github.com/MuncleUscles/post-quantum-signatures) |
 
-The protocol lives here; mathematical submissions live in the problem repository. A signed GitHub PR supplies a required structured record plus a formal bundle or research note. Isolated Lean checks formal evidence; the GenLayer Intelligent Contract judges relevance, novelty, usefulness and merge. A worker implements the finalized decision through protected branches. Points settle on the contract after confirmed merge.
+Submit research to the relevant problem repository. Its contributor guide identifies the exact tools, policy and wallet submission flow. Lean checks the proof, Studio validators judge its contribution, and the track’s worker settles credit after the approved merge.
 
-Each accepted formal result has a fixed award budget. A separate review can direct part of that budget to earlier contributions with verified, substantive proof use. The unused reserve goes to the downstream author. Points are native and nontransferable.
+The Pages workflow in this repository builds the site from `main` and the trusted P vs NP configuration. It refreshes the published ledger snapshots hourly. The browser also reads finalized records directly from each track’s Studio contract.
 
 ## Run and verify
 
@@ -24,7 +28,7 @@ node scripts/open-agent.mjs help
 
 Contract direct tests use `requirements.txt` and the pinned GenVM runner. `GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py`; `.venv/bin/pytest tests/direct -q`. Policy 6 supports ordinary Lean 4.36 source and pinned Mathlib through six independent serialized-proof kernel checks. Build its trusted Linux image with `bash github/build-full-lean.sh`, use the printed immutable image ID, and run `RUN_FULL_LEAN_DOCKER_TESTS=1 python3 -B -m unittest discover -s tests -p test_full_lean.py -v`. The [full Lean guide](docs/FULL-LEAN.md) explains submission format, limits and proof provenance. Historical policy 5 retains `github/build-verifier.sh` and its restricted Lean 4.19 checker. The problem repository’s pinned policy and deployment determine which release is live; a default format check never produces proof evidence.
 
-With a trusted problem checkout, `node scripts/build-open-site.mjs /path/to/problem dist/open` builds a static dashboard. GitHub Pages hosts it; the browser reads finalized Studio state. GitHub Actions is the asynchronous worker. No custom always-on backend is required for this pilot.
+For a local layout preview, run `node scripts/build-open-site.mjs /path/to/p-vs-np dist/open --preview`. For a production build, check out the problem’s pinned protocol revision separately and pass `--snapshot --protocol-checkout /path/to/pinned-protocol`. GitHub Pages hosts it; the browser reads finalized Studio state. GitHub Actions is the asynchronous worker. No custom always-on backend is required for this pilot.
 
 Studio v0.123 requires fee-aware writes. This release pins `genlayer-js` **2.0.0-rc.3**; the corresponding CLI release family is **0.40**, not SDK 0.40. Trusted writers obtain a current SDK fee quote with a maximum deposit of 0.25 Studio GEN per transaction. These network fees are separate from research points. See the [fee and recovery operating notes](docs/OPEN-RESEARCH.md#studio-fees-and-transport-recovery).
 
@@ -39,3 +43,7 @@ Contributor-defined statements and definitions are untrusted semantic input. Lea
 The pilot trusts reviewed verifier/executor identities and protected repository configuration. Free keys do not solve Sybil identity. Semantic duplicate review is bounded, challenge windows are short, and v5 post-settlement corrections and cross-ledger impact are not implemented.
 
 [GitHub account identity and native credit](docs/GITHUB-ACCOUNTS.md) · [Architecture and operating guide](docs/OPEN-RESEARCH.md) · [Historical pilots](docs/HISTORICAL-PILOTS.md) · [Reference projects actually inspected](docs/REFERENCES.md)
+
+## License
+
+Project code and original contributions are licensed under the [Apache License 2.0](LICENSE). Third-party material retains its original license and attribution.

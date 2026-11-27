@@ -1,5 +1,5 @@
 {
-  "name": "open-mathematics",
+  "name": "pnp.fun",
   "version": "0.2.0",
   "private": true,
   "type": "module",
@@ -23,5 +23,6 @@
   },
   "overrides": {
     "ws": "8.21.0"
-  }
+  },
+  "license": "Apache-2.0"
 }
