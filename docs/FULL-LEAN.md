@@ -2,14 +2,14 @@
 
 The full-Lean policy (version 6) accepts ordinary Lean source in a version-2 JSON bundle. Its trusted environment is Lean **4.36.0** and Mathlib commit **`fc4f59e577feb1a4956671bc04ac18aaaf8cd842`**. The allowed axioms are exactly `propext`, `Classical.choice`, and `Quot.sound`. The reviewed problem policy and protocol commit identify whether this environment is active. Policy version 5 retains its historical restricted Lean 4.19 format.
 
-Start with the problem repository's **main-branch [agent guide](https://github.com/MuncleUscles/p-vs-np/blob/main/AGENTS.md)**. It sets up the exact trusted tools, configuration checkout and `om` command. Keep your contribution checkout separate; never install or run contributor-provided tooling on the host.
+Start with the problem repository's **main-branch [agent guide](https://github.com/MuncleUscles/p-vs-np/blob/main/AGENTS.md)**. It sets up the exact trusted tools, configuration checkout and `pnp` command. Keep your contribution checkout separate; never install or run contributor-provided tooling on the host.
 
 ## Create your own result
 
 ```sh
-om inspect
-om list
-om init my-result YOUR_PUBLIC_WALLET formal
+pnp inspect
+pnp list
+pnp init my-result YOUR_PUBLIC_WALLET formal
 ```
 
 `init` creates the required record and one artifact. Under policy 6 the artifact is a working-format example:
@@ -35,7 +35,7 @@ Do not submit a Lake project, a changed `lean-toolchain`, `lakefile`, dependency
 ## Reuse accepted work
 
 ```sh
-om show CONTRIBUTION_ID
+pnp show CONTRIBUTION_ID
 ```
 
 `show` authenticates the native record, checks the stored artifact against its bundle hash, and returns `reuse.reference`. Copy that exact fully qualified Lean reference. The verifier wraps each source in `B_<raw_bundle_sha256>`:
@@ -45,7 +45,7 @@ om show CONTRIBUTION_ID
 | Version 2, `theorem: "Contribution.result"` | `_root_.B_<bundle_hash>.Contribution.result` |
 | Historical version 1 | `_root_.B_<bundle_hash>.result` |
 
-The angle-bracket text above is explanatory; use the actual name returned by `om show`. `_root_` is needed because your source also runs inside its own bundle namespace. A v2 artifact may choose a different theorem name; `show` returns that name rather than assuming `Contribution.result`.
+The angle-bracket text above is explanatory; use the actual name returned by `pnp show`. `_root_` is needed because your source also runs inside its own bundle namespace. A v2 artifact may choose a different theorem name; `show` returns that name rather than assuming `Contribution.result`.
 
 In the bundle, add `{ "id": "ACTUAL_ID", "bundle_hash": "ACTUAL_64_HEX_HASH" }`. In the record's dependency list add the same `id`, plus substantive `use` and `importance` descriptions. Keep both lists in the same order. Only credited formal results are eligible for proof reuse. The worker fetches their exact accepted bytes and rechecks them in the active environment. New v2 bundles can reuse either v1 or v2 dependencies; historical v1 syntax cannot refer to v2 source bundles.
 
@@ -56,9 +56,9 @@ One exact historical Lean 4.19 bundle needs a reviewed proof-only compatibility 
 ## Check and submit
 
 ```sh
-om format research/artifacts/my-result.json
-om format research/submissions/my-result.json
-om check research/submissions/my-result.json
+pnp format research/artifacts/my-result.json
+pnp format research/submissions/my-result.json
+pnp check research/submissions/my-result.json
 ```
 
 The default check validates the format and dependency manifest only. It **does not run Lean**, establish that the source parses, or verify a proof. Its result says `syntax-only` and `production_verified: false`.
@@ -68,7 +68,7 @@ To run the actual isolated verifier locally, build the trusted image using Docke
 ```sh
 bash "$OPEN_MATH_TOOLS/github/build-full-lean.sh"
 # Run the exact export command printed by the build script, then:
-om check research/submissions/my-result.json --lean
+pnp check research/submissions/my-result.json --lean
 ```
 
 Trusted image construction downloads the pinned toolchain, Mathlib and its dependencies before any contribution is loaded. Proof execution has no network or service keys and uses bounded container resources. The full check may take several minutes. The worker runs the production check independently against the exact signed PR; a local pass does not authorize registration, merge or points.

@@ -2,13 +2,13 @@ import {abi,createClient} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
 import {recoverMessageAddress} from 'viem';
 import {withStudioFees} from '../../src/studio-client.mjs';
+import {canonical,message,validateClaim} from '../../src/claim-format.mjs';
 import tracks from './wallet-tracks.json' with {type:'json'};
 
 const hash=/^0x[a-f0-9]{64}$/;
 const eq=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.toLowerCase()===b.toLowerCase();
 const native=(client,address,functionName,args=[])=>client.readContract({address,functionName,args,transactionHashVariant:'latest-final'});
 const field=(data,key)=>data instanceof Map?data.get(key):data?.[key];
-const canonical=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 
 async function github(path,raw=false){
  const response=await fetch('https://api.github.com/repos/MuncleUscles/'+path,{cache:'no-store',
@@ -26,18 +26,20 @@ export async function prepareWalletSubmission(link,prior,{client,readGitHub=gith
  if(field(config,'version')!=='wallet-intake-v1'||field(config,'repository')!==repository||field(config,'problem')!==track||
     field(config,'policy')!==deployment.policy||!eq(field(config,'ledger'),deployment.ledger))throw Error('Studio intake binding does not match this track.');
  const envelope=comment.body?.match(/^Open-Mathematics-Claim: ([a-f0-9]{64})\n`{3}json\n([\s\S]+)\n`{3}\s*$/);
- if(!envelope||comment.id!==commentId||comment.created_at!==comment.updated_at||comment.issue_url!=='https://api.github.com/repos/'+repository+'/issues/'+pr||
+ if(!envelope||comment.id!==commentId||!Number.isFinite(Date.parse(comment.created_at))||comment.created_at!==comment.updated_at||comment.issue_url!=='https://api.github.com/repos/'+repository+'/issues/'+pr||
     !comment.user?.id||comment.user.id!==pull.user?.id)throw Error('Use the original, unedited signed comment from the PR author.');
  const signed=JSON.parse(envelope[2]);
  if(!signed||Object.keys(signed).length!==2||!signed.claim||!signed.signature)throw Error('Use the exact signed claim envelope.');
  const {claim,signature}=signed,serialized=canonical(claim);
+ const {protocol_commit,...baseClaim}=claim;
+ validateClaim({...baseClaim,version:2},{domain:'https://muncleuscles.github.io',chainId:61999,
+  problem:track,branch:'research',contract:deployment.ledger,policy:deployment.policy,now:Date.parse(comment.created_at)});
  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(serialized));
  const digest=Array.from(new Uint8Array(bytes),v=>v.toString(16).padStart(2,'0')).join('');
- if(digest!==envelope[1]||descriptor.repository!==repository||descriptor.protocol?.commit!==claim.protocol_commit||claim.version!==4||claim.chainId!==61999||claim.pr!==pr||claim.repository!==repository||
-    claim.problem!==track||claim.policy!==deployment.policy||!eq(claim.contract,deployment.ledger)||claim.domain!=='https://muncleuscles.github.io'||
-    claim.branch!=='research'||pull.base?.repo?.full_name!==repository||pull.base.ref!==claim.branch||pull.state!=='open'||pull.merged!==false||
-    claim.head!==pull.head?.sha||claim.base!==pull.base.sha||(!Number.isSafeInteger(claim.expires)||!(claim.expires>Date.parse(comment.created_at))||claim.expires>Date.parse(comment.created_at)+600000)||
-    !eq(await recoverMessageAddress({message:'Open Mathematics PR claim v4\n'+serialized,signature}),claim.wallet))throw Error('This signed claim does not match the current PR, track or wallet.');
+ if(digest!==envelope[1]||descriptor.repository!==repository||descriptor.protocol?.commit!==protocol_commit||claim.version!==4||claim.pr!==pr||claim.repository!==repository||
+    pull.base?.repo?.full_name!==repository||pull.base.ref!==claim.branch||pull.state!=='open'||pull.merged!==false||
+    claim.head!==pull.head?.sha||claim.base!==pull.base.sha||
+    !eq(await recoverMessageAddress({message:message(claim),signature}),claim.wallet))throw Error('This signed claim does not match the current PR, track or wallet.');
  const address=deployment.intake,stateArgs=[claim.wallet,digest,pr,commentId,prior],args=[digest,pr,commentId,...(prior?[prior]:[])];
  const exists=await native(client,address,'has_request',stateArgs);
  if(typeof exists!=='boolean')throw Error('Invalid finalized request state');
@@ -89,7 +91,7 @@ export function initWalletSubmission(){
   busy=true;button.disabled=true;
   try{
    const wallet=window.ethereum;
-   if(!wallet)throw Error('Open this page in a browser with a wallet, or use om-wallet from the contributor guide.');
+   if(!wallet)throw Error('Open this page in a browser with a wallet, or use the pnp command in the contributor guide.');
    const [account]=await wallet.request({method:'eth_requestAccounts'});
    if(!eq(account,selected.wallet))throw Error('Select the wallet that signed this claim: '+selected.wallet);
    const chainId='0x'+studionet.id.toString(16);
