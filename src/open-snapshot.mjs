@@ -95,7 +95,7 @@ export function validateSnapshotConfig(config, problem) {
   return config;
 }
 
-function validatePoints(points, problem) {
+export function validatePoints(points, problem) {
   need(object(points) && points.problem === problem.deployment.problem && points.transferable === false, 'point scope mismatch');
   for (const key of ['total_awarded', 'total_initial_points', 'total_impact_points', 'total_note_points', 'total_returned_points', 'total_award_budgets', 'total_reserved_points']) need(integer(points[key]), 'invalid point totals');
   need(BigInt(points.total_awarded) + BigInt(points.total_reserved_points) === BigInt(points.total_award_budgets), 'award budget mismatch');

@@ -83,3 +83,27 @@ test('initial published labels keep original dates and distinguish pending refre
   assert.match(label(snapshot),/live unavailable/);
  }
 });
+
+test('problem directory reads each reviewed ledger on the shared finalized queue', async () => {
+ const {readTrackActivity, activityLabel, otherTrackContracts, trackResources} = await import('../public/open/problem-directory.mjs');
+ const {default: deployments} = await import('../public/open/wallet-tracks.json', {with:{type:'json'}});
+ const f = fixture(({address,functionName}) => {
+  const id = Object.keys(otherTrackContracts).find(key => otherTrackContracts[key] === address);
+  if (functionName === 'get_config') return {problem:id, repository:'MuncleUscles/'+id, policy:deployments[id].policy, verifier:contract};
+  const empty = id === 'yang-mills';
+  if (functionName === 'count_contributions') return empty ? 0n : 2n;
+  assert.equal(functionName, 'get_points');
+  return {problem:id, transferable:false, total_awarded:empty?'0':'150', total_initial_points:empty?'0':'120',
+   total_impact_points:empty?'0':'30', total_note_points:'0', total_returned_points:'0', total_award_budgets:empty?'0':'150', total_reserved_points:'0'};
+ });
+ const {trackReads} = createDashboardReaders({client:f.client,contract,trackContracts:otherTrackContracts}, f.pacing);
+ for (const [id, read] of Object.entries(trackReads)) {
+  const result = await readTrackActivity(id, read);
+  assert.equal(activityLabel(result), id === 'yang-mills' ? 'No contributions yet' : '2 contributions · 150 points earned · 30 attributed upstream');
+  assert.ok(trackResources(id).contract.endsWith(result.ledger));
+  assert.ok(trackResources(id).evidence.endsWith('/'+id+'/tree/evidence'));
+ }
+ assert.ok(f.calls.every(call => call.transactionHashVariant === 'latest-final'));
+ await assert.rejects(readTrackActivity('yang-mills', trackReads['post-quantum-signatures']), /configuration mismatch/);
+ await assert.rejects(readTrackActivity('yang-mills', async () => {throw Error('offline');}), /offline/);
+});

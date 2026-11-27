@@ -1,3 +1,46 @@
+import deployments from './wallet-tracks.json' with {type:'json'};
+import {validatePoints} from '../../src/open-snapshot.mjs';
+
+export const trackNames = {
+  'p-vs-np': 'P vs NP',
+  'yang-mills': 'Yang–Mills',
+  'post-quantum-signatures': 'Post-Quantum Cryptography',
+};
+
+export const otherTrackContracts = Object.fromEntries(Object.entries(deployments)
+  .filter(([id]) => id !== 'p-vs-np').map(([id, track]) => [id, track.ledger]));
+
+export function trackResources(id, ledger = deployments[id].ledger) {
+  return {
+    contract: 'https://studio.genlayer.com/contracts?import-contract=' + ledger,
+    evidence: 'https://github.com/MuncleUscles/' + id + '/tree/evidence',
+  };
+}
+
+export async function readTrackActivity(id, read) {
+  const {ledger, policy} = deployments[id];
+  const config = await read('get_config', []);
+  if (config.problem !== id || config.repository !== 'MuncleUscles/' + id || config.policy !== policy) {
+    throw Error('Ledger configuration mismatch for ' + id);
+  }
+  const count = await read('count_contributions', []);
+  if (!/^(0|[1-9][0-9]*)$/.test(String(count)) || !Number.isSafeInteger(Number(count))) {
+    throw Error('Invalid contribution count for ' + id);
+  }
+  const points = await read('get_points', [config.verifier]);
+  validatePoints(points, {deployment: {problem: id}});
+  return {ledger, count: String(count), earned: String(points.total_awarded),
+    upstream: String(points.total_impact_points), checkedAt: new Date().toISOString()};
+}
+
+export function activityLabel({count, earned, upstream}) {
+  if (count === '0' && earned === '0') return 'No contributions yet';
+  const format = value => BigInt(value).toLocaleString('en-US');
+  const parts = [format(count) + (count === '1' ? ' contribution' : ' contributions')];
+  if (earned !== '0') parts.push(format(earned) + (earned === '1' ? ' point earned' : ' points earned'));
+  if (upstream !== '0') parts.push(format(upstream) + ' attributed upstream');
+  return parts.join(' · ');
+}
 // A native ledger is shown only for a track with a reviewed deployment.
 const openIntake = 'Submissions are open. Lean checks formal proofs, and this track’s GenLayer Studio contract awards research credit after an approved contribution merges.';
 
@@ -10,8 +53,6 @@ const tracks = new Map([
     sourceLabel: 'Official Clay problem statement',
     intake: openIntake,
     source: 'https://www.claymath.org/millennium/yang-mills-the-maths-gap/',
-    contract: '0x983d27779dF7D495d4c881Ab0925B42A7bBf76d7',
-    policy: '56e3d0e86958d1f5f36976c8eecf234a3f8117557e7c5d6f6f0395d59be6234d',
   }],
   ['post-quantum-signatures', {
     title: 'Post-Quantum Signature Aggregation',
@@ -21,8 +62,6 @@ const tracks = new Map([
     sourceLabel: 'Read the hash-based multisignature paper',
     source: 'https://eprint.iacr.org/2025/055',
     intake: openIntake,
-    contract: '0xEC885d69e74De9509938aAa732d1675161299E58',
-    policy: '735cd5c67fbc660ca8dab7589222d409c8bc805662612eff10a0ab96309e6ed6',
   }],
 ]);
 
@@ -31,10 +70,9 @@ export function getProblemTrack(id) {
 }
 
 let displayed;
-export function showProblemTrack(id, track, getReader, preview) {
-  const state = id + '/' + String(preview);
-  if (displayed === state) return;
-  displayed = state;
+export function showProblemTrack(id, track) {
+  if (displayed === id) return;
+  displayed = id;
   const field = name => document.getElementById('track-' + name);
   for (const name of ['title', 'question', 'description', 'direction']) field(name).textContent = track[name];
   field('source').href = track.source;
@@ -43,36 +81,10 @@ export function showProblemTrack(id, track, getReader, preview) {
   document.querySelectorAll('[data-track-details]').forEach(node => {
     node.hidden = node.dataset.trackDetails !== id;
   });
-  field('ledger').hidden = !track.contract;
-  if (!track.contract) return;
 
   const repository = 'MuncleUscles/' + id;
   const github = 'https://github.com/' + repository;
   field('guide').href = github + '/blob/main/AGENTS.md';
   field('work').href = github + '/pulls?q=is%3Apr+base%3Aresearch';
-  field('contract').href = 'https://studio.genlayer.com/contracts?import-contract=' + track.contract;
-  const status = field('status');
-  if (preview !== false) {
-    status.textContent = preview ? 'Local preview.' : 'Loading the dashboard configuration…';
-    return;
-  }
-  status.textContent = 'Reading this problem’s ledger…';
-  const load = async () => {
-    try {
-      const read = getReader(track.contract);
-      const config = await read('get_config', []);
-      if (config.problem !== id || config.repository !== repository || config.policy !== track.policy) {
-        throw Error('Ledger configuration mismatch');
-      }
-      const page = await read('list_contributions', [0, 1]);
-      const count = String(page.total);
-      if (!/^(0|[1-9][0-9]*)$/.test(count)) throw Error('Invalid contribution count');
-      if (displayed === state) status.textContent = count === '0'
-        ? 'No contributions registered yet.'
-        : count + (count === '1' ? ' registered contribution.' : ' registered contributions.');
-    } catch {
-      if (displayed === state) status.textContent = 'Live count unavailable. You can inspect the contract directly.';
-    }
-  };
-  void load();
+  field('contract').href = trackResources(id).contract;
 }
