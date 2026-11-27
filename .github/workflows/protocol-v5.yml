@@ -35,4 +35,5 @@ jobs:
       - run: .venv/bin/pip install -r requirements.txt
       - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/research_v5.py
       - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/github_accounts.py
+      - run: GENVM_VERSION=v0.2.16 .venv/bin/genvm-lint check contracts/wallet_intake.py
       - run: .venv/bin/pytest tests/direct -q

@@ -5,6 +5,15 @@ import {verifyReceiptCall} from '../src/studio.mjs';
 const hashPattern = /^0x[a-f0-9]{64}$/;
 const appealableFailures = new Set(['UNDETERMINED','LEADER_TIMEOUT','VALIDATORS_TIMEOUT']);
 
+export function confirmedUndetermined(receipt, {hash,address,sender,method='adjudicate',args}) {
+  if (studioTransactionStatus(receipt) !== 'FINALIZED' || receipt.from_address?.toLowerCase() !== sender.toLowerCase() ||
+      receipt.leader_only !== false || receipt.lifecycle?.state !== 'finalized' || receipt.lifecycle?.outcome !== 'undetermined' ||
+      receipt.result !== 2 || (receipt.result_name ?? receipt.resultName) !== 'MAJORITY_DISAGREE' ||
+      (receipt.resultName !== undefined && receipt.resultName !== 'MAJORITY_DISAGREE')) return false;
+  verifyReceiptCall(receipt,{hash,address,method,args});
+  return true;
+}
+
 const running = new WeakSet();
 export async function journaledReview(options) {
   if (running.has(options.transactions)) throw Error('A review for this claim is already in progress');
@@ -29,12 +38,8 @@ async function processReview(options) {
   if (rotate || !entry?.hash) {
     for (const hash of excluded) {
       const r = await client.getTransaction({hash});
-      if (studioTransactionStatus(r) !== 'FINALIZED' || r.from_address?.toLowerCase() !== sender.toLowerCase() ||
-          r.leader_only !== false || r.lifecycle?.state !== 'finalized' || r.lifecycle?.outcome !== 'undetermined' ||
-          r.result !== 2 || (r.result_name ?? r.resultName) !== 'MAJORITY_DISAGREE' ||
-          (r.resultName !== undefined && r.resultName !== 'MAJORITY_DISAGREE'))
+      if (!confirmedUndetermined(r,{hash,address,sender,method,args}))
         throw Error('Retry requires a finalized UNDETERMINED review on this exact claim and round');
-      verifyReceiptCall(r,{hash,address,method,args});
     }
   }
 

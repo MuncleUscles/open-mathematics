@@ -52,7 +52,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'created' && github.event.issue.pull_request && (startsWith(github.event.comment.body, 'Open-Mathematics-Claim: ') || startsWith(github.event.comment.body, 'Open-Mathematics-Retry: '))))
+      (github.event.action == 'created' && github.event.issue.pull_request && (startsWith(github.event.comment.body, 'Open-Mathematics-Claim: ') || startsWith(github.event.comment.body, 'Open-Mathematics-Process: ') || startsWith(github.event.comment.body, 'Open-Mathematics-Retry: '))))
     environment: protocol
     concurrency:
       group: research-executor

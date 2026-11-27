@@ -15,6 +15,7 @@ import {exactOpenReport,loadWorkflowOpenProblem,openIndexScope,positiveId,readOp
 import {requireOpenNative,verifyOpenAttestation} from './open-verify.mjs';
 import {claimFailureOutcome,expireStaleUnmergedClaim} from './claim-recovery.mjs';
 import {journaledTransaction} from './journaled-transaction.mjs';
+import {walletIntake} from '../src/wallet-intake.mjs';
 import {journaledReview} from './review-transaction.mjs';
 import {routedImpactCall} from './federation-worker.mjs';
 import {clientFor,read,clean,sleep} from './runtime.mjs';
@@ -23,6 +24,20 @@ const PROTOCOL_ROOT=process.env.OPEN_MATH_VERIFIER_DIR||fileURLToPath(new URL('.
 const terminal=new Set(['invalid','expired']);
 const secrets=()=>[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean);
 const safeError=error=>secrets().reduce((text,key)=>text.split(key).join('[redacted]'),String(error.message));
+
+export async function authorizeWalletWork({intake,candidate,report,requestedRetry}){
+ const {claim,commentId}=candidate;
+ const submitted=await intake.has(candidate);
+ if(!submitted&&!Object.hasOwn(report.transactions,'register'))
+  throw Error('Awaiting the contributor wallet’s finalized Studio submission');
+ if(requestedRetry&&!await intake.has(candidate,requestedRetry))
+  throw Error('Awaiting the contributor wallet’s finalized request for this retry');
+ if(submitted||requestedRetry){
+  report.walletIntake={contract:intake.contract,wallet:claim.wallet,claimDigest:digest(claim),pr:claim.pr,commentId,
+   submitted,retries:[...new Set([...(report.walletIntake?.retries||[]),...(requestedRetry?[requestedRetry]:[])])]};
+ }
+ return submitted;
+}
 
 export function blockedOpenConsensus(error,failure=String(error.message)){
  return ['WORKER_ATTESTATION_MISMATCH','STUDIO_FINALIZED_OUTCOME_INVALID'].includes(error.code)||
@@ -262,6 +277,9 @@ async function main(){
 
  const requestedRetry=process.env.REVIEW_RETRY_HASH||undefined;
  if(requestedRetry&&!/^0x[a-f0-9]{64}$/.test(requestedRetry))throw Error('Invalid retry transaction hash');
+ // Recheck at the signing boundary, including manually dispatched runs.
+ const intake=walletIntake(problem);
+ const walletSubmitted=candidate.recoveryOnly?false:await authorizeWalletWork({intake,candidate,report,requestedRetry});
  async function tx(stage,client,method,args,recoverOnly=false){
   async function publishReview(){
    const hash=report.transactions[stage]?.hash;
@@ -276,6 +294,8 @@ async function main(){
    report.reviewLinkHash=hash;
   }
   async function saveTransaction(){
+   if(method==='adjudicate'&&requestedRetry&&report.transactions[stage]?.undeterminedAttempts?.includes(requestedRetry))
+    delete report.blockedConsensus;
    await save();
    if(method==='adjudicate'&&report.transactions[stage]?.hash&&report.reviewLinkHash!==report.transactions[stage].hash){
     try { await publishReview(); }
@@ -363,7 +383,7 @@ async function main(){
   if(!Object.hasOwn(report.transactions,'register')){
    await bindOpenRegistration({github,report,candidate,problem,expire:expireIfStale,save});
   }
-  await tx('register',verifier,'register',[report.evidenceJSON]);
+  await tx('register',verifier,'register',[report.evidenceJSON],!walletSubmitted);
   let record=await recordState();
   if(requestedRetry&&(!['submitted','challenged'].includes(record.status)||
    Number(record.adjudication_started_round)!==Number(record.round)||

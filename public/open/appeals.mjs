@@ -94,7 +94,7 @@ export function showAppeal(hash, primaryContract) {
       const open = quote.charge !== undefined;
       status.textContent = quote.track + ' · ' + quote.status + '. ' + (open
         ? 'Appeal by ' + new Date(quote.deadline * 1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}) + '. The charge is ' + formatEther(quote.charge) + ' Studio GEN, including the bond and review funding.'
-        : quote.final ? (quote.outcome === 'undetermined' ? 'The decision was undetermined. The PR author can request a retry on the original claim.' : 'The appeal window has closed.')
+        : quote.final ? (quote.outcome === 'undetermined' ? 'The decision was undetermined. The original claim wallet can send a retry using the submission page below.' : 'The appeal window has closed.')
         : 'Watching Studio for an open appeal window…');
       button.hidden = !open || quote.decisionId === submittedDecision;
       if (open && quote.decisionId === submittedDecision) status.textContent = 'Appeal submitted. Waiting for Studio to update the round.';

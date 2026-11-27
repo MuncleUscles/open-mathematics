@@ -1,4 +1,6 @@
 import {getProblemTrack,showProblemTrack} from './problem-directory.mjs';
+import {initWalletSubmission} from './wallet-submission.mjs';
+initWalletSubmission();
 import {showAppeal,leaveAppeal} from './appeals.mjs';
 import {initForecasts} from './forecasts.mjs';
 void initForecasts();
@@ -21,7 +23,7 @@ function contributorLink(id){const user=identities.get(id);if(!user)return el('s
 function renderIdentities(){if(model)renderFeed();renderLeaderboard();renderFederation();if(location.hash.startsWith('#/contributions/'))route();}
 let data,repository,read,accountRead,currentView=null,accountView=null,federationView=null,nextEnd=0,busy=false,accountBusy=false,federationBusy=false,records=[],impacts=[],model=null;
 let trackClient;
-const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
+const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/submit':['submit'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
 function route(){
  const name=location.hash.slice(1)||'/';
  const trackId=name.startsWith('/problems/') ? name.slice('/problems/'.length) : '';
@@ -29,7 +31,7 @@ function route(){
  const directory=name==='/problems';
  const isAppeal=name==='/appeals'||name.startsWith('/appeals/');
  if(isAppeal)showAppeal(name.slice('/appeals/'.length),data?.deployment.contract);else leaveAppeal();
- document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory||name==='/how-it-works'||isAppeal;});
+ document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory||name==='/how-it-works'||isAppeal||name==='/submit';});
  const isDetail=name.startsWith('/contributions/'),views=isAppeal?['appeals']:track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
@@ -38,7 +40,7 @@ function route(){
   return createDashboardReaders({client,contract:address}).read;
  },data?.preview);
  if(isDetail){let id='';try{id=decodeURIComponent(name.slice('/contributions/'.length));}catch{}renderDetail(id);}
- const names={'/':'Apes together prove.','/problems':'Research problems','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
+ const names={'/submit':'Submit from your wallet','/':'Apes together prove.','/problems':'Research problems','/problems/p-vs-np':'The P versus NP question','/contributions':'Research contributions','/graph':'Research connections','/federation':'Research across repositories','/leaderboard':'The researchers','/forecasts':'Call your shot','/how-it-works':'How it works','/agent':'Send an agent'};
  document.title='pnp.fun — '+(isAppeal?'Appeal a Studio transaction':isDetail?(model?.contributions.find(r=>detailUrl(r.id)==='#'+name)?.title||'Contribution'):(track?.title||names[name]||names['/']));
 }
 const menuToggle=document.querySelector('.menu-toggle');
@@ -256,7 +258,7 @@ try{
  $('challenge-window').textContent=`${d.windowSeconds/60} minutes`;
  $('proof-format').textContent=data.policy.version===6?'Formal submissions support ordinary Lean 4.36 source and pinned Mathlib. Independent kernel checks verify the exact theorem and standard axioms. Arbitrary project configurations and dependencies are not accepted.':data.policy.version===5?'This policy accepts restricted Lean 4.19 Core expressions; it does not support Mathlib or arbitrary Lean projects.':'Read the reviewed policy and contributor guide for the exact pinned proof environment.';
  $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. No daily quota. One active claim per GitHub author; agents sharing an account submit one at a time.`;
- $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. Follow the Studio review check on your PR. Its short appeal window starts at the decision. Use the deadline in the live quote. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
+ $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. After posting your signed PR comment, send the submission on stable Studio from the same wallet using om-wallet submit. Send any eligible retry with om-wallet retry. Follow the Studio review check on your PR. Its short appeal window starts at the decision. Use the deadline in the live quote. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
  for(const h of d.legacyLedgers){const p=el('p',h.description+' ');p.append(link('Historical contract',`https://studio.genlayer.com/contracts?import-contract=${h.address}`));$('history').append(p);}
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;

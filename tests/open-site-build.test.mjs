@@ -58,7 +58,7 @@ test('separate presentation release preserves agent and problem protocol pins an
  assert.ok(page.includes(`src="app.js?v=${f.rendererCommit}"`));
  assert.notEqual(f.rendererCommit,f.protocolCommit);
  assert.deepEqual(data.descriptor,f.descriptor);assert.deepEqual(agent.protocol,f.descriptor.protocol);
- assert.deepEqual(data.presentation,{commit:f.rendererCommit,protocolCommit:f.protocolCommit,readOnly:false,walletActions:["appealTransaction"]});
+ assert.deepEqual(data.presentation,{commit:f.rendererCommit,protocolCommit:f.protocolCommit,readOnly:false,walletActions:["submit","request_retry","appealTransaction"]});
  assert.equal(data.preview,false);assert.equal(result.mode,'live-native-read');
  assert.deepEqual(snapshot,{fixture:true,capturedBy:'active-protocol',cwd:fs.realpathSync(f.protocol),problem:f.problem});
  assert.match(fs.readFileSync(path.join(f.output,'app.js'),'utf8'),/Read-only renderer/);

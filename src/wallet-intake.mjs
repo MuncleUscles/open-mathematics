@@ -3,6 +3,7 @@ import {isAddress} from 'viem';
 import {parseProblemJSON,readProblemFile,sha256,stableJSON} from './open-research.mjs';
 import {validateNativeDeploymentReceipt} from './deployment-receipt.mjs';
 import {digest} from './security.mjs';
+import {confirmedUndetermined} from '../github/review-transaction.mjs';
 import {clientFor,read} from '../github/runtime.mjs';
 
 export function intakeConfig(problem){
@@ -35,5 +36,9 @@ export function walletIntake(problem,client=clientFor()){
   const exists=await read(client,d.contract,'has_request',args);
   if(typeof exists!=='boolean')throw Error('Invalid finalized intake response');
   return exists;
+ },async canRetry(candidate,hash,round){
+  await (ready??=verify());
+  const receipt=await client.getTransaction({hash});
+  return confirmedUndetermined(receipt,{hash,address:config.ledger,sender:problem.deployment.executor,args:[candidate.id,round]});
  }};
 }
