@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {recoverMessageAddress} from 'viem';
 import {GitHub} from '../src/github.mjs';
 import {readEvidenceFile} from './evidence-file.mjs';
+import {walletIntake} from '../src/wallet-intake.mjs';
 import {openBuildPlan} from './open-build-plan.mjs';
 import {canonical,digest,message} from '../src/security.mjs';
 import {loadOpenProblem,validateOpenClaim,verifyOpenCheckout} from '../src/open-research.mjs';
@@ -133,7 +134,7 @@ export function eligibleOpenClaim({candidate,pr,deployment,canonicalHead,report,
   pr.head?.sha===candidate.claim.head&&pr.base.sha===candidate.claim.base&&canonicalHead===candidate.claim.base;
 }
 
-export async function selectOpenClaim({github,problem,event={},eventName,readEvidence}){
+export async function selectOpenClaim({github,problem,event={},eventName,readEvidence,intake}){
  const {deployment:d}=problem;
  if(d.protocolVersion!==5||github.repository!==d.repository)throw Error('Reviewed open research deployment required');
  const index=await readEvidence('index.json');
@@ -148,16 +149,33 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
    requireClaimAuthor(item,comment,pr,d);
   }catch{return null;}
   const report=await readEvidence(`reports/${item.id}.json`);
-  if((requireSaved&&!report)||!eligibleOpenClaim({candidate:item,pr,deployment:d,canonicalHead,report,entries,explicit}))return null;
+  if(requireSaved&&!report)return null;
+  const current=pr.state==='open'&&pr.merged===false&&pr.head?.sha===item.claim.head&&
+   pr.base?.ref===d.branch&&pr.base.sha===item.claim.base&&canonicalHead===item.claim.base;
+  // The finalized request is the trigger. GitHub events and timers only wake the worker.
+  if(intake&&current&&report&&!report.completedAt&&exactOpenReport(item,report,d)&&
+     ['submitted','challenged'].includes(report.record?.status)){
+   const round=Number(report.record.round),hash=report.transactions?.[`adjudicate-r${round}`]?.hash;
+   if(/^0x[a-f0-9]{64}$/.test(hash)&&await intake.has(item,hash)&&await intake.canRetry(item,hash,round)){
+    item.retryHash=hash;
+    explicit=true;
+   }
+  }
+  if(!eligibleOpenClaim({candidate:item,pr,deployment:d,canonicalHead,report,entries,explicit}))return null;
   if(!report&&await github.branchHead(d.branch)!==canonicalHead)return null;
+  if(intake&&!report?.transactions?.register&&!await intake.has(item))return null;
   return item;
  }
 
- let requested,retryRequest;
+ let requested,retryRequest,wakePR;
  if(eventName==='issue_comment'){
   if(event.action!=='created'||!event.issue?.pull_request||!positiveId(event.comment?.id))return null;
   const retry=event.comment.body?.match(/^Open-Mathematics-Retry: ([1-9][0-9]*) (0x[a-f0-9]{64})\s*$/);
-  if(retry){
+  const wake=event.comment.body?.match(/^Open-Mathematics-Process: ([1-9][0-9]*)\s*$/);
+  if(wake){
+   requested=Number(wake[1]);wakePR=event.issue.number;
+   if(!positiveId(requested)||!positiveId(wakePR))return null;
+  }else if(retry){
    requested=Number(retry[1]);
    if(!positiveId(requested)||!positiveId(event.comment.user?.id)||!positiveId(event.issue.number))return null;
    retryRequest={hash:retry[2],pr:event.issue.number,author:event.comment.user.id};
@@ -194,8 +212,12 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
      pr.head?.sha!==original.claim.head||pr.base?.sha!==original.claim.base||canonicalHead!==original.claim.base)return null;
   const report=await readEvidence(`reports/${original.id}.json`);
   const stage=report?.transactions?.[`adjudicate-r${report.record?.round}`];
-  if(!stage||stage.hash!==retryRequest.hash)return null;
+  if(!stage||stage.hash!==retryRequest.hash||(intake&&original.retryHash!==retryRequest.hash))return null;
   return {...original,retryHash:retryRequest.hash};
+ }
+ if(wakePR){
+  const item=await byCommentId(requested);
+  return item?.claim.pr===wakePR&&!item.recoveryOnly?item:null;
  }
  if(requested)return byCommentId(requested,{explicit:eventName==='workflow_dispatch'});
  // Failed consensus still needs stale-slot cleanup if its original comment
@@ -227,7 +249,7 @@ async function main(){
  const github=new GitHub({repository:problem.deployment.repository,token:process.env.GITHUB_TOKEN});
  const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
  async function readEvidence(file){return (await readEvidenceFile(github,file))?.data??null;}
- const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence});
+ const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence,intake:walletIntake(problem)});
  if(!process.env.GITHUB_OUTPUT)throw Error('GitHub output file required');
  const plan=selected?await openBuildPlan({github,problem,candidate:selected}):{needs_lean:true};
  fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\nretry_hash=${selected?.retryHash||''}\nneeds_lean=${plan.needs_lean===false?'false':'true'}\n`);

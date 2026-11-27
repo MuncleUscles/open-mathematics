@@ -601,3 +601,30 @@ test('only the same PR author can select a saved current review for a hash-bound
   assert.equal(await selectOpenClaim({...input,event:{...event,...change}}),null);
  assert.equal(await selectOpenClaim({...input,github:{...github,pr:async()=>({...pr,head:{sha:commit('b')}})}}),null);
 });
+
+test('wallet request gates comment events, wake hints and scheduled retries at selection and execution',async()=>{
+ const {authorizeWalletWork}=await import('../github/open-worker.mjs');
+ const {problem,claim,candidate,comment,pr}=await fixture(),d=problem.deployment,prior='0x'+hash('a');
+ const github={repository:claim.repository,branchHead:async()=>claim.base,pr:async()=>pr,request:async()=>comment};
+ const signedEvent={action:'created',issue:{pull_request:{},number:PR},comment:{id:COMMENT}};
+ const wakeEvent={...signedEvent,comment:{id:COMMENT+1,body:'Open-Mathematics-Process: '+COMMENT}};
+ const intake={has:async()=>false,canRetry:async()=>false,contract:address('7')};
+ const input={github,problem,intake,eventName:'issue_comment',readEvidence:async()=>null};
+ for(const event of [signedEvent,wakeEvent])assert.equal(await selectOpenClaim({...input,event}),null);
+ await assert.rejects(authorizeWalletWork({intake,candidate,report:{transactions:{}}}),/finalized Studio submission/);
+ intake.has=async item=>item.claim.wallet===claim.wallet;
+ assert.equal((await selectOpenClaim({...input,event:wakeEvent})).id,candidate.id);
+ const report={id:candidate.id,commentId:COMMENT,commentCreatedAt:CREATED,contract:d.contract,chainId:d.chainId,
+  repository:d.repository,pr:PR,head:claim.head,base:claim.base,claim:candidate.envelope,status:'submitted',blockedConsensus:true,
+  record:{round:0,status:'submitted'},transactions:{register:{hash:'0x'+hash('d')},'adjudicate-r0':{hash:prior}}};
+ const readEvidence=async file=>file==='index.json'?{entries:[{id:candidate.id,commentId:COMMENT,chainId:d.chainId,contract:d.contract,repository:d.repository,status:'submitted'}]}:report;
+ intake.has=async(item,attempt)=>item.commentId===COMMENT&&attempt===prior;
+ assert.equal(await authorizeWalletWork({intake,candidate,report,requestedRetry:prior}),false); // legacy registration, recovery only
+ assert.deepEqual(report.walletIntake.retries,[prior]);
+ await assert.rejects(authorizeWalletWork({intake,candidate,report,requestedRetry:'0x'+hash('e')}),/finalized request for this retry/);
+ assert.equal(await selectOpenClaim({...input,readEvidence,event:wakeEvent}),null);
+ intake.canRetry=async(item,h,round)=>item.id===candidate.id&&h===prior&&round===0;
+ const scheduled=await selectOpenClaim({...input,eventName:'schedule',readEvidence});
+ assert.equal(scheduled.retryHash,prior);
+ assert.equal((await selectOpenClaim({...input,event:wakeEvent,readEvidence})).retryHash,prior);
+});
