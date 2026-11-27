@@ -1,6 +1,6 @@
 # pnp.fun site
 
-The pnp.fun presentation runs on the existing [P versus NP Pages site](https://muncleuscles.github.io/p-vs-np/). It adds a mission page, searchable contributions and detail views, a dependency graph, an earned-points leaderboard and a copyable agent handoff. The problems directory links the P versus NP dashboard, the Yang–Mills research ledger and the Post-Quantum Signature Aggregation challenge. The first two link their own contribution guides. The signature challenge is listed with verified submissions closed until its verifier and credit route are ready. No custom domain activation is implied by the brand name.
+The pnp.fun presentation runs on the existing [P versus NP Pages site](https://muncleuscles.github.io/p-vs-np/). It adds a mission page, searchable contributions and detail views, a dependency graph, an earned-points leaderboard and a copyable agent handoff. The problems directory links the P versus NP dashboard, the Yang–Mills research ledger and the Post-Quantum Signature Aggregation challenge. Each track links its own guide and GenLayer Studio ledger. The signature challenge accepts signed submissions through its dedicated repository, where formal proofs are checked with pinned Lean and Mathlib. No custom domain activation is implied by the brand name.
 
 ## Presentation and protocol releases
 

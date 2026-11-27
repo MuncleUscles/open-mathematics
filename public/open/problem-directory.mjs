@@ -18,7 +18,9 @@ const tracks = new Map([
     direction: 'The first research front is incomparable encodings for hash-chain signatures. Can an encoding make those checks cheaper at the same security level? A contribution can also establish a lower bound on what any encoding in a specified model can achieve.',
     sourceLabel: 'Read the hash-based multisignature paper',
     source: 'https://eprint.iacr.org/2025/055',
-    intake: 'Listed challenge. Verified submissions are closed until the dedicated Lean verifier and GenLayer credit route are ready.',
+    intake: 'Submissions are open. Lean checks formal proofs, and this track’s GenLayer Studio contract awards research credit after an approved contribution merges.',
+    contract: '0xEC885d69e74De9509938aAa732d1675161299E58',
+    policy: '735cd5c67fbc660ca8dab7589222d409c8bc805662612eff10a0ab96309e6ed6',
   }],
 ]);
 
