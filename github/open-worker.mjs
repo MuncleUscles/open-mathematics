@@ -15,10 +15,11 @@ import {exactOpenReport,loadWorkflowOpenProblem,openIndexScope,positiveId,readOp
 import {requireOpenNative,verifyOpenAttestation} from './open-verify.mjs';
 import {claimFailureOutcome,expireStaleUnmergedClaim} from './claim-recovery.mjs';
 import {journaledTransaction} from './journaled-transaction.mjs';
+import {journaledReview} from './review-transaction.mjs';
 import {routedImpactCall} from './federation-worker.mjs';
 import {clientFor,read,clean,sleep} from './runtime.mjs';
 
-const PROTOCOL_ROOT=fileURLToPath(new URL('../',import.meta.url));
+const PROTOCOL_ROOT=process.env.OPEN_MATH_VERIFIER_DIR||fileURLToPath(new URL('../',import.meta.url));
 const terminal=new Set(['invalid','expired']);
 const secrets=()=>[process.env.GITHUB_TOKEN,process.env.VERIFIER_SIGNING_KEY,process.env.EXECUTOR_SIGNING_KEY].filter(Boolean);
 const safeError=error=>secrets().reduce((text,key)=>text.split(key).join('[redacted]'),String(error.message));
@@ -259,10 +260,34 @@ async function main(){
  const native=(method,args)=>read(executor,d.contract,method,args);
  await requireOpenNative(problem,executor);
 
+ const requestedRetry=process.env.REVIEW_RETRY_HASH||undefined;
+ if(requestedRetry&&!/^0x[a-f0-9]{64}$/.test(requestedRetry))throw Error('Invalid retry transaction hash');
  async function tx(stage,client,method,args,recoverOnly=false){
-  const result=await journaledTransaction({
+  async function publishReview(){
+   const hash=report.transactions[stage]?.hash;
+   if(method!=='adjudicate'||!hash||report.reviewLinkHash===hash)return;
+   const url='https://muncleuscles.github.io/p-vs-np/#/appeals/'+hash;
+   console.log('Follow this Studio review and appeal before finality:',url);
+   await github.request('/check-runs',{method:'POST',body:{
+    name:'open-mathematics/studio-review',head_sha:claim.head,status:'completed',conclusion:'neutral',
+    external_id:hash,details_url:url,output:{title:'Follow the Studio review',summary:
+     `[Open the review and appeal](${url}). Watch now. Studio opens a short appeal window at its decision. The page shows the live deadline. Review transaction: \`${hash}\`.`},
+   }});
+   report.reviewLinkHash=hash;
+  }
+  async function saveTransaction(){
+   await save();
+   if(method==='adjudicate'&&report.transactions[stage]?.hash&&report.reviewLinkHash!==report.transactions[stage].hash){
+    try { await publishReview(); }
+    catch(error){ console.warn('Could not publish the Studio review check:',safeError(error)); return; }
+    await save();
+   }
+  }
+  const transact=method==='adjudicate'?journaledReview:journaledTransaction;
+  const result=await transact({
    client,address:d.contract,sender:client===verifier?d.verifier:d.executor,method,args,
-   independent:['adjudicate','review_impact'].includes(method),recoverOnly,transactions:report.transactions,stage,save,
+   independent:['adjudicate','review_impact'].includes(method),recoverOnly,transactions:report.transactions,stage,save:saveTransaction,
+   retryHash:method==='adjudicate'&&!recoverOnly?requestedRetry:undefined,
   });
   return result.hash;
  }
@@ -340,6 +365,11 @@ async function main(){
   }
   await tx('register',verifier,'register',[report.evidenceJSON]);
   let record=await recordState();
+  if(requestedRetry&&(!['submitted','challenged'].includes(record.status)||
+   Number(record.adjudication_started_round)!==Number(record.round)||
+   Number(record.adjudication_finished_round)===Number(record.round)||
+   report.transactions[`adjudicate-r${record.round}`]?.hash!==requestedRetry))
+   throw Error('Retry no longer matches an unfinished review of this exact signed claim');
   if(await adjudicateOpenRecord({id,record,tx:(stage,method,args)=>tx(stage,executor,method,args)})){
    record=await recordState();
   }

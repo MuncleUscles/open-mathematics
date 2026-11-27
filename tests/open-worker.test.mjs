@@ -586,3 +586,18 @@ test('full Lean bundle blocks path/config injection while allowing ordinary sour
  assert.equal(validateFullLeanBundle(base),base);
  for(const override of [{imports:['Mathlib']},{imports:['Mathlib.../file']},{imports:['Mathlib.Tactic.Ring','Mathlib.Tactic.Ring']},{theorem:'result; command'},{source:''},{lakefile:'run me'},{dependencies:[{id:'x',bundle_hash:hash('a')},{id:'x',bundle_hash:hash('b')}]}])assert.throws(()=>validateFullLeanBundle({...base,...override}));
 });
+
+test('only the same PR author can select a saved current review for a hash-bound retry',async()=>{
+ const {problem,claim,candidate,comment,pr}=await fixture(), d=problem.deployment, txHash='0x'+hash('a');
+ const report={id:candidate.id,commentId:COMMENT,commentCreatedAt:CREATED,contract:d.contract,chainId:d.chainId,
+  repository:d.repository,pr:PR,head:claim.head,base:claim.base,claim:candidate.envelope,status:'submitted',blockedConsensus:true,
+  record:{round:0},transactions:{'adjudicate-r0':{hash:txHash}}};
+ const github={repository:claim.repository,branchHead:async()=>claim.base,pr:async()=>pr,request:async()=>comment};
+ const event={action:'created',issue:{pull_request:{},number:PR},comment:{id:COMMENT+1,user:{id:AUTHOR},body:'Open-Mathematics-Retry: '+COMMENT+' '+txHash}};
+ const input={github,problem,event,eventName:'issue_comment',readEvidence:async file=>file==='index.json'?{entries:[]}:report};
+ assert.equal((await selectOpenClaim(input))?.retryHash,txHash);
+ for(const change of [{comment:{...event.comment,user:{id:AUTHOR+1}}},{issue:{...event.issue,number:PR+1}},
+  {comment:{...event.comment,body:'Open-Mathematics-Retry: '+COMMENT+' 0x'+hash('c')}}])
+  assert.equal(await selectOpenClaim({...input,event:{...event,...change}}),null);
+ assert.equal(await selectOpenClaim({...input,github:{...github,pr:async()=>({...pr,head:{sha:commit('b')}})}}),null);
+});
