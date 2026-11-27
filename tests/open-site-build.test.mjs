@@ -20,6 +20,7 @@ function fixture(t){
  write(protocol,'scripts/capture-open-ledger.mjs',`import fs from 'node:fs';\nfs.writeFileSync(process.argv[3],JSON.stringify({fixture:true,capturedBy:'active-protocol',cwd:process.cwd(),problem:process.argv[2]}));\n`);
  const protocolCommit=commit(protocol);
  write(renderer,'public/open/index.html','<!doctype html><link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script>');
+ write(renderer,'public/open/terms.html','<!doctype html><title>Terms of Service</title>');
  write(renderer,'public/open/style.css','body{color:black}');
  write(renderer,'public/open/favicon.svg','<svg xmlns="http://www.w3.org/2000/svg"/>');
  write(renderer,'public/open/assets/fixture.txt','Static presentation asset');
@@ -56,6 +57,7 @@ test('separate presentation release preserves agent and problem protocol pins an
  const page=fs.readFileSync(path.join(f.output,'index.html'),'utf8');
  assert.ok(page.includes(`href="style.css?v=${f.rendererCommit}"`));
  assert.ok(page.includes(`src="app.js?v=${f.rendererCommit}"`));
+ assert.match(fs.readFileSync(path.join(f.output,'terms.html'),'utf8'),/Terms of Service/);
  assert.notEqual(f.rendererCommit,f.protocolCommit);
  assert.deepEqual(data.descriptor,f.descriptor);assert.deepEqual(agent.protocol,f.descriptor.protocol);
  assert.deepEqual(data.presentation,{commit:f.rendererCommit,protocolCommit:f.protocolCommit,readOnly:false,walletActions:["submit","request_retry","appealTransaction"]});
