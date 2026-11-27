@@ -61,7 +61,7 @@ test('migration hash matches the native canonical Unicode and integer golden vec
 });
 
 test('each mission accepts its own contributions and rejects another mission’s signed claim',()=>{
- for(const id of ['yang-mills','navier-stokes']){
+ for(const id of ['yang-mills','navier-stokes','post-quantum-signatures']){
   const mission={...problem,descriptor:{...problem.descriptor,id},deployment:{...problem.deployment,problem:id,repository:'owner/'+id}};
   const native=openNativeConfiguration(mission);
   assert.equal(validateOpenConstructor(native).problem,id);
