@@ -6,6 +6,7 @@ import {validateFederationDeployment,validateFederationSnapshot} from '../src/fe
 import {clientFor,read} from '../github/runtime.mjs';
 import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
 import {trackNames,trackResources,readTrackActivity,otherTrackContracts} from '../public/open/problem-directory.mjs';
+import {agentTracks,agentPrompt,platformGuide,studioNetwork} from '../public/open/agent-guide.mjs';
 import {createDashboardReaders} from '../src/dashboard-read.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const usage='Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only] [--protocol-checkout PATH]';
@@ -81,7 +82,9 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
   return `<li><a href="#/problems/${id}">${name}</a><span><a href="${links.contract}" aria-label="${name} contract">Contract</a> · <a href="${links.evidence}" aria-label="${name} public evidence">Evidence</a></span></li>`;
  }).join('\n');
  const template=fs.readFileSync(path.join(rendererRoot,'public/open/index.html'),'utf8');
- const html=template.replace('<!-- track resources -->', resources).replace('src="app.js"', `src="app.js?v=${commit}"`)
+ const html=template.replace('<!-- track resources -->', resources)
+                    .replace('<!-- agent track options -->', agentTracks.map(track => `<option value="${track.id}">${track.name}</option>`).join(''))
+                    .replace('<!-- agent prompt -->', agentPrompt()).replace('src="app.js"', `src="app.js?v=${commit}"`)
                     .replace('href="style.css"', `href="style.css?v=${commit}"`);
  fs.writeFileSync(path.join(destination,'index.html'),html);
  fs.copyFileSync(path.join(rendererRoot,'LICENSE'),path.join(destination,'LICENSE.txt'));
@@ -96,7 +99,35 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  }
  const presentation={commit,protocolCommit:p.descriptor.protocol.commit,readOnly:false,walletActions:["submit","request_retry","appealTransaction"]};
  fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,trackActivity,...(githubAccounts?{githubAccounts}:{}),...(federation?{federation:true}:{})},null,2)+'\n');
- fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify({version:5,objective:p.policy.objective,admission:'open',guide:`https://github.com/${p.descriptor.repository}/blob/main/AGENTS.md`,protocol:p.descriptor.protocol,rewards:'Native nontransferable contribution and later-impact points',wallet:'Contributor sends submissions and retries on stable Studio using GenLayerJS',agentCommand:'pnp',transactionClient:'genlayer-js',submissionPage:'https://pnp.fun/#/submit',review:{guide:'https://pnp.fun/#/appeals',pullRequestCheck:'open-mathematics/studio-review',network:'studionet',lifecycleMethod:"gen_getTransactionLifecycle",quoteMethod:"gen_estimateLatestAppealCharge",deadlineField:"appealDeadline",submitCommand:'pnp submit COMMENT_ID --send',retryCommand:'pnp retry COMMENT_ID TX_HASH --send',optionalWakeComment:'Open-Mathematics-Process: COMMENT_ID',retryWhen:'Latest adjudication finalized undetermined on the original current signed PR',evidenceChallenge:'pnp challenge CONTRIBUTION_ID evidence.txt --send'},liveContract:p.deployment.contract},null,2)+'\n');fs.writeFileSync(path.join(destination,'.nojekyll'),'');
+ const review = {
+  guide:'https://pnp.fun/#/appeals', pullRequestCheck:'open-mathematics/studio-review',
+  network:studioNetwork.cli, lifecycleMethod:'gen_getTransactionLifecycle',
+  quoteMethod:'gen_estimateLatestAppealCharge', deadlineField:'appealDeadline',
+  submitCommand:'pnp submit COMMENT_ID --send', retryCommand:'pnp retry COMMENT_ID TX_HASH --send',
+  optionalWakeComment:'Open-Mathematics-Process: COMMENT_ID',
+  retryWhen:'Latest adjudication finalized undetermined on the original current signed PR',
+  evidenceChallenge:'pnp challenge CONTRIBUTION_ID evidence.txt --send',
+ };
+ const shared = {
+  admission:'open', rewards:'Native nontransferable contribution and later-impact points',
+  wallet:'Send submissions and eligible retries from the wallet that signed the claim on the GenLayer Studio testnet.',
+  network:studioNetwork, agentCommand:'pnp', transactionClient:'genlayer-js', submissionPage:'https://pnp.fun/#/submit', review,
+ };
+ const problemManifest = {
+  version:5, objective:p.policy.objective, guide:`https://github.com/${p.descriptor.repository}/blob/main/AGENTS.md`,
+  protocol:p.descriptor.protocol, liveContract:p.deployment.contract, ...shared,
+ };
+ const platformSite = p.descriptor.repository === 'MuncleUscles/p-vs-np';
+ const manifest = platformSite ? {
+  version:6, objective:'Choose one research track and contribute through its repository and Studio ledger.',
+  guide:platformGuide, tracks:agentTracks, ...shared,
+ } : problemManifest;
+ fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify(manifest,null,2)+'\n');
+ if (platformSite) {
+  fs.mkdirSync(path.join(destination,'agents'),{recursive:true});
+  fs.writeFileSync(path.join(destination,'agents/p-vs-np.json'),JSON.stringify(problemManifest,null,2)+'\n');
+ }
+ fs.writeFileSync(path.join(destination,'.nojekyll'),'');
  await build({entryPoints:[path.join(rendererRoot,'public/open/app.mjs')],outfile:path.join(destination,'app.js'),bundle:true,format:'esm',platform:'browser',minify:true});
  return {directory:destination,mode:preview?'local-layout-preview':'live-native-read',admission:'open',contract:p.deployment.contract,presentation};
 }

@@ -49,7 +49,7 @@ export async function sendResearchRequest(args,{problem,signerRoots}){
  const account=loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,signerRoots);
  if(account.address.toLowerCase()!==claim.wallet.toLowerCase())throw Error('The transaction sender must be the wallet that signed this claim');
  const signer=createStudioClient({account});
- if(await signer.getChainId()!==61999)throw Error('Stable Studio chain 61999 required');
+ if(await signer.getChainId()!==61999)throw Error('GenLayer Studio testnet (Studionet) chain ID 61999 required');
  const hash=await signer.writeContract({address:intake.contract,functionName:request.method,args:request.args,leaderOnly:false});
  console.error('Broadcast Studio request '+hash+'. Keep this hash if confirmation is interrupted.');
  const receipt=await finalized(client,hash,{address:intake.contract,...request});

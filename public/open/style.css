@@ -120,3 +120,7 @@
 .footer-tracks li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.25rem 1rem;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--rule)}
 .footer-tracks li>a{font-weight:600;color:var(--paper)}
 .footer-tracks li span{white-space:nowrap}
+
+.agent-card label[for="agent-track"]{display:block;margin-bottom:.5rem;font-weight:700}
+.agent-card select{width:100%;min-height:44px;background:var(--paper);color:var(--ink);border:1px solid currentColor;padding:.5rem;font:inherit}
+.agent-card #copy-status:empty{display:none}

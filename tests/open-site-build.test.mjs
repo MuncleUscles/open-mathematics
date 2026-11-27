@@ -8,7 +8,7 @@ import {buildOpenSite,parseOpenSiteArgs} from '../scripts/build-open-site.mjs';
 import {sha256} from '../src/open-research.mjs';
 
 const json=value=>JSON.stringify(value,null,2)+'\n';
-function fixture(t){
+function fixture(t,repository='Owner/problem'){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'open-site-build-'));
  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
  const protocol=path.join(directory,'protocol'),renderer=path.join(directory,'renderer'),problem=path.join(directory,'problem'),output=path.join(directory,'site');
@@ -27,7 +27,7 @@ function fixture(t){
  write(renderer,'public/open/app.mjs','document.title="Read-only renderer";');
  write(renderer,'scripts/capture-open-ledger.mjs','throw Error("Renderer must not capture a protocol snapshot");');
  const rendererCommit=commit(renderer);
- const policy={version:5,problem:'p-vs-np',repository:'Owner/problem',branch:'research',objective:'Explore useful research toward either answer to the P versus NP problem.',
+ const policy={version:5,problem:'p-vs-np',repository,branch:'research',objective:'Explore useful research toward either answer to the P versus NP problem.',
   toolchain:'lean4:4.19.0',allowed_axioms:['propext','Quot.sound'],admission:'open',notes:'Submitted statements and contributions require independent evidence and review.'};
  const policyHash=sha256(json(policy));
  const descriptor={schemaVersion:5,id:'p-vs-np',repository:policy.repository,branch:'research',configBranch:'main',protocol:{repository:'Owner/protocol',commit:protocolCommit},policy:{path:'.open-math/open-policy.json',sha256:policyHash}};
@@ -65,6 +65,27 @@ test('separate presentation release preserves agent and problem protocol pins an
  assert.deepEqual(snapshot,{fixture:true,capturedBy:'active-protocol',cwd:fs.realpathSync(f.protocol),problem:f.problem});
  assert.match(fs.readFileSync(path.join(f.output,'app.js'),'utf8'),/Read-only renderer/);
  assert.equal(fs.readFileSync(path.join(f.output,'assets/fixture.txt'),'utf8'),'Static presentation asset');
+});
+
+test('public agent discovery lists separate guides and Studio destinations without a global signing target',async t=>{
+ const f=fixture(t,'MuncleUscles/p-vs-np');
+ await buildOpenSite({directory:f.problem,destination:f.output,protocolCheckout:f.protocol},{rendererRoot:f.renderer});
+ const load=name=>JSON.parse(fs.readFileSync(path.join(f.output,name)));
+ const index=load('agent.json'), previous=load('agents/p-vs-np.json');
+ assert.deepEqual(index.tracks.map(track=>track.id).sort(),['p-vs-np','post-quantum-signatures','yang-mills']);
+ assert.equal(index.liveContract,undefined);
+ assert.equal(index.network.chainId,61999);
+ assert.equal(index.network.rpc,'https://studio.genlayer.com/api');
+ assert.equal(new Set(index.tracks.map(track=>track.intake)).size,3);
+ assert.equal(new Set(index.tracks.map(track=>track.ledger)).size,3);
+ for(const track of index.tracks){
+  assert.ok(track.guide.endsWith('/'+track.id+'/blob/main/AGENTS.md'));
+  assert.ok(track.instructions.endsWith('/'+track.id+'/main/AGENTS.md'));
+  assert.ok(track.protocolConfig.endsWith('/'+track.id+'/main/.open-math/open.json'));
+ }
+ assert.equal(previous.version,5);
+ assert.deepEqual(previous.protocol,f.descriptor.protocol);
+ assert.equal(previous.liveContract,load('problem.json').deployment.contract);
 });
 
 test('wrong or modified active tools are rejected before site output or snapshot execution',async t=>{
