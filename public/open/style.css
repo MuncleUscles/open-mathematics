@@ -77,3 +77,9 @@
 #appeals-view .trust-split{margin:2rem 0}#appeals-view h3{margin-top:1.6rem}#appeals-view code{overflow-wrap:anywhere}#appeal-lookup input{min-width:0;width:min(100%,34rem);padding:.8rem;font:inherit}#appeal-lookup label{display:block;margin-top:1.5rem}#appeal-lookup .actions{margin-top:.5rem}#appeals-view [hidden]{display:none}
 
 .wallet-form{display:grid;gap:.6rem;max-width:38rem}.wallet-form label{margin-top:1rem}.wallet-form input{width:100%;min-width:0;padding:.8rem;font:inherit;box-sizing:border-box}#wallet-status{overflow-wrap:anywhere}#submit-view [hidden]{display:none}
+
+.legal-page { max-width: 46rem; margin: 0 auto; padding: clamp(1.25rem, 5vw, 3rem) 1.25rem 4rem; }
+.legal-page h1 { margin: 2rem 0 .25rem; font: bold clamp(2.4rem, 7vw, 4rem)/1.05 var(--serif); }
+.legal-page h2 { margin: 2rem 0 .5rem; font: bold 1.65rem/1.2 var(--serif); }
+.legal-page p { margin: .6rem 0 1rem; line-height: 1.6; }
+.legal-page a { color: var(--cream); text-decoration: underline; text-underline-offset: .15em; }
