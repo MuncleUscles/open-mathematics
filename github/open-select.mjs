@@ -9,7 +9,7 @@ import {openBuildPlan} from './open-build-plan.mjs';
 import {canonical,digest,message} from '../src/security.mjs';
 import {loadOpenProblem,validateOpenClaim,verifyOpenCheckout} from '../src/open-research.mjs';
 
-const PROTOCOL_ROOT=fileURLToPath(new URL('../',import.meta.url));
+const PROTOCOL_ROOT=process.env.OPEN_MATH_VERIFIER_DIR||fileURLToPath(new URL('../',import.meta.url));
 const TERMINAL=new Set(['invalid','expired']);
 const terminalEntry=entry=>TERMINAL.has(entry.status)||(entry.status==='rejected'&&entry.needsResume!==true);
 const PREFIX=/^Open-Mathematics-Claim: ([a-f0-9]{64})\n```json\n([\s\S]+)\n```\s*$/;
@@ -153,10 +153,15 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
   return item;
  }
 
- let requested;
+ let requested,retryRequest;
  if(eventName==='issue_comment'){
   if(event.action!=='created'||!event.issue?.pull_request||!positiveId(event.comment?.id))return null;
-  requested=event.comment.id;
+  const retry=event.comment.body?.match(/^Open-Mathematics-Retry: ([1-9][0-9]*) (0x[a-f0-9]{64})\s*$/);
+  if(retry){
+   requested=Number(retry[1]);
+   if(!positiveId(requested)||!positiveId(event.comment.user?.id)||!positiveId(event.issue.number))return null;
+   retryRequest={hash:retry[2],pr:event.issue.number,author:event.comment.user.id};
+  }else requested=event.comment.id;
  }else if(eventName==='workflow_dispatch'){
   const raw=event.inputs?.comment_id;
   if(raw!==undefined&&raw!==''){
@@ -181,6 +186,17 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
   return candidate(comment,pr,{commentId,...options});
  }
 
+ if(retryRequest){
+  const original=await byCommentId(requested,{explicit:true,requireSaved:true});
+  if(!original||original.recoveryOnly||original.claim.pr!==retryRequest.pr)return null;
+  const pr=await github.pr(original.claim.pr);
+  if(pr.user?.id!==retryRequest.author||pr.state!=='open'||pr.merged!==false||
+     pr.head?.sha!==original.claim.head||pr.base?.sha!==original.claim.base||canonicalHead!==original.claim.base)return null;
+  const report=await readEvidence(`reports/${original.id}.json`);
+  const stage=report?.transactions?.[`adjudicate-r${report.record?.round}`];
+  if(!stage||stage.hash!==retryRequest.hash)return null;
+  return {...original,retryHash:retryRequest.hash};
+ }
  if(requested)return byCommentId(requested,{explicit:eventName==='workflow_dispatch'});
  // Failed consensus still needs stale-slot cleanup if its original comment
  // disappears. Normal selection remains blocked by the saved failure journal.
@@ -214,7 +230,7 @@ async function main(){
  const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence});
  if(!process.env.GITHUB_OUTPUT)throw Error('GitHub output file required');
  const plan=selected?await openBuildPlan({github,problem,candidate:selected}):{needs_lean:true};
- fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\nneeds_lean=${plan.needs_lean===false?'false':'true'}\n`);
+ fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\nretry_hash=${selected?.retryHash||''}\nneeds_lean=${plan.needs_lean===false?'false':'true'}\n`);
  console.log(selected?`Selected public claim comment ${selected.commentId}.`:'No eligible signed claims in the bounded queue.');
 }
 

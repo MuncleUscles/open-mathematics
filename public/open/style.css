@@ -73,3 +73,5 @@
 }
 
 .hero:not([hidden]) + #directory-view { border-top: 1px solid var(--rule); }
+
+#appeals-view .trust-split{margin:2rem 0}#appeals-view h3{margin-top:1.6rem}#appeals-view code{overflow-wrap:anywhere}#appeal-lookup input{min-width:0;width:min(100%,34rem);padding:.8rem;font:inherit}#appeal-lookup label{display:block;margin-top:1.5rem}#appeal-lookup .actions{margin-top:.5rem}#appeals-view [hidden]{display:none}

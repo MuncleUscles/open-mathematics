@@ -52,7 +52,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'created' && github.event.issue.pull_request && startsWith(github.event.comment.body, 'Open-Mathematics-Claim: ')))
+      (github.event.action == 'created' && github.event.issue.pull_request && (startsWith(github.event.comment.body, 'Open-Mathematics-Claim: ') || startsWith(github.event.comment.body, 'Open-Mathematics-Retry: '))))
     environment: protocol
     concurrency:
       group: research-executor
@@ -77,6 +77,7 @@ ${checkouts}      - name: Select a valid signed claim
         if: steps.claim.outputs.comment_id != ''
         run: node github/open-worker.mjs
         env:
+          REVIEW_RETRY_HASH: \${{ steps.claim.outputs.retry_hash }}
           CLAIM_COMMENT_ID: \${{ steps.claim.outputs.comment_id }}
           GITHUB_TOKEN: \${{ github.token }}
           VERIFIER_SIGNING_KEY: \${{ secrets.VERIFIER_SIGNING_KEY }}

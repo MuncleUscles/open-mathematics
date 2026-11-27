@@ -4,6 +4,8 @@ import test from 'node:test';
 import { abi } from 'genlayer-js';
 import { journaledTransaction } from '../github/journaled-transaction.mjs';
 
+import {journaledReview} from '../github/review-transaction.mjs';
+
 const address = '0x' + '1'.repeat(40);
 const sender = '0x' + 'a'.repeat(40);
 const other = '0x' + 'b'.repeat(40);
@@ -237,4 +239,34 @@ test('overlapping attempts on the same in-memory stage cannot broadcast twice', 
   await assert.rejects(h.run(), /already in progress/);
   assert.equal((await first).hash, hash);
   assert.equal(h.state.calls.filter(call => call === 'write').length, 1);
+});
+
+test('explicit same-round retry preserves the undetermined hash and broadcasts only once', async () => {
+  const h = harness({[stage]: {hash}});
+  const prior = finalized({result:2, result_name:'MAJORITY_DISAGREE', lifecycle:{state:'finalized',outcome:'undetermined'}});
+  h.state.history = [historyRow()];
+  h.input.client.getTransaction = async ({hash: id}) => id === hash ? prior : finalized({hash:secondHash});
+  h.state.onWrite = () => secondHash;
+  const entry = await journaledReview({...h.input,retryHash:hash});
+  assert.deepEqual(entry.undeterminedAttempts,[hash]);
+  assert.equal(entry.hash,secondHash);
+  await journaledReview({...h.input,retryHash:hash});
+  assert.equal(h.state.calls.filter(x => x === 'write').length,1);
+  // The replacement was sent but its hash was lost. Recover it alongside the prior attempt.
+  delete entry.hash; delete entry.receipt;
+  h.state.history.push(historyRow(secondHash));
+  assert.equal((await journaledReview(h.input)).hash,secondHash);
+  assert.equal(h.state.calls.filter(x => x === 'write').length,1);
+});
+
+test('a retry cannot replace an accepted, pending, unrelated or ambiguous transaction',async()=>{
+  for (const fields of [{},{statusName:'UNDETERMINED'},{from_address:other},{to_address:other},
+    {result_name:'MAJORITY_AGREE'},{lifecycle:{state:'decided',outcome:'undetermined'}},{hash:secondHash}]){
+    const h=harness({[stage]:{hash}});
+    const unresolved={result:2,result_name:'MAJORITY_DISAGREE',lifecycle:{state:'finalized',outcome:'undetermined'}};
+    h.state.receipt=Object.keys(fields).length ? finalized({...unresolved,...fields}) : finalized();
+    await assert.rejects(journaledReview({...h.input,retryHash:hash}));
+    assert.deepEqual(h.transactions[stage],{hash});
+    assert.ok(!h.state.calls.includes('write'));
+  }
 });
