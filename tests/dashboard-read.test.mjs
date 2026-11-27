@@ -107,3 +107,19 @@ test('problem directory reads each reviewed ledger on the shared finalized queue
  await assert.rejects(readTrackActivity('yang-mills', trackReads['post-quantum-signatures']), /configuration mismatch/);
  await assert.rejects(readTrackActivity('yang-mills', async () => {throw Error('offline');}), /offline/);
 });
+
+test('the feed counts all covered ledgers and preserves identical IDs from different tracks', async () => {
+ const {combineTrackFeeds, readTrackPage} = await import('../public/open/problem-directory.mjs');
+ const activity = new Map([
+  ['p-vs-np', {count:'3', rows:[{id:'one', submittedAt:'2026-11-22T00:00:00Z'}]}],
+  ['post-quantum-signatures', {count:'1', rows:[{id:'one', submittedAt:'2026-11-27T00:00:00Z'}]}],
+ ]);
+ const partial = combineTrackFeeds(activity);
+ assert.equal(partial.total, 4n);
+ assert.equal(partial.covered.length, 2);
+ assert.deepEqual(partial.contributions.map(c => c.track), ['post-quantum-signatures','p-vs-np']);
+ const empty = await readTrackPage('yang-mills', () => assert.fail('empty ledger requested a page'), {count:'0'});
+ activity.set('yang-mills', {count:'0', ...empty});
+ assert.equal(combineTrackFeeds(activity).covered.length, 3);
+ await assert.rejects(readTrackPage('yang-mills', async () => ({items:['one'], total:2}), {count:'1'}), /Ledger changed/);
+});
