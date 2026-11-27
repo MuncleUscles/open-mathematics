@@ -84,6 +84,7 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  const html=template.replace('<!-- track resources -->', resources).replace('src="app.js"', `src="app.js?v=${commit}"`)
                     .replace('href="style.css"', `href="style.css?v=${commit}"`);
  fs.writeFileSync(path.join(destination,'index.html'),html);
+ fs.copyFileSync(path.join(rendererRoot,'LICENSE'),path.join(destination,'LICENSE.txt'));
  for(const name of ['style.css','favicon.svg'])fs.copyFileSync(path.join(rendererRoot,'public/open',name),path.join(destination,name));
  fs.cpSync(path.join(rendererRoot,'public/open/assets'),path.join(destination,'assets'),{recursive:true});
  const forecastPath=path.join(p.root,'.open-math/forecasts.json');
