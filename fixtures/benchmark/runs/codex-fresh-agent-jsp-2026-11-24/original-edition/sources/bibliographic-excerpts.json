@@ -1,0 +1,27 @@
+{
+  "capture_method": "Manually transcribed short excerpts and publication metadata from primary pages read through web tools on 2026-11-23. This file is a derived snapshot, not raw HTTP bytes.",
+  "records": [
+    {
+      "id": "qin-arxiv-v1",
+      "url": "https://arxiv.org/abs/2609.33842v1",
+      "kind": "publication",
+      "timestamp_utc": "2026-09-27T18:48:56Z",
+      "excerpt": "[v1] Sun, 27 Sep 2026 18:48:56 UTC (9 KB)"
+    },
+    {
+      "id": "frenzy-arxiv-v1",
+      "url": "https://arxiv.org/abs/2610.08329v1",
+      "kind": "publication",
+      "timestamp_utc": "2026-10-06T13:27:51Z",
+      "excerpt": "[v1] Tue, 6 Oct 2026 13:27:51 UTC (2,799 KB)"
+    },
+    {
+      "id": "frenzy-announcement",
+      "url": "https://frenzymath.com/news/poincare-formalization/",
+      "kind": "announcement",
+      "page_date": "2026-09-28",
+      "excerpt": "was released earlier today with a public full build; to our knowledge ours is the first with a comparator-verified proof.",
+      "excerpt_context": "This footnote refers to an independent formalization by DifferentialGeometry and named contributors. It acknowledges an earlier release while claiming a distinct Comparator milestone. Its same-day wording is not reconciled with other dated sources."
+    }
+  ]
+}

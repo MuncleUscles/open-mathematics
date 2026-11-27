@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "adapters": [
+    {
+      "bundle_hash": "35d59f911bb387ef910ecc2eeb9f6500430ff1c9f6a458f406be00bcd1f5e23a",
+      "original_toolchain": "lean4:4.19.0",
+      "target_toolchain": "lean4:4.36.0",
+      "original_proof_hash": "cb4187984203ef6afca25ece24c529259587d6e13123dd35b4347da096ca5629",
+      "compiled_proof_hash": "62a556b26b111f86a07bcfd96505a55b318b07b34343e5840bc058352f5a4e7a",
+      "reason": "Historical CNF restriction proof: explicitly prove mapped-list length with List.length_map and simplify id after Lean 4.36 changed default simplification. Definitions, theorem statement, dependencies and original artifact identity remain exact.",
+      "replacements": [
+        {
+          "old": "  · simpa [RestrictedCNF] using List.length_filter_le (fun c => !(List.any c (fun l => p l.1 == some l.2))) f",
+          "new": "  · calc\n      List.length (RestrictedCNF p f) = List.length (List.filter (fun c => !(List.any c (fun l => p l.1 == some l.2))) f) := List.length_map ..\n      _ ≤ List.length f := List.length_filter_le (fun c => !(List.any c (fun l => p l.1 == some l.2))) f"
+        },
+        {
+          "old": "    simpa using mapped",
+          "new": "    simpa [id] using mapped"
+        }
+      ]
+    }
+  ]
+}

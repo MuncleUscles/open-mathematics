@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-11-24T00:09:30.999568+00:00",
+  "agent": "/root/documentary_baseline",
+  "first_attempt": true,
+  "raw_output": "benchmark-jsp-output.json",
+  "model_revision_not_exposed": true,
+  "no_expert_label": true
+}

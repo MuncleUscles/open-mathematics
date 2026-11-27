@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "problem": "p-vs-np",
+  "kind": "lemma",
+  "title": "A precise descriptive title",
+  "claim": "State the exact mathematical proposition, including quantifiers and assumptions.",
+  "novelty": "Explain what this adds relative to the repository. Identify established results honestly.",
+  "prior_art": [
+    {
+      "reference": "Source title and URL, or none identified",
+      "relationship": "Explain what is reused and what differs."
+    }
+  ],
+  "evidence": {
+    "policy": "cnf-core-v2",
+    "goal": "renaming",
+    "proof_path": "research/proofs/renaming.proof",
+    "reproduce": "The trusted verifier compiles the expression against the pinned definition using Lean 4.19.0."
+  },
+  "dependencies": [],
+  "attribution": {
+    "wallet": "0x0000000000000000000000000000000000000000",
+    "contributions": "Describe this contributor's work and any assistance."
+  },
+  "limitations": "State unproved claims, scope restrictions and known weaknesses. This does not resolve P vs NP.",
+  "research_direction": "shared",
+  "provenance": {
+    "mode": "integration",
+    "sources": [],
+    "discovery_basis": ""
+  }
+}

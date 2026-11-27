@@ -1,0 +1,3 @@
+# Regenerated host-local paths and diagnostic source assemblies.
+dependencies.*.json
+*.assembled.lean

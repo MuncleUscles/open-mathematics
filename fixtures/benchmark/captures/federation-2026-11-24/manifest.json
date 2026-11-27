@@ -1,0 +1,99 @@
+{
+  "capture_kind": "exact reconstructed contract-level first-round prompt string",
+  "raw_provider_wire_capture": false,
+  "provider_system_messages_or_wrapping_captured": false,
+  "model_called_by_reconstruction": false,
+  "response_format_argument": "json",
+  "chain_id": 61999,
+  "native_registration_receipts_checked_directly": true,
+  "provenance_files": [
+    "provenance/native-context-snapshot.json",
+    "provenance/native-register-receipt-readback.json",
+    "provenance/registration-validation.json",
+    "provenance/A.registration-source.json",
+    "provenance/B.registration-source.json",
+    "provenance/A.register-receipt-verification.json",
+    "provenance/B.register-receipt-verification.json",
+    "provenance/deployment-contract-source.py",
+    "provenance/native-contract-source.py"
+  ],
+  "source_sha256": "429da6bb99951cfb2da1db693e5b164df54f2b22082148722c411917b818ac27",
+  "source_same_at_protocol_commits": [
+    "421740e654a18f730a07abb6bb3ed3112f5fef7a",
+    "7669a2cdd54dee1f828f02f86723b4d5ff526075"
+  ],
+  "serializer": "Python json.dumps(sort_keys=True), all other arguments at defaults, as executed by the deployed contract expression; UTF-8 output, no added trailing newline.",
+  "cases": [
+    {
+      "case": "A",
+      "id": "pr-27-dfe76b37c950-d08c386809b2",
+      "prompt_file": "inputs/A.prompt.txt",
+      "data_file": "inputs/A.data.json",
+      "prompt_utf8_bytes": 16090,
+      "prompt_sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10",
+      "data_sha256": "d282982519e18321932e0a1e203660a7bbb1fcd4c04127dc9d3c7723e968ae4b",
+      "registration_evidence_sha256": "0afa582f69a8f1fc24f29aac44caa533aeba0b4a08eaaf06555e140a4fadd5af",
+      "numeric_type_check": "Original registration JSON integers preserved; submission.pr is an integer in the prompt JSON.",
+      "identity_fields_removed": [
+        "wallet",
+        "github_author_id",
+        "github_account_created_at",
+        "github_account_type",
+        "claim_comment_id",
+        "claim_comment_created_at"
+      ],
+      "prompt_expression_source_lines": {
+        "identity_fields": 698,
+        "merit_evidence": 699,
+        "allowed": 700,
+        "data": 701,
+        "prompt": 706
+      }
+    },
+    {
+      "case": "B",
+      "id": "pr-29-574730b7e55c-9f1a7872c261",
+      "prompt_file": "inputs/B.prompt.txt",
+      "data_file": "inputs/B.data.json",
+      "prompt_utf8_bytes": 20566,
+      "prompt_sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc",
+      "data_sha256": "24051bea79cf57692bf1fe8cac620a3b065a6c33c6ad7dbad10ab9d812de0586",
+      "registration_evidence_sha256": "c96c10e30a916e106d008e530c15ffc994e44c753a31272ad352e2809fb98ed4",
+      "numeric_type_check": "Original registration JSON integers preserved; submission.pr is an integer in the prompt JSON.",
+      "identity_fields_removed": [
+        "wallet",
+        "github_author_id",
+        "github_account_created_at",
+        "github_account_type",
+        "claim_comment_id",
+        "claim_comment_created_at"
+      ],
+      "prompt_expression_source_lines": {
+        "identity_fields": 698,
+        "merit_evidence": 699,
+        "allowed": 700,
+        "data": 701,
+        "prompt": 706
+      }
+    }
+  ],
+  "baseline_input_rule": "Give each baseline evaluator only its inputs/<case>.prompt.txt; never include this manifest, provenance, current ledger status, previous evaluations or native outcomes.",
+  "field_proofs": {
+    "objective": "Exact constructor calldata parsed from deploy.json matches immutable native get_config.objective.",
+    "policy": "Exact constructor calldata policy matches native get_config.policy and each original registration policy.",
+    "submission": "Exact original register calldata string equals archived evidenceJSON, its SHA-256 equals native record.digest, and parsed values equal native record.evidence. The deployed AST removes exactly six identity fields.",
+    "prior": "The complete append-only registration order contains A then B only. A has never been credited: its terminal round-zero rejected state cannot follow credited under this contract. Each submission has empty dependencies and related_contributions. Therefore no credited prior record exists at either initial adjudication.",
+    "historical_ledger_references": "Constructor legacy_ledgers is the empty list; config has no predecessor and matches native get_config.",
+    "allowed_evidence_refs": "Executed original AST expression using proved empty prior and challenges yields [submission ID, historical-ledger]. The historical-ledger label is preserved even with empty history.",
+    "required_submission_reference": "Exact registration ID bound by native evidence digest and calldata.",
+    "challenges": "Native records remain in round zero with empty append-only challenge lists; register initializes them empty and challenge only appends and increments round.",
+    "challenged": "False for the first adjudication: register sets status=submitted, begin_adjudication preserves it, and no round-zero challenge exists.",
+    "previous_verdict": "Null at the first adjudication: register initializes verdict=None and successful adjudication is the first code path that assigns its verdict. No challenges or prior round exist.",
+    "content_merit_ceiling": "Null: fresh constructor has no predecessor; A and B are the only registered records and have distinct bundle and statement hashes. _claim_content creates prior=None and accepted=None for each new content key; begin_adjudication changes only round/pending before the first prompt."
+  },
+  "limits": [
+    "This reconstructs the exact string passed to gl.nondet.exec_prompt; it does not claim to recover provider request bytes, hidden system messages, model settings or runtime-injected wrapping.",
+    "Native snapshot reads are sequential latest-final reads, not an atomic historical snapshot. Constructor invariants, append-only order, terminal status and round-zero history establish the needed pre-verdict values.",
+    "This is an engineering reconstruction, not an independent mathematical evaluation and not a new consensus attempt."
+  ]
+}

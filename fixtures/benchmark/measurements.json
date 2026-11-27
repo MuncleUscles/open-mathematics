@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "run_id": "codex-fresh-agent-jsp-2026-11-24",
+      "case_id": "jsp-000007",
+      "arm": "centralized_single",
+      "status": "completed",
+      "prompt_sha256": "08b5fb3a092e633d1a7f47d7426004840d55cc17ab027c3fd158d6cddb0cb845",
+      "models": [
+        {
+          "provider": "OpenAI",
+          "model": "Codex session model",
+          "revision": "not-exposed"
+        }
+      ],
+      "parameters": {
+        "tools": "only read exact prompt; no browsing or other evidence"
+      },
+      "elapsed_ms": null,
+      "cost_usd": null,
+      "outcome": {
+        "priority_assessment": "insufficient_evidence",
+        "milestones": [
+          {
+            "source_ref": "source:qin-commit",
+            "kind": "commit",
+            "timestamp_utc": "2026-09-27T08:15:33Z"
+          },
+          {
+            "source_ref": "source:bibliography",
+            "kind": "publication",
+            "timestamp_utc": "2026-09-27T18:48:56Z"
+          },
+          {
+            "source_ref": "source:bibliography",
+            "kind": "announcement",
+            "timestamp_utc": "2026-09-28"
+          },
+          {
+            "source_ref": "source:frenzy-verification",
+            "kind": "self_reported_verification",
+            "timestamp_utc": "2026-09-28T21:13:31.666678+00:00"
+          },
+          {
+            "source_ref": "source:bibliography",
+            "kind": "publication",
+            "timestamp_utc": "2026-10-06T13:27:51Z"
+          }
+        ],
+        "verification_reproduced": false,
+        "mathematical_discovery_claimed": false,
+        "final_award_confirmed": false,
+        "attribution_shares": null,
+        "reason": "The supplied record supports Qin's earlier recorded arXiv publication: September 27 versus FrenzyMath's October 6 (source:bibliography). FrenzyMath's September 28 announcement also acknowledges an earlier independent DifferentialGeometry release while claiming a distinct first Comparator-verified milestone; its same-day wording remains unreconciled with the other dates (source:bibliography). Qin's September 27 release commit supplies a revision and a commit timestamp, but neither establishes when that revision became public nor proves its mathematical completeness (source:qin-commit). FrenzyMath's project log reports a successful verification completed September 28 for two named Comparator targets at a specified source commit; this is documentary evidence, not verification independently reproduced here, and the supplied record does not establish those targets' equivalence to the competing theorem or frozen problem (source:frenzy-verification). The MathDB submission expressly adapts Qin v0.1.3 with a compactness bridge backported from v0.1.4. That supports a derivation relationship, not proof that unmodified v0.1.3 already satisfied the frozen target; no adapter date or build result is supplied (source:mathdb-adapter). Thus the documentary publication order favors Qin, but priority of the earliest public, complete, mathematically comparable formalizations remains insufficiently established. The objection requests such a comparison and explicitly does not assert established FrenzyMath priority or misconduct (source:objection). These materials concern formalization, verification and adaptation, not a newly claimed mathematical discovery. They contain no final award confirmation.",
+        "evidence_refs": [
+          "source:objection",
+          "source:qin-commit",
+          "source:frenzy-verification",
+          "source:mathdb-adapter",
+          "source:bibliography"
+        ],
+        "uncertainties": [
+          "The earliest public availability of each complete source revision is not established by the supplied commit metadata or publication excerpts.",
+          "The full theorem statements, definitions, dependencies and proof contents needed to compare mathematical scope and completeness are absent.",
+          "The FrenzyMath verification report has not been independently reproduced, and its Comparator targets have not been shown equivalent to the competing theorem or MathDB target.",
+          "The September 28 announcement's 'earlier today' description is not reconciled with the September 27 commit and publication timestamps; its supplied date has no time of day.",
+          "The bibliography is a manually transcribed derived snapshot, and its arXiv timestamps alone do not establish when every associated proof artifact became publicly accessible.",
+          "The adapter has no supplied timestamp or successful verification output, and it incorporates a bridge from a later upstream version.",
+          "No final comparative review, award confirmation or basis for quantitative attribution is included."
+        ]
+      }
+    },
+    {
+      "run_id": "codex-fresh-agent-federation-a-2026-11-24",
+      "case_id": "federation-a",
+      "arm": "centralized_single",
+      "status": "completed",
+      "prompt_sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10",
+      "models": [
+        {
+          "provider": "OpenAI",
+          "model": "Codex session model",
+          "revision": "not-exposed"
+        }
+      ],
+      "parameters": {
+        "tools": "only read exact prompt; no browsing or other evidence",
+        "parent_conversation_inherited": false,
+        "first_answer_preserved": true,
+        "exact_model_identifier": null,
+        "exact_revision": null,
+        "raw_output_file": "captures/federation-2026-11-24/baselines/A.output.json",
+        "start_metadata_file": "captures/federation-2026-11-24/baselines/A.start.json"
+      },
+      "elapsed_ms": null,
+      "cost_usd": null,
+      "outcome": {
+        "accept": false,
+        "novelty": 0,
+        "significance": 0,
+        "reusability": 0,
+        "reason": "The verified statement is an elementary cubic polarization identity over commutative rings, established by polynomial expansion. Kernel validity does not establish research significance. The evidence explicitly attributes the identical theorem and ring proof to an existing upstream formalization; the local contribution consists only of source packaging, removing an unused import, and narrowing the Mathlib import. This is honest reuse, but it supplies no new proof, strengthened statement, substantive formalization or demonstrated integration into a useful research component. No connection to a complexity bound, algorithm or specific P-versus-NP argument is established. The underlying identity can be reused, but that utility already exists upstream and does not establish independently useful marginal work here. These packaging changes therefore merit no new result budget; the rejection concerns incremental contribution, not correctness, attribution, research direction or affiliation.",
+        "evidence_refs": [
+          "pr-27-dfe76b37c950-d08c386809b2"
+        ]
+      }
+    },
+    {
+      "run_id": "genlayer-initial-federation-a-2026-11-24",
+      "case_id": "federation-a",
+      "arm": "genlayer",
+      "status": "completed",
+      "prompt_sha256": "c3ccf1c8d42dc0ca3338bb2fd65dd96fb9ec230eec456fb5aa13cb9e414fcb10",
+      "models": [],
+      "parameters": {
+        "phase": "initial_adjudication",
+        "round": 0,
+        "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+        "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+        "transaction": "0xdc7033637d61a8a28e75122b42aeb8f96dffb1fbb1e91826c75c4c74b8fd7577",
+        "exact_native_model_identities": null,
+        "prompt_kind": "exact reconstructed contract string; no provider wire capture",
+        "full_protocol_completion_claimed": false
+      },
+      "elapsed_ms": null,
+      "cost_usd": null,
+      "outcome": {
+        "accept": false,
+        "novelty": 0,
+        "significance": 0,
+        "reusability": 0,
+        "reason": "Submission reuses an existing upstream theorem via packaging and import narrowing only, with no new mathematical content, proof, or relevance to P versus NP.",
+        "evidence_refs": [
+          "pr-27-dfe76b37c950-d08c386809b2"
+        ]
+      },
+      "receipt_source_id": "federation-a-native-receipt"
+    },
+    {
+      "run_id": "codex-fresh-agent-federation-b-2026-11-24",
+      "case_id": "federation-b",
+      "arm": "centralized_single",
+      "status": "completed",
+      "prompt_sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc",
+      "models": [
+        {
+          "provider": "OpenAI",
+          "model": "Codex session model",
+          "revision": "not-exposed"
+        }
+      ],
+      "parameters": {
+        "tools": "only read exact prompt; no browsing or other evidence",
+        "parent_conversation_inherited": false,
+        "first_answer_preserved": true,
+        "exact_model_identifier": null,
+        "exact_revision": null,
+        "raw_output_file": "captures/federation-2026-11-24/baselines/B.output.json",
+        "start_metadata_file": "captures/federation-2026-11-24/baselines/B.start.json"
+      },
+      "elapsed_ms": null,
+      "cost_usd": null,
+      "outcome": {
+        "accept": true,
+        "novelty": 1,
+        "significance": 1,
+        "reusability": 1,
+        "reason": "Accept for modest repository integration credit. The contributed work defines a finite-relation-to-list-CNF representation, establishes its evaluation semantics and complement correspondence, and connects assignment updates to the explicitly attributed upstream graph restriction lemma. This supplies a reusable compatibility result for the protocol-style evaluator, beyond merely reproducing the upstream statement. The underlying mathematics is elementary and known: setting a positive variable to true satisfies its incident clauses, leaving the remaining edge clauses unchanged. Neither that observation nor the retained upstream proof merits discovery credit. The evidence reports formal verification, but the mathematical scope is only positive two-literal graph CNFs; it supplies no complexity bound, arbitrary-CNF result, or resolution of P versus NP. The noncomputable conversion and locally reproduced evaluator definitions further limit practical significance. Treat the semantic bridge and its supporting lemmas as one small contribution, with honest upstream attribution and no separate merit for the reproduced material. No supplied prior or related record establishes that this integration was already credited.",
+        "evidence_refs": [
+          "pr-29-574730b7e55c-9f1a7872c261"
+        ]
+      }
+    },
+    {
+      "run_id": "genlayer-initial-federation-b-2026-11-24",
+      "case_id": "federation-b",
+      "arm": "genlayer",
+      "status": "completed",
+      "prompt_sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc",
+      "models": [],
+      "parameters": {
+        "phase": "initial_adjudication",
+        "round": 0,
+        "contract": "0x3A8Be4AA97375e4E38E1b351722aE45454DE611e",
+        "policy": "e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755",
+        "transaction": "0xe6ae87437f62ca83a6a235ba0571a3f2dfb91e4ab4b549b3db2b39333a6a2a61",
+        "exact_native_model_identities": null,
+        "prompt_kind": "exact reconstructed contract string; no provider wire capture",
+        "full_protocol_completion_claimed": false
+      },
+      "elapsed_ms": null,
+      "cost_usd": null,
+      "outcome": {
+        "accept": true,
+        "novelty": 1,
+        "significance": 1,
+        "reusability": 1,
+        "reason": "The submission provides a formal integration bridge between a graph-theoretic restriction lemma (L_meta_253) and a specific list-based CNF evaluation protocol. While the core graph result is acknowledged as upstream work (lshhhhhhh), the contributor has implemented the semantic mapping (relationCNF) and proven the compatibility lemmas (relationCNF_semantics, relationCNF_complement, and complement_update) necessary to relate vertex deletion in a graph to assignment updates in the CNF representation. This is useful incremental formalization work that connects two different representations of the same problem. The work is modest in scope and does not claim to resolve the full P versus NP problem.",
+        "evidence_refs": [
+          "pr-29-574730b7e55c-9f1a7872c261"
+        ]
+      },
+      "receipt_source_id": "federation-b-native-receipt"
+    }
+  ]
+}

@@ -1,9 +1,15 @@
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {build} from 'esbuild';
+import {deploymentMetadata} from './deployment-metadata.mjs';
+const deployment=JSON.parse(fs.readFileSync('public/deployment.json'));const policy=JSON.parse(fs.readFileSync('lean/policy.json'));
+const metadata=deploymentMetadata(deployment);
+const goalProposals={url:`https://github.com/${deployment.repository}/issues/new?template=goal-proposal.yml`,guide:`https://github.com/${deployment.repository}/blob/${deployment.sourceBranch||'protocol'}/docs/GOAL-PROPOSALS.md`,requiredFields:['availability','exact_statement','definitions','toolchain','motivation_dependencies','prior_art_attribution','scope','verification_notes','boundaries'],walletRequired:false,rewards:'none; no points, reserved allocation or reward promise',enrollsGoal:false,trust:'Untrusted discussion; form completion is not mathematical or security verification.',activation:'Requires separate reviewed protocol/policy/verifier release and deployment. Refresh trusted tools and query finalized goals again before submitting a proof.'};
+fs.writeFileSync('public/agent.json',JSON.stringify({version:3,protocolVersion:deployment.protocolVersion,instructions:'AGENTS.md',guide:'agent.html',repository:deployment.repository,branch:deployment.branch,sourceBranch:deployment.sourceBranch,chainId:deployment.chainId,rpc:'https://studio.genlayer.com/api',contract:deployment.contract,policy:deployment.policy,windowSeconds:deployment.windowSeconds,goals:policy.goals,availability:'Query finalized IC with node "$OPEN_MATH_TOOLS/scripts/agent.mjs" goals; static goal presence does not mean open.',whenNoGoalsOpen:'Stop the proof-submission path. Search existing proposals, then use goalProposals.url to propose a precisely defined new trusted statement. Do not submit duplicate closed goals or edit active policy through a research PR.',goalProposals,submissionSchema:'https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/research/contribution.schema.json',command:'node "$OPEN_MATH_TOOLS/scripts/agent.mjs" help',setup:'AGENTS.md#first-contribution',workingDirectory:'Contributor worktree, or pass --worktree /absolute/path; tools and dependencies stay in the trusted protocol checkout',privateKeys:'local only',rewards:'nontransferable native IC points'},null,2)+'\n');
 fs.mkdirSync('dist',{recursive:true});fs.cpSync('public','dist',{recursive:true});
+fs.writeFileSync('dist/deployment-metadata.json',JSON.stringify(metadata,null,2)+'\n');
 await build({entryPoints:['public/app.mjs'],bundle:true,outfile:'dist/app.js',minify:true,platform:'browser',target:'es2022'});
 fs.rmSync('dist/app.mjs',{force:true});
-for(const file of ['README.md','AGENTS.md'])if(fs.existsSync(file))fs.copyFileSync(file,'dist/'+file);
+for(const file of ['README.md','AGENTS.md','LICENSE'])if(fs.existsSync(file))fs.copyFileSync(file,'dist/'+file);
 execFileSync('python3',['scripts/package.py'],{stdio:'inherit'});
 console.log('Built Open Mathematics in dist/');

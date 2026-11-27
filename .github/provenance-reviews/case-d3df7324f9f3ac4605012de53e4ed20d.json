@@ -1,0 +1,28 @@
+{
+  "case_id": "case-d3df7324f9f3ac4605012de53e4ed20d",
+  "contract": "0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc",
+  "chain_id": 61999,
+  "payload_hash": "a75bdcb47ec482b2160b7533bda203fcfdf4f154638c6b6c84762fb0351b3d0c",
+  "round": 0,
+  "review_basis": "Controlled single-account source-controller trial. The registered author is explicitly the Open Mathematics pilot (MuncleUscles), pinned to GitHub user ID 2372232, not an external researcher or academic identity. The authenticated repository owner publishes this exact wallet-bound native challenge in the same registered raw source. The pilot controls the reporting wallet and the source GitHub account; both research wallets share this account and do not represent independent humans. No priority or reward is claimed. This establishes only the narrow registered source identity after independent adjudication and the challenge window.",
+  "sources": [
+    {
+      "reference": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+      "content_hash": "ecb5a2f1ec2eac177193bb588638b29697d7a38c7d83626bdb4975c468474afa",
+      "quote": "Author identity for this document: Open Mathematics pilot (MuncleUscles).\nPublic source controller: GitHub account MuncleUscles, account ID 2372232, the owner of this pilot repository.\n\nPublic wallet-bound challenge for the controlled pilot source identity:\n\nOpen Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940",
+      "verified_authors": [
+        {
+          "name": "Open Mathematics pilot (MuncleUscles)",
+          "subject": "github:user:2372232"
+        }
+      ]
+    }
+  ],
+  "priority_verified": false,
+  "priority_basis": [],
+  "authorship_verified": true,
+  "identity_author_id": "author-d76c65bded14d6d33865bc32651e4fee",
+  "identity_source": "https://raw.githubusercontent.com/MuncleUscles/open-mathematics/protocol/docs/PROVENANCE-TRIAL.md",
+  "identity_subject": "github:user:2372232",
+  "identity_challenge": "Open Mathematics authorship:0x6acF1e29790B2eE45c01184fFaa8F84f06ba9AAc:61999:author-d76c65bded14d6d33865bc32651e4fee:0x5f1d25Db957b19aaFe5B91059c9697Be51Df37c6:case-d3df7324f9f3ac4605012de53e4ed20d:1795487940"
+}

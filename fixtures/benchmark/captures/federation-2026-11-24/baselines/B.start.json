@@ -1,0 +1,10 @@
+{
+  "started_at": "2026-11-24T00:31:38.102315+00:00",
+  "prompt_sha256": "c20a1c7da929a0a0587a295396d6bc5b80baaaa1d902f01ac2ea5d6f52ca22cc",
+  "execution": "fresh fork-none Codex evaluator, firstattempt",
+  "provider": "OpenAI",
+  "model": "Codex session model",
+  "revision": "not-exposed",
+  "cost_usd": null,
+  "elapsed_ms": null
+}

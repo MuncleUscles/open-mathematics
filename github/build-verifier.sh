@@ -7,4 +7,9 @@ tar --zstd -xf .data/image/lean.tar.zst -C .data/image
 rm .data/image/lean.tar.zst
 docker build --platform=linux/amd64 --network=none -f github/Lean.Dockerfile -t open-math-verifier .data/image
 image_id=$(docker image inspect open-math-verifier --format '{{.Id}}')
-printf 'TRUSTED_LEAN_IMAGE=%s\n' "$image_id" >> "$GITHUB_ENV"
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+    printf 'TRUSTED_LEAN_IMAGE=%s\n' "$image_id" >> "$GITHUB_ENV"
+else
+    printf 'Run this in your shell before invoking the proof verifier:\n'
+    printf 'export TRUSTED_LEAN_IMAGE=%q\n' "$image_id"
+fi

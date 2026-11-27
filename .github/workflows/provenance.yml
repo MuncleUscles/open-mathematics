@@ -1,0 +1,37 @@
+name: Provenance adjudication
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Native provenance case ID (empty selects admitted work)
+        required: false
+        type: string
+  schedule:
+    - cron: '7,37 * * * *'
+permissions:
+  contents: write
+jobs:
+  process:
+    if: github.ref == 'refs/heads/protocol'
+    environment: protocol
+    concurrency:
+      group: research-executor
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: protocol
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.22.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Verify documentary admission and execute native case outcome
+        run: node github/process-case.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERIFIER_SIGNING_KEY: ${{ secrets.VERIFIER_SIGNING_KEY }}
+          EXECUTOR_SIGNING_KEY: ${{ secrets.EXECUTOR_SIGNING_KEY }}

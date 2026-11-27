@@ -1,0 +1,22 @@
+{
+  "name": "pnp-forecast-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "genlayer-js": "2.0.0-rc.3",
+    "viem": "2.45.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.7",
+    "esbuild": "0.27.2",
+    "drizzle-orm": "0.45.4"
+  },
+  "overrides": {
+    "ws": "8.21.0",
+    "esbuild": "0.27.2"
+  }
+}

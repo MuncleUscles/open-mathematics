@@ -1,1 +1,331 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Research contribution","type":"object","required":["id","problem","kind","wallet","repository","pr","head","claim","prior_art","dependencies","limitations"],"properties":{"id":{"type":"string"},"problem":{"const":"p-vs-np"},"kind":{"enum":["lemma","counterexample","algorithm","construction","failed-approach","infrastructure"]},"wallet":{"type":"string","pattern":"^0x[0-9a-fA-F]{40}$"},"repository":{"type":"string"},"pr":{"type":"integer","minimum":1},"head":{"type":"string","pattern":"^[0-9a-f]{40}$"},"claim":{"type":"string","maxLength":4000},"prior_art":{"type":"array","items":{"type":"string"}},"dependencies":{"type":"array","maxItems":8,"uniqueItems":true,"items":{"type":"string"}},"relations":{"type":"array","items":{"type":"object","required":["target","type","justification"],"properties":{"target":{"type":"string"},"type":{"enum":["proves","strengthens","generalizes","depends-on","contradicts","disproves","uses-technique","replaces","duplicates"]},"justification":{"type":"string"}}}},"limitations":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "problem",
+    "kind",
+    "title",
+    "claim",
+    "novelty",
+    "prior_art",
+    "evidence",
+    "dependencies",
+    "attribution",
+    "limitations",
+    "research_direction",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "problem": {
+      "const": "p-vs-np"
+    },
+    "kind": {
+      "enum": [
+        "lemma",
+        "counterexample",
+        "algorithm",
+        "construction",
+        "failed-approach",
+        "infrastructure"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 3000
+    },
+    "novelty": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 2000
+    },
+    "prior_art": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reference",
+          "relationship"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "goal",
+        "proof_path",
+        "reproduce"
+      ],
+      "properties": {
+        "policy": {
+          "const": "cnf-core-v2"
+        },
+        "goal": {
+          "enum": [
+            "renaming",
+            "renaming_sat"
+          ]
+        },
+        "proof_path": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 160
+        },
+        "reproduce": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "goal": {
+                "const": "renaming"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_path": {
+                "const": "research/proofs/renaming.proof"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "goal": {
+                "const": "renaming_sat"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_path": {
+                "const": "research/proofs/renaming_sat.proof"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "use",
+          "importance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "use": {
+            "type": "string",
+            "minLength": 30,
+            "maxLength": 1500
+          },
+          "importance": {
+            "type": "string",
+            "minLength": 30,
+            "maxLength": 1500
+          }
+        }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wallet",
+        "contributions"
+      ],
+      "properties": {
+        "wallet": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$",
+          "not": {
+            "pattern": "^0x0{40}$"
+          }
+        },
+        "contributions": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1500
+        }
+      }
+    },
+    "limitations": {
+      "type": "string",
+      "minLength": 30,
+      "maxLength": 2000
+    },
+    "research_direction": {
+      "enum": [
+        "p-equals-np",
+        "p-not-equals-np",
+        "shared"
+      ],
+      "description": "Direction of this contribution, not a validity or reward signal. Current wallet affiliation is a separate changeable on-chain declaration."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Untrusted source declarations reviewed independently. External author names never authorize a wallet or prove ownership. A URL alone cannot resolve the problem.",
+      "required": [
+        "mode",
+        "sources",
+        "discovery_basis"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "discovery",
+            "formalization",
+            "extension",
+            "integration"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reference",
+              "title",
+              "authors",
+              "relationship",
+              "priority_evidence"
+            ],
+            "properties": {
+              "reference": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://",
+                "minLength": 8,
+                "maxLength": 1000
+              },
+              "title": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 300
+              },
+              "authors": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "relationship": {
+                "type": "string",
+                "minLength": 30,
+                "maxLength": 1500
+              },
+              "priority_evidence": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 1500
+              }
+            }
+          }
+        },
+        "discovery_basis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "formalization",
+                  "integration"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sources": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "mode": {
+                    "const": "discovery"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sources": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "discovery_basis": {
+                "minLength": 40
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Open Mathematics submission with research direction and external provenance"
+}

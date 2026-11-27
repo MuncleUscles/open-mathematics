@@ -1,0 +1,25 @@
+{
+  "priority_assessment": "insufficient_evidence",
+  "milestones": [
+    {"source_ref":"source:qin-commit","kind":"commit","timestamp_utc":"2026-09-27T08:15:33Z"},
+    {"source_ref":"source:bibliography","kind":"publication","timestamp_utc":"2026-09-27T18:48:56Z"},
+    {"source_ref":"source:bibliography","kind":"announcement","timestamp_utc":"2026-09-28"},
+    {"source_ref":"source:frenzy-verification","kind":"self_reported_verification","timestamp_utc":"2026-09-28T21:13:31.666678+00:00"},
+    {"source_ref":"source:bibliography","kind":"publication","timestamp_utc":"2026-10-06T13:27:51Z"}
+  ],
+  "verification_reproduced": false,
+  "mathematical_discovery_claimed": false,
+  "final_award_confirmed": false,
+  "attribution_shares": null,
+  "reason": "The supplied record supports Qin's earlier recorded arXiv publication: September 27 versus FrenzyMath's October 6 (source:bibliography). FrenzyMath's September 28 announcement also acknowledges an earlier independent DifferentialGeometry release while claiming a distinct first Comparator-verified milestone; its same-day wording remains unreconciled with the other dates (source:bibliography). Qin's September 27 release commit supplies a revision and a commit timestamp, but neither establishes when that revision became public nor proves its mathematical completeness (source:qin-commit). FrenzyMath's project log reports a successful verification completed September 28 for two named Comparator targets at a specified source commit; this is documentary evidence, not verification independently reproduced here, and the supplied record does not establish those targets' equivalence to the competing theorem or frozen problem (source:frenzy-verification). The MathDB submission expressly adapts Qin v0.1.3 with a compactness bridge backported from v0.1.4. That supports a derivation relationship, not proof that unmodified v0.1.3 already satisfied the frozen target; no adapter date or build result is supplied (source:mathdb-adapter). Thus the documentary publication order favors Qin, but priority of the earliest public, complete, mathematically comparable formalizations remains insufficiently established. The objection requests such a comparison and explicitly does not assert established FrenzyMath priority or misconduct (source:objection). These materials concern formalization, verification and adaptation, not a newly claimed mathematical discovery. They contain no final award confirmation.",
+  "evidence_refs": ["source:objection","source:qin-commit","source:frenzy-verification","source:mathdb-adapter","source:bibliography"],
+  "uncertainties": [
+    "The earliest public availability of each complete source revision is not established by the supplied commit metadata or publication excerpts.",
+    "The full theorem statements, definitions, dependencies and proof contents needed to compare mathematical scope and completeness are absent.",
+    "The FrenzyMath verification report has not been independently reproduced, and its Comparator targets have not been shown equivalent to the competing theorem or MathDB target.",
+    "The September 28 announcement's 'earlier today' description is not reconciled with the September 27 commit and publication timestamps; its supplied date has no time of day.",
+    "The bibliography is a manually transcribed derived snapshot, and its arXiv timestamps alone do not establish when every associated proof artifact became publicly accessible.",
+    "The adapter has no supplied timestamp or successful verification output, and it incorporates a bridge from a later upstream version.",
+    "No final comparative review, award confirmation or basis for quantitative attribution is included."
+  ]
+}

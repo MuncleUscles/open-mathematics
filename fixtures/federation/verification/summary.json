@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "ledger_accepted": false,
+  "native_consensus_observed": false,
+  "cases": [
+    {
+      "case": "A",
+      "scope": "local unpublished proof fixture",
+      "result": "pass",
+      "bundle_hash": "c69630d3a2ef20e704d0a59ff067ca90f7ee7bb166a6e8ca9490970f5f03788c",
+      "assembly_hash": "33374ca5c59c19546222f2f8f8920010ff762c613360711eaafc09140f33e980",
+      "statement_hash": "9147005acb9780ae979f9c774d9bdd3ac84f118c09b13e40fb1cfdfc7292a472",
+      "axioms": [
+        "Quot.sound",
+        "propext"
+      ],
+      "proof_body_uses": [],
+      "checker_set": [
+        "leanchecker",
+        "leanchecker-paranoid",
+        "lean4lean",
+        "nanoda",
+        "con-leche",
+        "con-ron"
+      ],
+      "report_path": "verification/A.local-verification.json",
+      "report_sha256": "2d5602521e4ebe8c4ae88844b7a56deec1d1453ea2f7d504a1b7b3b10012cf49"
+    },
+    {
+      "case": "B",
+      "scope": "local unpublished proof fixture",
+      "result": "pass",
+      "bundle_hash": "dd8e844ea24178cf06ed26a50bb2f4b1a253fd25ec68dc0c55e415c8d52cfd70",
+      "assembly_hash": "a97172c061fbdb6f21084ad822b61d5ef95a186a1e3b0a2d6af2d6036df498fd",
+      "statement_hash": "6db1c55a3883cfeca4e24449e7b1bd496a0d532cecd8e874beaa399490c475f2",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "proof_body_uses": [],
+      "checker_set": [
+        "leanchecker",
+        "leanchecker-paranoid",
+        "lean4lean",
+        "nanoda",
+        "con-leche",
+        "con-ron"
+      ],
+      "report_path": "verification/B.local-verification.json",
+      "report_sha256": "4a062523dc8f7bf933e6303f3fbd89aa207dd91132ce770658bb4b282101e8fa"
+    },
+    {
+      "case": "C",
+      "scope": "local unpublished proof fixture",
+      "result": "pass",
+      "bundle_hash": "188c0809112cc9fcf9400d4fcbd75c306e8270ee20403206b5b41f9c6258d5bf",
+      "assembly_hash": "125a220595dd7b4579582f0d8f59dac140e49ca305dbefc5ba0d1b99f07154f3",
+      "statement_hash": "bc728efaa318e2cf090e915a8d8972a0e83a1431c739c1354b8de149021b6e49",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "proof_body_uses": [
+        "local-fixture:B-not-accepted"
+      ],
+      "checker_set": [
+        "leanchecker",
+        "leanchecker-paranoid",
+        "lean4lean",
+        "nanoda",
+        "con-leche",
+        "con-ron"
+      ],
+      "report_path": "verification/C.local-verification.json",
+      "report_sha256": "afdae4e0b4636ce6b44616c55b35e90fa562f0711cf7856ff45ae092e47664e1"
+    }
+  ]
+}

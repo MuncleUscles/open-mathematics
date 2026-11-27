@@ -1,0 +1,77 @@
+{
+  "scope": "LOCAL UNPUBLISHED PROOF FIXTURE",
+  "ledger_accepted": false,
+  "external_wallet_bound": false,
+  "native_consensus_observed": false,
+  "commit_binding_note": "head/base identify the verifier checkout only; candidate bytes are uncommitted fixture inputs.",
+  "dependency_note": "C uses an explicit local fixture ID. Bind the actual accepted B ID and reverify before submission.",
+  "case": "A",
+  "verifier_checkout_commit": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+  "trusted_image": "sha256:ed38c58fa384f045ab5d7cbbb9e49a6996aa75bef766374aa55f1235793bfe45",
+  "verifier_report": {
+    "result": "pass",
+    "mode": "isolated",
+    "verified": true,
+    "production_verified": true,
+    "verification": "verified",
+    "checker": "open-mathematics-v5",
+    "problem": "p-vs-np",
+    "repository": "MuncleUscles/p-vs-np",
+    "head": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "base": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "protocol_commit": "5e4e9690b83fd1dc04dc5d6419f1ff10b6d8cdae",
+    "policy": "7ed4f1cd0079f4affc9120d61d31c59946f52bb9a1c025983ffa18389712c485",
+    "toolchain": "lean4:4.36.0",
+    "image": "sha256:ed38c58fa384f045ab5d7cbbb9e49a6996aa75bef766374aa55f1235793bfe45",
+    "bundle_hash": "c69630d3a2ef20e704d0a59ff067ca90f7ee7bb166a6e8ca9490970f5f03788c",
+    "artifact_hash": "c69630d3a2ef20e704d0a59ff067ca90f7ee7bb166a6e8ca9490970f5f03788c",
+    "assembly_hash": "33374ca5c59c19546222f2f8f8920010ff762c613360711eaafc09140f33e980",
+    "proof_hash": "3902f44c3af4fda1d0569dab44568d565b19a15d36a706b75dfc16277e1866b3",
+    "statement_hash": "9147005acb9780ae979f9c774d9bdd3ac84f118c09b13e40fb1cfdfc7292a472",
+    "proposition_hash": "7a6f85cd0dd6491092139452c032e8cbf9375d992568e176ad2fb6fe8a3676e7",
+    "formal_statement": "theorem : (forall (Sort (succ 0)) (forall (app CommRing.{0} #0) (forall #1 (forall #2 (forall #3 (app (app (app Eq.{(succ 0)} #4) (app (app (app (app (app (app HMul.hMul.{0,0,0} #4) #4) #4) (app (app instHMul.{0} #4) (app (app Distrib.toMul.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app (app (app (app HMul.hMul.{0,0,0} #4) #4) #4) (app (app instHMul.{0} #4) (app (app Distrib.toMul.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app (app (app (app HMul.hMul.{0,0,0} #4) #4) #4) (app (app instHMul.{0} #4) (app (app Distrib.toMul.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app OfNat.ofNat.{0} #4) 24) (app (app (app (app instOfNatAtLeastTwo.{0} #4) 24) (app (app AddMonoidWithOne.toNatCast.{0} #4) (app (app AddGroupWithOne.toAddMonoidWithOne.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))) (app (app Nat.instAtLeastTwoHAddOfNat (app (app (app OfNat.ofNat.{0} Nat) 23) (app instOfNatNat 23))) (app Nat.instNeZeroSucc (app (app (app OfNat.ofNat.{0} Nat) 22) (app instOfNatNat 22))))))) #2)) #1)) #0)) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} #4) #4) #4) (app (app instHAdd.{0} #4) (app (app Distrib.toAdd.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) (app (app (app (app (app (app HPow.hPow.{0,0,0} #4) Nat) #4) (app (app (app instHPow.{0,0} #4) Nat) (app (app NPow.toPow.{0} #4) (app (app Monoid.toNPow.{0} #4) (app (app Semiring.toMonoid.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3))))))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} #4) #4) #4) (app (app instHAdd.{0} #4) (app (app Distrib.toAdd.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} #4) #4) #4) (app (app instHAdd.{0} #4) (app (app Distrib.toAdd.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) #2) #1)) #0)) (app (app (app OfNat.ofNat.{0} Nat) 3) (app instOfNatNat 3)))) (app (app (app (app (app (app HPow.hPow.{0,0,0} #4) Nat) #4) (app (app (app instHPow.{0,0} #4) Nat) (app (app NPow.toPow.{0} #4) (app (app Monoid.toNPow.{0} #4) (app (app Semiring.toMonoid.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3))))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} #4) #4) #4) (app (app instHAdd.{0} #4) (app (app Distrib.toAdd.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) #2) #1)) #0)) (app (app (app OfNat.ofNat.{0} Nat) 3) (app instOfNatNat 3))))) (app (app (app (app (app (app HPow.hPow.{0,0,0} #4) Nat) #4) (app (app (app instHPow.{0,0} #4) Nat) (app (app NPow.toPow.{0} #4) (app (app Monoid.toNPow.{0} #4) (app (app Semiring.toMonoid.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3))))))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} #4) #4) #4) (app (app instHAdd.{0} #4) (app (app Distrib.toAdd.{0} #4) (app (app instDistribOfSemiring.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3)))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) #2) #1)) #0)) (app (app (app OfNat.ofNat.{0} Nat) 3) (app instOfNatNat 3))))) (app (app (app (app (app (app HPow.hPow.{0,0,0} #4) Nat) #4) (app (app (app instHPow.{0,0} #4) Nat) (app (app NPow.toPow.{0} #4) (app (app Monoid.toNPow.{0} #4) (app (app Semiring.toMonoid.{0} #4) (app (app CommSemiring.toSemiring.{0} #4) (app (app CommRing.toCommSemiring.{0} #4) #3))))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) (app (app (app (app (app (app HSub.hSub.{0,0,0} #4) #4) #4) (app (app instHSub.{0} #4) (app (app SubNegMonoid.toSub.{0} #4) (app (app AddGroup.toSubNegMonoid.{0} #4) (app (app AddGroupWithOne.toAddGroup.{0} #4) (app (app Ring.toAddGroupWithOne.{0} #4) (app (app CommRing.toRing.{0} #4) #3))))))) #2) #1)) #0)) (app (app (app OfNat.ofNat.{0} Nat) 3) (app instOfNatNat 3))))))))))",
+    "canonical_semantics": {
+      "definitions": [],
+      "levelParams": [],
+      "type": "d754b0c01c8068bcec75fc77f61e64627dfd7a81399cba3bbd4f19732e82a046",
+      "version": 1
+    },
+    "theorem": "B_c69630d3a2ef20e704d0a59ff067ca90f7ee7bb166a6e8ca9490970f5f03788c.PEqualNP.Outside.L_gct_126",
+    "axioms": [
+      "Quot.sound",
+      "propext"
+    ],
+    "declaration_axioms": {
+      "B_c69630d3a2ef20e704d0a59ff067ca90f7ee7bb166a6e8ca9490970f5f03788c.PEqualNP.Outside.L_gct_126": [
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    "sorry": false,
+    "proof_body_uses": [],
+    "verified_dependencies": [],
+    "dependency_bundle_hashes": {},
+    "dependency_artifact_hashes": {},
+    "dependency_theorems": {},
+    "definition_closure_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "full_kernel": {
+      "version": 1,
+      "lean_commit": "611c117bfaf7b7ae1cfcf246ce6fba31e8f509e9",
+      "mathlib_commit": "fc4f59e577feb1a4956671bc04ac18aaaf8cd842",
+      "export_hash": "8dd3abd39d8d07432d699bae63d9d1ce4abd282746eefdb8422432b10e1ac195",
+      "baseline_hash": "bcd2afe0f9adb5162cf55b3b2d5896d6d89b6605e92323a3b93069c57417f8d6",
+      "checker_set": [
+        "leanchecker",
+        "leanchecker-paranoid",
+        "lean4lean",
+        "nanoda",
+        "con-leche",
+        "con-ron"
+      ]
+    },
+    "log": "",
+    "legacy_adapters": {},
+    "reuse_limit": "Direct references after bounded beta/zeta/constructor-projection reduction; not necessity, novelty, independence or allocation.",
+    "commit_binding": "Trusted caller resolves immutable accepted records and exact Git commits; checker binds identifiers and bytes."
+  }
+}
