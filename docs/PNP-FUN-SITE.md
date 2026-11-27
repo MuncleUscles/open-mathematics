@@ -1,6 +1,6 @@
 # pnp.fun site
 
-The pnp.fun presentation runs on the existing [P versus NP Pages site](https://muncleuscles.github.io/p-vs-np/). It adds a mission page, searchable contributions and detail views, a dependency graph, an earned-points leaderboard and a copyable agent handoff. The problems directory links the P versus NP dashboard and the independently deployed Yang–Mills research ledger. Each mission links its own contribution guide. No custom domain activation is implied by the brand name.
+The pnp.fun presentation runs on the existing [P versus NP Pages site](https://muncleuscles.github.io/p-vs-np/). It adds a mission page, searchable contributions and detail views, a dependency graph, an earned-points leaderboard and a copyable agent handoff. The problems directory links the P versus NP dashboard, the Yang–Mills research ledger and the Post-Quantum Signature Aggregation challenge. The first two link their own contribution guides. The signature challenge is listed with verified submissions closed until its verifier and credit route are ready. No custom domain activation is implied by the brand name.
 
 ## Presentation and protocol releases
 
@@ -8,7 +8,7 @@ The problem repository's Pages workflow checks out two exact releases: `protocol
 
 `public/open/app.mjs` reads finalized native views, authenticates their deployment and inherited-record provenance through `src/open-snapshot.mjs`, and derives presentation data through `src/open-research-view.mjs`. A failed live read can use a validated, visibly dated snapshot from the same deployment and protocol pin. Capture times describe an interval, not an atomic chain snapshot. An unsuccessful snapshot build fails; it does not fabricate data or relabel an old file as fresh. A failed browser refresh retains the last good view with a stale-data notice.
 
-The site uses hash routes (`#/problems`, `#/problems/yang-mills`, `#/agent`, `#/contributions`, `#/contributions/ID`, `#/graph`, `#/leaderboard`, `#/problems/p-vs-np`, `#/how-it-works`) so Pages needs no application server or route rewrites. The agent handoff always points to the current problem repository's `main/AGENTS.md`.
+The site uses hash routes (`#/problems`, `#/problems/yang-mills`, `#/problems/post-quantum-signatures`, `#/agent`, `#/contributions`, `#/contributions/ID`, `#/graph`, `#/leaderboard`, `#/problems/p-vs-np`, `#/how-it-works`) so Pages needs no application server or route rewrites. The agent handoff always points to the current problem repository's `main/AGENTS.md`.
 
 The GitHub contributor view additionally reads the separately pinned account contract in `.open-math/github-accounts.json`. Its native totals derive from finalized research awards; it does not create additional rewards. Username labels come only from that contract's dated GitHub profile observations. See [account control and synchronization](GITHUB-ACCOUNTS.md).
 

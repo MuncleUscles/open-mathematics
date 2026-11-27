@@ -19,3 +19,12 @@
 .track-layout h2 { overflow-wrap: anywhere; margin-bottom: 1rem; }
 .track-layout .fine { margin-top: 2rem; }
 @media (max-width: 760px) { .track-layout { grid-template-columns: 1fr; } }
+
+.pqc-brief { border-top: 1px solid var(--rule); margin-top: 3rem; padding-top: 2rem; }
+.pqc-brief p, .pqc-brief ul { max-width: 78ch; }
+.pqc-brief h3 { margin: 0 0 1rem; }
+.pqc-brief .pqc-formula { font: 1.45rem var(--serif); border-left: 3px solid var(--rust); padding: .5rem 1rem; }
+.pqc-brief table { width: min(100%, 38rem); min-width: 0; color: var(--cream); border-collapse: collapse; }
+.pqc-brief caption { text-align: left; font-weight: bold; padding: .75rem 0; }
+.pqc-brief th, .pqc-brief td { white-space: normal; text-align: left; padding: .5rem; }
+.pqc-brief li { margin-block: .65rem; }
