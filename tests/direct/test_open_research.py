@@ -72,6 +72,13 @@ def submit(protocol, vm, verifier, contributor, key="open-result", **changes):
     return data
 
 
+def mock_audit(vm, refs, **changes):
+    vm.clear_mocks()
+    audit = {"supported": True, "reason": "The cited contribution supports the proposed decision and its credit under the stated research rubric.",
+             "evidence_refs": refs, **changes}
+    vm.mock_llm(r"(?s).*Independently audit the leader's proposed decision.*", json.dumps(audit))
+
+
 def initial_review(vm, key, *, accept=True, refs=None, scores=(1, 1, 2), upheld=None, reason=None):
     vm.clear_mocks()
     value = {"accept": accept, "novelty": scores[0] if accept else 0, "significance": scores[1], "reusability": scores[2],
@@ -168,6 +175,7 @@ def test_open_formal_admission_and_wallet_bound_initial_credit(open_protocol, di
     initial_review(direct_vm, data["id"])
     verdict = adjudicate(open_protocol, data["id"], 0)
     assert verdict["award"] == "400"
+    mock_audit(direct_vm, [data["id"]])
     assert direct_vm.run_validator() is True
     with direct_vm.expect_revert("dispute window"):
         open_protocol.finalize(data["id"], 0)
@@ -269,6 +277,11 @@ def test_two_contributions_pay_retrospective_reuse_once(open_protocol, direct_vm
     direct_vm.sender = direct_bob
     impact_review(direct_vm, later["id"], [(prior["id"], 1)])
     provisional = open_protocol.review_impact(later["id"], 0)
+    mock_audit(direct_vm, [later["id"]])
+    assert direct_vm.run_validator() is False
+    mock_audit(direct_vm, [later["id"], prior["id"]], supported=False)
+    assert direct_vm.run_validator() is False
+    mock_audit(direct_vm, [later["id"], prior["id"]])
     assert direct_vm.run_validator() is True
     assert provisional["budget"] == 80 and provisional["band_points"] == 26
     assert provisional["eligible"][0]["id"] == "upstream" and provisional["allocations"][0]["points"] == "26"
@@ -360,14 +373,32 @@ def test_challenges_block_each_settlement_and_stale_rounds(open_protocol, direct
     assert open_protocol.get_impact("later")["paid_points"] == "0"
 
 
-def test_exact_consensus_band_disagreement_does_not_validate(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
-    submit(open_protocol, direct_vm, direct_alice, direct_owner)
+@pytest.mark.parametrize("accept,note,award", [(True, False, "400"), (True, True, "300"), (False, False, "0")])
+def test_merit_validator_audits_exact_proposal_and_award(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, monkeypatch, accept, note, award):
+    data = submit(open_protocol, direct_vm, direct_alice, direct_owner, note=note)
     direct_vm.sender = direct_bob
-    initial_review(direct_vm, "open-result")
+    initial_review(direct_vm, "open-result", accept=accept)
     decision = adjudicate(open_protocol, "open-result", 0)
-    assert direct_vm.run_validator() is True
-    initial_review(direct_vm, "open-result", scores=(1, 1, 1))
-    assert direct_vm.run_validator() is False
+    prompts = []
+
+    def auditor(prompt):
+        instructions, payload = prompt.split("\nUNTRUSTED_DATA=", 1)
+        assert "Independently audit the leader's proposed decision" in instructions
+        packet = json.loads(payload)
+        assert packet["proposed_verdict"] == decision
+        assert packet["proposed_verdict"]["award"] == award
+        assert packet["evidence"]["submission"]["artifact_hash"] == data["artifact_hash"]
+        assert packet["required_audit_refs"] == ["open-result"]
+        prompts.append(prompt)
+        return json.dumps({"supported": True, "reason": "The evidence independently supports this decision, including the proposed credit.", "evidence_refs": ["open-result"]})
+
+    with monkeypatch.context() as m:
+        m.setattr(direct_vm, "_match_llm_mock", auditor)
+        assert direct_vm.run_validator() is True
+    assert len(prompts) == 1
+    for change in [{"supported": False}, {"supported": "yes"}, {"reason": "yes"}, {"novelty": 2}, {"evidence_refs": ["invented"]}]:
+        mock_audit(direct_vm, ["open-result"], **change)
+        assert direct_vm.run_validator() is False
     with direct_vm.expect_revert("evidence references"):
         direct_vm.run_validator(leader_result={k: v for k, v in {**decision, "evidence_refs": ["invented"]}.items() if k != "award"})
     assert direct_vm.run_validator(leader_error=Exception("leader failed")) is False
@@ -450,10 +481,11 @@ def test_unupheld_challenge_restores_verdict_verbatim_and_bool_requires_consensu
     data, previous = challenged_initial(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner)
     initial_review(direct_vm, data["id"], upheld=False, reason="The objection establishes no factual error and supplies no new supporting evidence.")
     assert adjudicate(open_protocol, data["id"], 1) == previous
+    mock_audit(direct_vm, [data["id"], "challenge:0"])
     assert direct_vm.run_validator() is True
     record = open_protocol.get(data["id"])
     assert record["verdict"] == previous and record["challenge_reviews"][0]["challenge_upheld"] is False
-    initial_review(direct_vm, data["id"], upheld=True)
+    mock_audit(direct_vm, [data["id"]])
     assert direct_vm.run_validator() is False
 
 
@@ -473,15 +505,16 @@ def test_challenges_cannot_reroll_accepted_bands(open_protocol, direct_vm, direc
     assert adjudicate(open_protocol, data["id"], 1)["award"] == "300"
 
 
-def test_rejected_appeal_requires_upheld_evidence_and_preserves_independent_band_agreement(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
+def test_rejected_appeal_requires_upheld_evidence_and_a_defensible_proposal(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner):
     data, previous = challenged_initial(open_protocol, direct_vm, direct_alice, direct_bob, direct_owner, accepted=False)
     initial_review(direct_vm, data["id"], upheld=True, reason="Please increase this award because it deserves points.")
     with direct_vm.expect_revert("substantive factual correction"):
         adjudicate(open_protocol, data["id"], 1)
     initial_review(direct_vm, data["id"], upheld=True, reason="The original rejection overlooked the explicitly restricted domain of the construction; the cited boundary example now resolves that specific factual error without changing the proved statement.")
     assert adjudicate(open_protocol, data["id"], 1)["accept"] is True
+    mock_audit(direct_vm, [data["id"], "challenge:0"])
     assert direct_vm.run_validator() is True
-    initial_review(direct_vm, data["id"], upheld=True, scores=(1, 1, 1))
+    mock_audit(direct_vm, [data["id"], "challenge:0"], supported=False)
     assert direct_vm.run_validator() is False
     assert previous["award"] == "0" and open_protocol.get_points(address(direct_owner))["points"] == "0"
 
@@ -502,8 +535,9 @@ def test_impact_challenge_preserves_or_reduces_existing_recipients_only(open_pro
     impact_review(direct_vm, "later", [("first", 2)], upheld=False)
     restored = open_protocol.review_impact("later", 1)
     assert all(restored[k] == previous[k] for k in ["allocations", "reason", "evidence_refs"])
+    mock_audit(direct_vm, ["first", "later", "challenge:0"])
     assert direct_vm.run_validator() is True
-    impact_review(direct_vm, "later", [("first", 2)], upheld=True)
+    mock_audit(direct_vm, ["first", "later"])
     assert direct_vm.run_validator() is False
     direct_vm.sender = direct_owner
     open_protocol.challenge_impact("later", "A concrete omitted replacement argument reduces this dependency's demonstrated value.")
