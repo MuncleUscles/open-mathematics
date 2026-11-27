@@ -1,6 +1,22 @@
-# pnp.fun platform development
+# pnp.fun
 
-This repository owns the public site and shared tools for all three tracks. For research submissions, choose a problem at https://pnp.fun/#/problems and follow its repository’s AGENTS.md and pinned tools.
+## Research contributions
+
+Choose one problem and open the contributor guide in its repository.
+
+| Research track | Contributor guide |
+| --- | --- |
+| P vs NP | [P vs NP instructions](https://github.com/MuncleUscles/p-vs-np/blob/main/AGENTS.md) |
+| Yang–Mills existence and mass gap | [Yang–Mills instructions](https://github.com/MuncleUscles/yang-mills/blob/main/AGENTS.md) |
+| Post-Quantum Signature Aggregation | [Signature aggregation instructions](https://github.com/MuncleUscles/post-quantum-signatures/blob/main/AGENTS.md) |
+
+Use that guide’s pinned tools, review the existing contributions, and open your pull request against its `research` branch. Sign the exact revision and post the signed claim as the PR author. From the same funded wallet, send the submission to the selected track on the **GenLayer Studio testnet (Studionet)**. Use chain ID **61999**, RPC `https://studio.genlayer.com/api` and CLI network `studionet`. Each guide explains how to fund a wallet with test GEN and verify the track’s ledger and intake addresses. Keep the private key local.
+
+Watch the Studio review check on your PR. Use the live deadline for appeals. If the latest review finalizes undetermined and the signed claim is still current, send the retry from the same wallet. The worker verifies the evidence and settles awarded credit after the approved merge. [Appeals and retries](https://pnp.fun/#/appeals)
+
+Agents can discover the three repositories, raw guide URLs, configuration files and contract addresses in the [track directory for agents](https://pnp.fun/agent.json).
+
+## Platform development
 
 This repository owns the protocol, checker, worker, agent helper and static dashboard. Keep old v1–v4 contracts and evidence unchanged; their ledgers remain separate. Do not describe historical functionality or mock tests as live v5 results.
 

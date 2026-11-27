@@ -1,5 +1,6 @@
 import deployments from './wallet-tracks.json' with {type:'json'};
 import {getProblemTrack,showProblemTrack,activityLabel,readTrackActivity,otherTrackContracts} from './problem-directory.mjs';
+import {agentTracks,agentPrompt,platformGuide} from './agent-guide.mjs';
 import {initWalletSubmission} from './wallet-submission.mjs';
 initWalletSubmission();
 import {showAppeal,leaveAppeal} from './appeals.mjs';
@@ -54,14 +55,31 @@ function loadActivity(id) {
 }
 
 const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/submit':['submit'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
+let lastAgentRoute;
+function selectAgentTrack(id) {
+ const track = agentTracks.find(item => item.id === id);
+ $('agent-track').value = track?.id ?? '';
+ $('agent-instructions').value = agentPrompt(track);
+ $('guide').href = track?.guide ?? platformGuide;
+ $('copy-status').textContent = '';
+}
+$('agent-track').addEventListener('change', event => {
+ const id = event.target.value;
+ selectAgentTrack(id);
+ if (location.hash.startsWith('#/agent')) location.hash = id ? '/agent/' + id : '/agent';
+});
 function route(){
- const name=location.hash.slice(1)||'/';
+ const path=location.hash.slice(1)||'/';
+ const agentRoute = path === '/agent' || path.startsWith('/agent/');
+ const name = agentRoute ? '/agent' : path;
+ if (lastAgentRoute !== path && (agentRoute || name === '/')) selectAgentTrack(agentRoute ? path.slice('/agent/'.length) : '');
+ lastAgentRoute = path;
  const trackId=name.startsWith('/problems/') ? name.slice('/problems/'.length) : '';
  const track=getProblemTrack(trackId);
  const directory=name==='/problems';
  const isAppeal=name==='/appeals'||name.startsWith('/appeals/');
  if(isAppeal)showAppeal(name.slice('/appeals/'.length),data?.deployment.contract);else leaveAppeal();
- document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory||name==='/how-it-works'||isAppeal||name==='/submit';});
+ $('header-agent').href = agentTracks.some(item => item.id === trackId) ? '#/agent/' + trackId : '#/agent';
  const isDetail=name.startsWith('/contributions/'),views=isAppeal?['appeals']:track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
@@ -373,12 +391,9 @@ $('filters').addEventListener('submit',event=>event.preventDefault());for(const 
 $('refresh').addEventListener('click',refresh);$('older').addEventListener('click',earlier);
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('agent-instructions').value);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('agent-instructions').focus();$('agent-instructions').select();$('copy-status').textContent='Select and copy the instructions above, or share the full guide.';}});
 try{
- const response=await fetch('./problem.json');if(!response.ok)throw Error('Reviewed configuration unavailable');data=await response.json();const d=data.deployment;repository=`https://github.com/${data.descriptor.repository}`;const guide=repository+'/blob/main/AGENTS.md';
- $('guide').href=guide;
+ const response=await fetch('./problem.json');if(!response.ok)throw Error('Reviewed configuration unavailable');data=await response.json();const d=data.deployment;repository=`https://github.com/${data.descriptor.repository}`;
  $('challenge-window').textContent=`${d.windowSeconds/60} minutes`;
  $('proof-format').textContent=data.policy.version===6?'Formal submissions support ordinary Lean 4.36 source and pinned Mathlib. Independent kernel checks verify the exact theorem and standard axioms. Arbitrary project configurations and dependencies are not accepted.':data.policy.version===5?'This policy accepts restricted Lean 4.19 Core expressions; it does not support Mathlib or arbitrary Lean projects.':'Read the reviewed policy and contributor guide for the exact pinned proof environment.';
- $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. No daily quota. One active claim per GitHub author; agents sharing an account submit one at a time.`;
- $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. After posting your signed PR comment, send the submission on stable Studio from the same wallet using pnp submit. Send any eligible retry with pnp retry. Follow the Studio review check on your PR. Its short appeal window starts at the decision. Use the deadline in the live quote. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
  $('pnp-history').hidden=false;
  for(const h of d.legacyLedgers){const p=el('p',h.description+' ');p.append(link('Historical contract',`https://studio.genlayer.com/contracts?import-contract=${h.address}`));$('history').append(p);}
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}

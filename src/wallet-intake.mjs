@@ -23,7 +23,7 @@ export function walletIntake(problem,client=clientFor()){
     d.codeHash!==codeHash||stableJSON(d.config)!==stableJSON(config))throw Error('Wallet intake deployment does not match the reviewed track');
  let ready;
  async function verify(){
-  if(Number(await client.getChainId())!==61999)throw Error('Stable Studio chain 61999 required');
+  if(Number(await client.getChainId())!==61999)throw Error('GenLayer Studio testnet (Studionet) chain ID 61999 required');
   const receipt=await client.getTransaction({hash:d.deploymentTx});
   validateNativeDeploymentReceipt(receipt,{hash:d.deploymentTx,sender:d.deployer,codeHash,config});
   const address=receipt.data?.contract_address||receipt.to_address;
