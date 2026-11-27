@@ -52,10 +52,14 @@ export function loadOpenProblem(directory,{requireDeployment=true}={}){
  return problem;
 }
 
-export function verifyOpenCheckout(problem,protocolRoot){
- need(execFileSync('git',['rev-parse','HEAD'],{cwd:protocolRoot,encoding:'utf8'}).trim()===problem.descriptor.protocol.commit,'refresh tools to the pinned protocol commit');
+export function verifyPinnedTools(protocolRoot,commit){
+ need(execFileSync('git',['rev-parse','HEAD'],{cwd:protocolRoot,encoding:'utf8'}).trim()===commit,'refresh tools to the pinned protocol commit');
  execFileSync('git',['diff','--quiet','HEAD','--'],{cwd:protocolRoot,stdio:'pipe'});
  need(execFileSync('git',['ls-files','--others','--exclude-standard'],{cwd:protocolRoot,encoding:'utf8'}).trim()==='','untracked files in trusted protocol checkout');
+}
+
+export function verifyOpenCheckout(problem,protocolRoot){
+ verifyPinnedTools(protocolRoot,problem.descriptor.protocol.commit);
  if(problem.deployment)need(sha256(fs.readFileSync(path.join(protocolRoot,'contracts/research_v5.py')))===problem.deployment.codeHash,'deployed contract source mismatch');
 }
 

@@ -9,7 +9,7 @@ test('list discovers a bounded native page with reusable IDs, scope and actual p
  const calls=[],native=async(method,args)=>{calls.push([method,args]);return method==='list_contributions'?{items:['pr-2','pr-3'],total:'7',next_offset:'3'}:record(args[0],args[0]==='pr-3'?{status:'provisional',credited_points:'0',award_budget:undefined,reserve_settled:undefined}:{});};
  const page=await listOpenContributions({native,problem,offset:1,limit:2});
  assert.deepEqual(calls,[['list_contributions',[1,2]],['get',['pr-2']],['get',['pr-3']]]);
- assert.equal(page.total,7);assert.equal(page.next_offset,3);assert.equal(page.next,'om list 3 2');assert.equal(page.contract,contract);assert.equal(page.protocolCommit,problem.descriptor.protocol.commit);
+ assert.equal(page.total,7);assert.equal(page.next_offset,3);assert.equal(page.next,'pnp list 3 2');assert.equal(page.contract,contract);assert.equal(page.protocolCommit,problem.descriptor.protocol.commit);
  assert.deepEqual(page.items.map(x=>x.id),['pr-2','pr-3']);assert.equal(page.items[0].title,'A useful contribution pr-2');assert.equal(page.items[0].scope.formal_statement,'∀ n : Nat, n = n');assert.equal(page.items[0].bundle_hash,'b'.repeat(64));
  assert.deepEqual(page.items[0].points,{author_credited:'260',award_budget:'300',reserve:'60',reserve_settled:true});assert.equal(page.items[0].eligible_dependency,true);assert.equal(page.items[1].eligible_dependency,false);assert.equal(page.items[1].points.award_budget,null);
 });

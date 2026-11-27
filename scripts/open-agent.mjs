@@ -3,7 +3,7 @@
 import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
 import {randomBytes,createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';import {recoverMessageAddress,isAddress} from 'viem';
-import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes,readOpenRecordInheritance} from '../src/open-research.mjs';
+import {loadOpenProblem,validateOpenClaim,requireOpenConfiguration,verifyOpenCheckout,verifyPinnedTools,parseProblemJSON,decodeOpenSubmission,openSubmissionBlobs,sha256,readProblemFile,validateOpenArtifactBytes,readOpenRecordInheritance} from '../src/open-research.mjs';
 import {digest,message} from '../src/security.mjs';import {GitHub} from '../src/github.mjs';
 import {fetchGitHubIdentity} from '../src/github-identity.mjs';
 import {readEvidenceFile} from '../github/evidence-file.mjs';
@@ -13,6 +13,7 @@ import {loadLocalSigner,publicEnvelope} from './problem-agent.mjs';import {contr
 import {createStudioClient} from '../src/studio-client.mjs';
 import {resolveOpenDependencies,writeOpenDependencyManifest,openVerifierFailure} from '../github/open-verify.mjs';
 import {resolveContributorGitHubToken,createLocalWallet,localWalletAddress} from './contributor-local.mjs';
+import {sendResearchRequest} from './research-request.mjs';
 export const toolRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function claimFor(problem,{pr,head,base,recordPath,recordBytes,wallet,now=Date.now()}){
  const d=problem.deployment,claim={version:4,domain:d.origin,chainId:d.chainId,problem:d.problem,repository:d.repository,pr,head,base,branch:d.branch,contract:d.contract,policy:problem.policyHash,submission_path:recordPath,submission_hash:sha256(recordBytes),wallet,nonce:randomBytes(16).toString('hex'),expires:now+540000,protocol_commit:problem.descriptor.protocol.commit};
@@ -130,25 +131,33 @@ export async function listOpenContributions({native,problem,offset=0,limit=20}){
    return {id,status:r.status,title:context.title,scope:{claim:e.claim,formal_statement:e.formal_statement,evidence_kind:e.evidence_kind,verification:e.verification,research_direction:e.research_direction},bundle_hash:e.bundle_hash,points:{author_credited:r.credited_points,award_budget:r.award_budget??null,reserve:r.impact_reserve??'0',reserve_settled:r.reserve_settled===true},eligible_dependency:r.status==='credited'&&e.evidence_kind==='formal'&&e.verification==='verified',...(inheritance.inherited?{inheritance}:{})};
   }));items.push(...batch);
  }
- return {problem:d.problem,repository:d.repository,chainId:d.chainId,contract:d.contract,protocolCommit:problem.descriptor.protocol.commit,offset,limit,total,next_offset:next,items,next:next===null?null:`om list ${next} ${limit}`,reuse:'Use om show ID for the full native record. Only credited formal results can be imported.'};
+ return {problem:d.problem,repository:d.repository,chainId:d.chainId,contract:d.contract,protocolCommit:problem.descriptor.protocol.commit,offset,limit,total,next_offset:next,items,next:next===null?null:`pnp list ${next} ${limit}`,reuse:'Use pnp show ID for the full native record. Only credited formal results can be imported.'};
 }
 export async function run(argv=process.argv.slice(2)){
  let sent;
  try{
   const args=[...argv],flag=(name,fallback)=>{const i=args.indexOf(name);if(i<0)return fallback;const v=args[i+1];if(!v||v.startsWith('--'))throw Error(name+' needs a path');args.splice(i,2);if(args.includes(name))throw Error('Repeated '+name);return v;};
   const directory=flag('--problem',process.env.OPEN_MATH_PROBLEM_DIR),worktree=fs.realpathSync(flag('--worktree',process.cwd()));
+  const verifierRoot=fs.realpathSync(process.env.OPEN_MATH_VERIFIER_DIR||toolRoot);
   const [command,...rest]=args,out=x=>console.log(JSON.stringify(x,null,2)),workFile=file=>contributorPath(worktree,file);
-  if(!command||command==='help'){out({usage:'node /trusted/protocol/scripts/open-agent.mjs --problem /trusted/problem [--worktree /contribution] COMMAND',commands:{wallet:'wallet create|address ABSOLUTE_KEY_FILE — local owner-only key setup; prints only the public address.',inspect:'Read the open objective, evidence rules and deployment.',list:'list [OFFSET] [LIMIT] — discover native contribution IDs, scope and points; defaults: 0 20, maximum 50 per page.',init:'init SLUG PUBLIC_WALLET [formal|research-note] — create a v2 Lean/Mathlib example or note; replace it with your research.',format:'format RECORD_OR_BUNDLE — normalize JSON before obtaining its hash or signing.',check:'check RECORD [--lean] — format only by default; --lean runs isolated pinned proof verification.',show:'show CONTRIBUTION_ID — exact native record, bundle and fully qualified theorem reference for reuse.',prepare:'prepare PR RECORD PUBLIC_WALLET — export the exact message for an external wallet.',sign:'sign PR RECORD — use CONTRIBUTOR_KEY_FILE and output only the public claim.',envelope:'envelope PREPARED_FILE SIGNATURE_FILE — validate an external signature.',status:'status PR — read archive plus finalized native state.',challenge:'challenge ID FILE [--impact] [--send] — preview or send substantive evidence.'},guide:'docs/FULL-LEAN.md in this trusted protocol checkout',keys:'Keep private keys outside repositories. Never send them to the platform.'});return;}
+  if(!command||command==='help'){out({usage:'pnp COMMAND [--problem /trusted/problem] [--worktree /contribution]',commands:{submit:'submit COMMENT_ID [--send] — preview or send a contributor Studio transaction with GenLayerJS.',retry:'retry COMMENT_ID FAILED_REVIEW_HASH [--send] — request another review of this finalized undetermined transaction.',wallet:'wallet create|address ABSOLUTE_KEY_FILE — local owner-only key setup; prints only the public address.',inspect:'Read the open objective, evidence rules and deployment.',list:'list [OFFSET] [LIMIT] — discover native contribution IDs, scope and points; defaults: 0 20, maximum 50 per page.',init:'init SLUG PUBLIC_WALLET [formal|research-note] — create a v2 Lean/Mathlib example or note; replace it with your research.',format:'format RECORD_OR_BUNDLE — normalize JSON before obtaining its hash or signing.',check:'check RECORD [--lean] — format only by default; --lean runs isolated pinned proof verification.',show:'show CONTRIBUTION_ID — exact native record, bundle and fully qualified theorem reference for reuse.',prepare:'prepare PR RECORD PUBLIC_WALLET — export the exact message for an external wallet.',sign:'sign PR RECORD — use CONTRIBUTOR_KEY_FILE and output only the public claim.',envelope:'envelope PREPARED_FILE SIGNATURE_FILE — validate an external signature.',status:'status PR — read archive plus finalized native state.',challenge:'challenge ID FILE [--impact] [--send] — preview or send substantive evidence.'},guide:'docs/FULL-LEAN.md in this trusted protocol checkout',keys:'Keep private keys outside repositories. Never send them to the platform.'});return;}
   if(command==='format'){const f=workFile(rest[0]),maximum=rest[0]?.startsWith('research/artifacts/')?32768:16000,bytes=readProblemFile(worktree,rest[0],maximum),text=new TextDecoder('utf-8',{fatal:true}).decode(bytes),normalized=JSON.stringify(JSON.parse(text),null,2)+'\n';if(Buffer.byteLength(normalized)>maximum)throw Error(`Formatted JSON exceeds ${maximum} UTF-8 bytes`);fs.writeFileSync(f,normalized);out({formatted:rest[0]});return;}
   if(command==='wallet'){
    if(rest.length!==2||!['create','address'].includes(rest[0]))throw Error('Usage: wallet create|address /absolute/private/key-file');
    // The caller may launch from HOME, which is not itself a repository.
    // walletPath also checks every destination ancestor for an actual .git.
-   const roots=[toolRoot,...(directory?[fs.realpathSync(directory)]:[])];
+   const roots=[toolRoot,verifierRoot,...(directory?[fs.realpathSync(directory)]:[])];
    out((rest[0]==='create'?createLocalWallet:localWalletAddress)(rest[1],{roots}));return;
   }
   if(!directory)throw Error('Set OPEN_MATH_PROBLEM_DIR to the trusted main-branch configuration checkout.');
-  const problem=loadOpenProblem(directory),d=problem.deployment;verifyOpenCheckout(problem,toolRoot);
+  const problem=loadOpenProblem(directory),d=problem.deployment;
+  verifyOpenCheckout(problem,verifierRoot);
+  if(verifierRoot!==toolRoot||command==='submit'||command==='retry'){
+   const release=parseProblemJSON(readProblemFile(problem.root,'.open-math/wallet-intake.json'));
+   verifyPinnedTools(toolRoot,release.clientCommit);
+  }
+  const signerRoots=[toolRoot,verifierRoot,problem.root,worktree];
+  if(command==='submit'||command==='retry')return await sendResearchRequest(args,{problem,signerRoots});
   const gh=new GitHub({repository:d.repository}),native=createOpenNativeReader(problem);
   if(['prepare','sign','status'].includes(command))gh.token=resolveContributorGitHubToken();
   function decode(bytes,wallet){const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));return decodeOpenSubmission(bytes,{wallet:wallet||parsed.attribution?.wallet,problem});}
@@ -172,14 +181,14 @@ export async function run(argv=process.argv.slice(2)){
    try{
     const artifact=path.join(temp,'candidate.json');fs.writeFileSync(artifact,artifactBytes,{mode:0o600,flag:'wx'});
     const manifest=writeOpenDependencyManifest(temp,resolved);
-    const run=spawnSync('python3',['-B',path.join(toolRoot,'scripts/verify_open.py'),'--bundle',artifact,'--dependencies',manifest,'--policy',path.join(problem.root,problem.descriptor.policy.path),'--policy-hash',problem.policyHash,'--repository',d.repository,'--head','1'.repeat(40),'--base','2'.repeat(40),'--protocol-commit',problem.descriptor.protocol.commit,...(rest.includes('--lean')?[]:['--syntax-only'])],{cwd:toolRoot,encoding:'utf8',timeout:problem.policy.version===6?1260000:120000,maxBuffer:150000,env:{PATH:process.env.PATH,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE}});
+    const run=spawnSync('python3',['-B',path.join(verifierRoot,'scripts/verify_open.py'),'--bundle',artifact,'--dependencies',manifest,'--policy',path.join(problem.root,problem.descriptor.policy.path),'--policy-hash',problem.policyHash,'--repository',d.repository,'--head','1'.repeat(40),'--base','2'.repeat(40),'--protocol-commit',problem.descriptor.protocol.commit,...(rest.includes('--lean')?[]:['--syntax-only'])],{cwd:verifierRoot,encoding:'utf8',timeout:problem.policy.version===6?1260000:120000,maxBuffer:150000,env:{PATH:process.env.PATH,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE}});
     if(run.status!==0)throw Error(openVerifierFailure(run));out(localCheckResult(JSON.parse(run.stdout),{lean:rest.includes('--lean')}));
    }finally{fs.rmSync(temp,{recursive:true,force:true});}
   }else if(command==='show'){
    const r=await native('get',[rest[0]]),inheritance=await readOpenRecordInheritance(r,rest[0],problem,id=>native('get_inheritance',[id])),reuse=formalReuseReference(r.evidence);out({record:r,inheritance,namespace:reuse?.namespace??null,reuse,next:'Only credited formal artifacts can be imported. Use the exact fully qualified reference; put its ID and bundle_hash in the bundle, and the same ID with actual use and importance in the record.'});
   }else if(command==='prepare'||command==='sign'){
    await native('get_config',[]);
-   const number=Number(rest[0]),recordPath=rest[1],account=command==='sign'?loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]):null,wallet=account?.address||rest[2];
+   const number=Number(rest[0]),recordPath=rest[1],account=command==='sign'?loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,signerRoots):null,wallet=account?.address||rest[2];
    if(!Number.isSafeInteger(number)||number<1||!isAddress(wallet||''))throw Error('PR number, record path and public wallet required');
    const {pr,recordBytes}=await prepareOpenContribution({problem,github:gh,number,recordPath,wallet});
    await fetchGitHubIdentity({github:gh,authorId:pr.user.id,login:pr.user.login,at:Date.now(),minimumAgeDays:d.minimumGitHubAccountAgeDays});
@@ -198,7 +207,7 @@ export async function run(argv=process.argv.slice(2)){
    const [id,file]=rest,isImpact=rest.includes('--impact'),evidence=fs.readFileSync(path.isAbsolute(file)?file:workFile(file),'utf8'),state=await native(isImpact?'get_impact':'get',[id]),method=isImpact?'challenge_impact':'challenge';
    if(evidence.trim().length<20||evidence.length>4000||state.status!=='provisional'||Date.now()>=Number(state.deadline)*1000||Number(state.round)>=2)throw Error('Substantive evidence and an open challenge window required');
    if(!rest.includes('--send'))out({contract:d.contract,method,args:[id,evidence],deadline:state.deadline,next:'Repeat with --send and your local signer after reviewing.'});
-   else{const a=loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,[toolRoot,problem.root,worktree]),client=createStudioClient({account:a});sent={contract:d.contract,wallet:a.address,method};const hash=await client.writeContract({address:d.contract,functionName:method,args:[id,evidence],leaderOnly:false});sent.hash=hash;console.error(JSON.stringify({status:'broadcast',...sent}));await finalized(client,hash,{address:d.contract,method,args:[id,evidence],sender:a.address});out({status:'challenge finalized',hash});}
+   else{const a=loadLocalSigner(process.env.CONTRIBUTOR_KEY_FILE,signerRoots),client=createStudioClient({account:a});sent={contract:d.contract,wallet:a.address,method};const hash=await client.writeContract({address:d.contract,functionName:method,args:[id,evidence],leaderOnly:false});sent.hash=hash;console.error(JSON.stringify({status:'broadcast',...sent}));await finalized(client,hash,{address:d.contract,method,args:[id,evidence],sender:a.address});out({status:'challenge finalized',hash});}
   }else throw Error('Unknown command; run help');
  }catch(error){console.error(JSON.stringify({error:error.message,...(sent?{transaction:sent,next:'Inspect this transaction before retrying; it may already be broadcast.'}:{})}));process.exitCode=1;}
 }

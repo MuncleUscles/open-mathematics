@@ -6,12 +6,21 @@ import {prepareWalletSubmission} from '../public/open/wallet-submission.mjs';
 import tracks from '../public/open/wallet-tracks.json' with {type:'json'};
 import {canonical,message,digest} from '../src/security.mjs';
 import {walletRequest} from '../src/wallet-intake.mjs';
+import {cliSubmission} from '../scripts/research-request.mjs';
+test('official CLI preview only offers calls with the exact native argument types',()=>{
+ const address=tracks['p-vs-np'].intake,hash='ab'.repeat(32);
+ assert.equal(cliSubmission(address,{method:'submit',args:[hash,9,50]}),`genlayer write ${address} submit --args ${hash} 9 50`);
+ for(const digest of ['3'.repeat(64),'0000001e'+'0'.repeat(56)]){
+  assert.equal(cliSubmission(address,{method:'submit',args:[digest,9,50]}),null);
+ }
+ assert.equal(cliSubmission(address,{method:'request_retry',args:[hash,9,50,'0x'+hash]}),null);
+});
 const wallet=privateKeyToAccount('0x'+'31'.repeat(32));
 for(const [track,binding] of Object.entries(tracks)){
  test(track+' browser and agent use identical track, sender and typed request arguments',async()=>{
   const repository='MuncleUscles/'+track,commentId=232,when=new Date().toISOString(),pr=17,
    claim={version:4,chainId:61999,repository,problem:track,contract:binding.ledger,policy:binding.policy,domain:'https://muncleuscles.github.io',
-    pr,branch:'research',head:'a'.repeat(40),base:'b'.repeat(40),wallet:wallet.address,expires:Date.parse(when)+60000,protocol_commit:'1'.repeat(40)};
+    submission_path:'research/submissions/proof.json',submission_hash:'a'.repeat(64),nonce:'1'.repeat(32),pr,branch:'research',head:'a'.repeat(40),base:'b'.repeat(40),wallet:wallet.address,expires:Date.parse(when)+60000,protocol_commit:'1'.repeat(40)};
   const signature=await wallet.signMessage({message:message(claim)});
   const comment={id:commentId,user:{id:9},created_at:when,updated_at:when,issue_url:'https://api.github.com/repos/'+repository+'/issues/17',
    body:'Open-Mathematics-Claim: '+digest(claim)+'\n```json\n'+canonical({claim,signature})+'\n```'};
