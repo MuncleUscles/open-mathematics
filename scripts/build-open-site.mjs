@@ -66,7 +66,10 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
   validateFederationSnapshot(captured,problem);
   fs.writeFileSync(path.join(destination,'federation-snapshot.json'),JSON.stringify(captured)+'\n');
  }
- fs.copyFileSync(path.join(rendererRoot,'public/open/index.html'),path.join(destination,'index.html'));
+ const template=fs.readFileSync(path.join(rendererRoot,'public/open/index.html'),'utf8');
+ const html=template.replace('src="app.js"', `src="app.js?v=${commit}"`)
+                    .replace('href="style.css"', `href="style.css?v=${commit}"`);
+ fs.writeFileSync(path.join(destination,'index.html'),html);
  for(const name of ['style.css','favicon.svg'])fs.copyFileSync(path.join(rendererRoot,'public/open',name),path.join(destination,name));
  fs.cpSync(path.join(rendererRoot,'public/open/assets'),path.join(destination,'assets'),{recursive:true});
  const forecastPath=path.join(p.root,'.open-math/forecasts.json');
