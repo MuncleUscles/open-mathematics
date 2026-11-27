@@ -1,13 +1,24 @@
-// Each address is bound to the matching problem repository's reviewed deployment record.
+// A native ledger is shown only for a track with a reviewed deployment.
 const tracks = new Map([
   ['yang-mills', {
     title: 'Yang–Mills existence and mass gap',
     question: 'Is there a gap above the vacuum?',
     description: 'In quantum theory, the vacuum is the lowest-energy state. A positive mass gap means every excitation costs at least some fixed amount of energy. OpenAI has published a construction for the existence part of the four-dimensional problem. The positive mass gap remains open. Can a proof give a strictly positive lower bound in the continuum theory?',
     direction: 'A useful partial result might show how a lower bound depends on lattice spacing or volume. State which estimates survive the continuum and infinite-volume limits.',
+    sourceLabel: 'Official Clay problem statement',
+    intake: 'The ledger is deployed. Automated submission review is awaiting activation.',
     source: 'https://www.claymath.org/millennium/yang-mills-the-maths-gap/',
     contract: '0x983d27779dF7D495d4c881Ab0925B42A7bBf76d7',
     policy: '56e3d0e86958d1f5f36976c8eecf234a3f8117557e7c5d6f6f0395d59be6234d',
+  }],
+  ['post-quantum-signatures', {
+    title: 'Post-Quantum Signature Aggregation',
+    question: 'Can the apes make quantum-safe signatures cheaper?',
+    description: 'Ethereum validators use BLS signatures to combine many attestations into one small signature. A sufficiently powerful quantum computer could break the elliptic-curve assumption behind BLS. With hash-based signatures, one route to aggregation is a succinct proof that every individual signature verifies.',
+    direction: 'The first research front is incomparable encodings for hash-chain signatures. Can an encoding make those checks cheaper at the same security level? A contribution can also establish a lower bound on what any encoding in a specified model can achieve.',
+    sourceLabel: 'Read the hash-based multisignature paper',
+    source: 'https://eprint.iacr.org/2025/055',
+    intake: 'Listed challenge. Verified submissions are closed until the dedicated Lean verifier and GenLayer credit route are ready.',
   }],
 ]);
 
@@ -21,10 +32,18 @@ export function showProblemTrack(id, track, getReader, preview) {
   if (displayed === state) return;
   displayed = state;
   const field = name => document.getElementById('track-' + name);
-  const repository = 'MuncleUscles/' + id;
-  const github = 'https://github.com/' + repository;
   for (const name of ['title', 'question', 'description', 'direction']) field(name).textContent = track[name];
   field('source').href = track.source;
+  field('source').textContent = track.sourceLabel;
+  field('intake').textContent = track.intake;
+  document.querySelectorAll('[data-track-details]').forEach(node => {
+    node.hidden = node.dataset.trackDetails !== id;
+  });
+  field('ledger').hidden = !track.contract;
+  if (!track.contract) return;
+
+  const repository = 'MuncleUscles/' + id;
+  const github = 'https://github.com/' + repository;
   field('guide').href = github + '/blob/main/AGENTS.md';
   field('work').href = github + '/pulls?q=is%3Apr+base%3Aresearch';
   field('contract').href = 'https://studio.genlayer.com/contracts?import-contract=' + track.contract;
