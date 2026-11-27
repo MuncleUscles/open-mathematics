@@ -271,7 +271,7 @@ async function main(){
    await github.request('/check-runs',{method:'POST',body:{
     name:'open-mathematics/studio-review',head_sha:claim.head,status:'completed',conclusion:'neutral',
     external_id:hash,details_url:url,output:{title:'Follow the Studio review',summary:
-     `[Open the review and appeal](${url}). Studio normally allows one minute from its decision. Review transaction: \`${hash}\`.`},
+     `[Open the review and appeal](${url}). Watch now. Studio opens a short appeal window at its decision. The page shows the live deadline. Review transaction: \`${hash}\`.`},
    }});
    report.reviewLinkHash=hash;
   }

@@ -25,7 +25,10 @@ export async function readAppeal(client, txId, contracts) {
     throw Error('The decision just changed. Check the new round.');
   const bond = BigInt(quote.bond), funding = BigInt(quote.funding);
   if (bond < 0n || funding < 0n) throw Error('Studio returned an invalid charge.');
-  return {...result, decisionId: BigInt(quote.decisionId), charge: bond + funding};
+  const deadline = Number(quote.appealDeadline);
+  if (!Number.isSafeInteger(deadline) || deadline <= 0) throw Error('Studio has not supplied a decision deadline.');
+  if (deadline <= Number(lifecycle.evaluatedAt)) return result;
+  return {...result, decisionId: BigInt(quote.decisionId), charge: bond + funding, deadline};
 }
 
 // The SDK binds the call to a decision. Also bind the wallet prompt to what the
@@ -42,7 +45,17 @@ export function quotedProvider(provider, txId, quote) {
   }};
 }
 
+export function leaveAppeal() {
+  if (showAppeal.route === undefined) return;
+  showAppeal.route = undefined;
+  ++showAppeal.sequence;
+  clearTimeout(showAppeal.timer);
+}
+
 export function showAppeal(hash, primaryContract) {
+  const route = (hash || '') + '/' + (primaryContract || '');
+  if (showAppeal.route === route) return;
+  showAppeal.route = route;
   const form = byId('appeal-lookup'), input = byId('appeal-hash');
   const status = byId('appeal-status'), button = byId('appeal-submit'), explorer = byId('appeal-explorer');
   form.onsubmit = event => { event.preventDefault(); location.hash = '/appeals/' + input.value.trim(); };
@@ -50,9 +63,16 @@ export function showAppeal(hash, primaryContract) {
   if (showAppeal.timer) clearTimeout(showAppeal.timer);
   const current = () => sequence === showAppeal.sequence && location.hash === '#/appeals/' + hash;
   input.value = hash || '';
-  button.hidden = true;
+  button.hidden = true; button.disabled = false;
   explorer.hidden = true;
   status.textContent = '';
+  if (!showAppeal.windowRead) {
+    showAppeal.windowRead = true;
+    api().request({method:'sim_getFinalityWindowTime',params:[]}).then(seconds => {
+      if (Number.isSafeInteger(seconds) && seconds > 0)
+        byId('appeal-window').textContent = 'Studio’s current base window is ' + seconds + ' seconds. Each decision has its own deadline.';
+    }).catch(() => { showAppeal.windowRead = false; });
+  }
   if (!hash) return;
   if (!hashPattern.test(hash)){ status.textContent = 'Enter the full Studio transaction hash.'; return; }
   explorer.href = 'https://explorer-studio.genlayer.com/tx/' + hash;
@@ -65,7 +85,7 @@ export function showAppeal(hash, primaryContract) {
   ]);
   contracts.delete(undefined);
   const client = api();
-  let submitting = false;
+  let submitting = false, submittedDecision;
   async function watch() {
     if (!current() || submitting) return;
     try {
@@ -73,10 +93,11 @@ export function showAppeal(hash, primaryContract) {
       if (!current() || submitting) return;
       const open = quote.charge !== undefined;
       status.textContent = quote.track + ' · ' + quote.status + '. ' + (open
-        ? 'The appeal charge is ' + formatEther(quote.charge) + ' Studio GEN, including the bond and review funding.'
+        ? 'Appeal by ' + new Date(quote.deadline * 1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}) + '. The charge is ' + formatEther(quote.charge) + ' Studio GEN, including the bond and review funding.'
         : quote.final ? (quote.outcome === 'undetermined' ? 'The decision was undetermined. The PR author can request a retry on the original claim.' : 'The appeal window has closed.')
         : 'Watching Studio for an open appeal window…');
-      button.hidden = !open;
+      button.hidden = !open || quote.decisionId === submittedDecision;
+      if (open && quote.decisionId === submittedDecision) status.textContent = 'Appeal submitted. Waiting for Studio to update the round.';
       if (open) button.onclick = async () => {
         if (submitting) return;
         submitting = true; button.disabled = true; clearTimeout(showAppeal.timer);
@@ -96,11 +117,12 @@ export function showAppeal(hash, primaryContract) {
             throw Error('The appeal decision or charge has changed. Check the transaction again.');
           const signer = createClient({chain:studionet,account,provider:quotedProvider(wallet,hash,quote)});
           await signer.appealTransaction({txId:hash,value:quote.charge});
+          submittedDecision = quote.decisionId;
           if (current()) { status.textContent = 'Appeal submitted. Follow the new round in Studio Explorer.'; button.hidden = true; }
         } catch(error) {
           if (current()) {status.textContent = error.shortMessage || error.message || 'The wallet could not submit the appeal.'; button.hidden = true;}
         } finally {
-          submitting = false; button.disabled = false;
+          submitting = false; if(current()) button.disabled = false;
           if(current()) showAppeal.timer = setTimeout(watch, 5000);
         }
       };

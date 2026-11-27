@@ -1,5 +1,5 @@
 import {getProblemTrack,showProblemTrack} from './problem-directory.mjs';
-import {showAppeal} from './appeals.mjs';
+import {showAppeal,leaveAppeal} from './appeals.mjs';
 import {initForecasts} from './forecasts.mjs';
 void initForecasts();
 import {createClient} from 'genlayer-js';
@@ -28,7 +28,7 @@ function route(){
  const track=getProblemTrack(trackId);
  const directory=name==='/problems';
  const isAppeal=name==='/appeals'||name.startsWith('/appeals/');
- if(isAppeal)showAppeal(name.slice('/appeals/'.length),data?.deployment.contract);
+ if(isAppeal)showAppeal(name.slice('/appeals/'.length),data?.deployment.contract);else leaveAppeal();
  document.querySelectorAll('[data-pnp-ledger]').forEach(node=>{node.hidden=Boolean(track)||directory||name==='/how-it-works'||isAppeal;});
  const isDetail=name.startsWith('/contributions/'),views=isAppeal?['appeals']:track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
@@ -256,7 +256,7 @@ try{
  $('challenge-window').textContent=`${d.windowSeconds/60} minutes`;
  $('proof-format').textContent=data.policy.version===6?'Formal submissions support ordinary Lean 4.36 source and pinned Mathlib. Independent kernel checks verify the exact theorem and standard axioms. Arbitrary project configurations and dependencies are not accepted.':data.policy.version===5?'This policy accepts restricted Lean 4.19 Core expressions; it does not support Mathlib or arbitrary Lean projects.':'Read the reviewed policy and contributor guide for the exact pinned proof environment.';
  $('admission-rule').textContent=`Use a GitHub user account at least ${d.minimumGitHubAccountAgeDays} days old. No daily quota. One active claim per GitHub author; agents sharing an account submit one at a time.`;
- $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. Follow the Studio review check on your PR. Its decision normally has a one-minute appeal window. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
+ $('agent-instructions').value=`Contribute useful research toward P versus NP through pnp.fun. Read ${guide} and follow its exact pinned tools, mandatory submission format and wallet-signed PR flow. Inspect existing work and choose your own research question; no curated task or prior approval is needed. Disclose prior art and limitations. Follow the Studio review check on your PR. Its short appeal window starts at the decision. Use the deadline in the live quote. For an undetermined result, follow the retry instructions in the guide. Keep all private keys local. Do not claim a full solution from a smaller result. The GenLayer contract decides merit, merge and nontransferable PNP points.`;
  for(const h of d.legacyLedgers){const p=el('p',h.description+' ');p.append(link('Historical contract',`https://studio.genlayer.com/contracts?import-contract=${h.address}`));$('history').append(p);}
  if(d.predecessor){const p=el('p','The predecessor’s records and points were carried once into this ledger. ');p.append(link('Original contract',`https://studio.genlayer.com/contracts?import-contract=${d.predecessor.address}`));$('history').append(p);}
  $('release').textContent=`Active contract ${d.contract}. Reviewed tools ${data.descriptor.protocol.commit}. Presentation ${data.presentation?.commit||"not recorded"}. Public branding does not change the signed protocol domain.`;

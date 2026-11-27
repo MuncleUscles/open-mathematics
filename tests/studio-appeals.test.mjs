@@ -7,13 +7,15 @@ const contracts=new Map([[contract,'Yang–Mills']]);
 function client(lifecycle={},quote={}) {
   return {getTransaction:async()=>({hash:txId,to_address:contract,lifecycle:{outcome:'undetermined'}}),
     request:async({method})=>method==='gen_getTransactionLifecycle'
-      ? {storedStatus:'Undetermined',storedStatusCode:6,decisionActive:true,decisionId:3,...lifecycle}
-      : {decisionId:3,bond:'200',funding:'10',...quote}};
+      ? {storedStatus:'Undetermined',storedStatusCode:6,decisionActive:true,decisionId:3,evaluatedAt:1000,...lifecycle}
+      : {decisionId:3,bond:'200',funding:'10',appealDeadline:'1030',...quote}};
 }
 test('the appeal page quotes the current Studio decision and closes finalized or expired windows',async()=>{
   const result=await readAppeal(client(),txId,contracts);
   assert.equal(result.charge,210n);
   assert.equal(result.decisionId,3n);
+  assert.equal(result.deadline,1030);
+  assert.equal((await readAppeal(client({evaluatedAt:1030}),txId,contracts)).charge,undefined);
   assert.equal((await readAppeal(client({storedStatusCode:7}),txId,contracts)).charge,undefined);
   assert.equal((await readAppeal(client({resolutionAction:'Finalize'}),txId,contracts)).charge,undefined);
   await assert.rejects(readAppeal(client({},{decisionId:4}),txId,contracts),/changed/);
