@@ -1,5 +1,5 @@
 import deployments from './wallet-tracks.json' with {type:'json'};
-import {getProblemTrack,showProblemTrack,activityLabel,readTrackActivity,otherTrackContracts} from './problem-directory.mjs';
+import {getProblemTrack,showProblemTrack,activityLabel,readTrackFeed,readTrackPage,combineTrackFeeds,trackNames,otherTrackContracts} from './problem-directory.mjs';
 import {agentTracks,agentPrompt,platformGuide} from './agent-guide.mjs';
 import {initWalletSubmission} from './wallet-submission.mjs';
 initWalletSubmission();
@@ -41,17 +41,17 @@ function renderActivity(id, unavailable = false) {
   }
  }
 }
-function loadActivity(id) {
+function loadActivity(id, force = false) {
  const previous = attempted.get(id);
  renderActivity(id, previous?.failed);
  const lastRead = Math.max(previous?.at ?? 0, Date.parse(activity.get(id)?.checkedAt) || 0);
- if (!trackReads || data?.preview || previous?.pending || Date.now() - lastRead < 300000) return;
+ if (!trackReads || data?.preview || previous?.pending || (!force && Date.now() - lastRead < 300000)) return;
  const attempt = {at: Date.now(), pending: true, failed: false};
  attempted.set(id, attempt);
- readTrackActivity(id, trackReads[id])
+ return readTrackFeed(id, trackReads[id])
   .then(value => activity.set(id, value))
   .catch(() => { attempt.failed = true; })
-  .finally(() => { attempt.pending = false; renderActivity(id, attempt.failed); });
+  .finally(() => { attempt.pending = false; renderActivity(id, attempt.failed); renderFeed(); });
 }
 
 const viewMap={'/':['home','directory','forecast-preview','research','graph','federation','leaderboard','how','agent'],'/submit':['submit'],'/problems':['directory'],'/problems/p-vs-np':['problem','graph'],'/contributions':['research'],'/graph':['graph'],'/federation':['federation'],'/leaderboard':['leaderboard'],'/forecasts':['forecasts'],'/how-it-works':['how'],'/agent':['agent']};
@@ -83,11 +83,11 @@ function route(){
  const isDetail=name.startsWith('/contributions/'),views=isAppeal?['appeals']:track?['track']:isDetail?['detail']:(viewMap[name]||['home','problem','research','graph','leaderboard','how','agent']);
  document.querySelectorAll('.view').forEach(node=>node.hidden=!views.includes(node.id.replace('-view',''))||(node.id==='federation-view'&&!data?.federation));
  document.querySelectorAll('.masthead nav a').forEach(node=>{if(node.getAttribute('href')==='#'+name || (name.startsWith('/problems/') && node.getAttribute('href')==='#/problems'))node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
- $('pnp-ledger-view').hidden = !(isDetail || ['/problems/p-vs-np','/contributions','/graph','/leaderboard','/federation'].includes(name));
+ $('pnp-ledger-view').hidden = !(isDetail || ['/problems/p-vs-np','/graph','/leaderboard','/federation'].includes(name));
  if (track) {
   showProblemTrack(trackId, track);
   loadActivity(trackId);
- } else if (directory || name === '/') {
+ } else if (directory || name === '/' || name === '/contributions') {
   for (const id of Object.keys(otherTrackContracts)) loadActivity(id);
   renderActivity('p-vs-np', data?.preview === false && currentView?.mode === 'unavailable');
  }
@@ -112,20 +112,50 @@ window.addEventListener('hashchange',()=>{closeMenu();route();window.scrollTo(0,
 route();
 function badge(c){return el('span',c.stateLabel,'badge '+c.status);}
 function recordRow(c){
+ const local = c.track === 'p-vs-np';
+ const prUrl = 'https://github.com/MuncleUscles/' + c.track + '/pull/' + c.pr;
  const row=el('article',undefined,'contribution-row'),state=el('div',undefined,'record-state'),body=el('div',undefined,'record-body'),points=el('div',undefined,'record-points');
- state.append(badge(c),el('span',c.evidenceKind==='formal'?'Formal proof':'Research note','record-type'));
- const title=el('h3');title.append(link(c.title,detailUrl(c.id)));body.append(title,el('p',c.claim.length>210?c.claim.slice(0,207)+'…':c.claim));
+ state.append(badge(c),link(trackNames[c.track], '#/problems/' + c.track, 'record-type'));
+ const title=el('h3');title.append(link(c.title,local ? detailUrl(c.id) : prUrl));body.append(title,el('p',c.claim.length>210?c.claim.slice(0,207)+'…':c.claim));
  const meta=el('div',undefined,'record-meta');meta.append(el('span',c.evidenceLabel),el('span',c.researchDirection),contributorLink(c.githubAuthorId));body.append(meta);
- points.append(el('strong',fmt(c.authorPoints)),el('span',data?.federation?'original author PNP':'author PNP'),link('PR #'+c.pr,repository+'/pull/'+c.pr));
- if(data?.federation&&c.status==='credited'){const a=currentAttribution(c.id),local=a?.initial_allocations.find(row=>row.subject==='contributor');points.append(el('span',a?`${fmt(local?.points||'0')} currently attributed to local contributor`:'Current attribution not loaded','attribution-note'));}
+ points.append(el('strong',fmt(c.authorPoints)),el('span',local && data?.federation ? 'original author PNP' : 'author points'),link('PR #'+c.pr,prUrl));
+ if(local && data?.federation&&c.status==='credited'){const a=currentAttribution(c.id),localAllocation=a?.initial_allocations.find(row=>row.subject==='contributor');points.append(el('span',a?`${fmt(localAllocation?.points||'0')} currently attributed to local contributor`:'Current attribution not loaded','attribution-note'));}
  row.append(state,body,points);return row;
 }
+
+const loadingPages = new Set(), pageErrors = new Map();
 function renderFeed(){
- if(!model)return;
  const query=$('search').value.trim().toLowerCase(),status=$('filter-status').value,kind=$('filter-kind').value;
- const rows=model.contributions.filter(c=>(kind==='all'||kind===c.evidenceKind)&&(status==='all'||(status==='pending'?['submitted','provisional','challenged','approved'].includes(c.status):status===c.status))&&(!query||[c.title,c.claim,c.researchDirection,c.wallet,contributorName(c.githubAuthorId)].join(' ').toLowerCase().includes(query))).reverse();
- $('contributions').replaceChildren(...(rows.length?rows.map(recordRow):[el('p','No matching contributions in the loaded records.','empty')]));
- $('results-count').textContent=`${rows.length} matching contribution${rows.length===1?'':'s'} · ${model.coverage.loaded} of ${model.coverage.total} registered records loaded`;
+ const {covered, contributions:all, total} = combineTrackFeeds(activity);
+ const pages = $('other-pages');
+ pages.replaceChildren();
+ for (const track of Object.keys(otherTrackContracts)) {
+  const value = activity.get(track);
+  if (value?.offset > 0) {
+   const button = el('button','Load earlier ' + trackNames[track] + ' contributions','button outline');
+   button.type = 'button';
+   button.disabled = loadingPages.has(track);
+   button.onclick = async () => {
+    loadingPages.add(track); button.disabled = true; pageErrors.delete(track);
+    try {
+     const page = await readTrackPage(track, trackReads[track], value, value.offset);
+     if (activity.get(track) === value) {
+      if (page.rows.some(row => value.rows.some(existing => existing.id === row.id))) throw Error('Overlapping ledger pages');
+      activity.set(track, {...value, offset:page.offset, rows:[...page.rows, ...value.rows]});
+     }
+    } catch { pageErrors.set(track,'Earlier records are unavailable. Refresh and try again.'); }
+    finally { loadingPages.delete(track); renderFeed(); }
+   };
+   pages.append(button);
+   if (pageErrors.has(track)) pages.append(el('span',pageErrors.get(track),'fine'));
+  }
+ }
+ const rows=all.filter(c=>(kind==='all'||kind===c.evidenceKind)&&(status==='all'||(status==='pending'?['submitted','provisional','challenged','approved'].includes(c.status):status===c.status))&&(!query||[trackNames[c.track],c.title,c.claim,c.researchDirection,c.wallet,contributorName(c.githubAuthorId)].join(' ').toLowerCase().includes(query)));
+ const coverage = covered.length === Object.keys(trackNames).length ? 'all three tracks' : covered.length + ' of 3 tracks';
+ $('contributions').replaceChildren(...(rows.length?rows.map(recordRow):[el('p',covered.length ? 'No matching contributions in the loaded records.' : 'Waiting for research records.','empty')]));
+ $('results-count').textContent = covered.length ? `${rows.length} matching contribution${rows.length===1?'':'s'} · ${all.length} of ${fmt(total)} registered records loaded across ${coverage}` : 'Reading research ledgers…';
+ const stale = covered.filter(id => id === 'p-vs-np' ? (currentView?.unavailable || (currentView?.mode === 'published' && !busy)) : attempted.get(id)?.failed);
+ if (stale.length) $('results-count').textContent += ' · Showing saved data for ' + stale.map(id => trackNames[id]).join(', ');
 }
 function block(title,text){const node=el('section',undefined,'detail-block');node.append(el('h2',title));if(text)node.append(el('p',text));return node;}
 function renderDetail(id){
@@ -318,7 +348,8 @@ function renderLeaderboard(){
 function renderAll(){
  const snapshot=currentView.snapshot;model=buildResearchView({records,impacts,count:snapshot.count,points:snapshot.points});
  activity.set('p-vs-np', {count:String(snapshot.count),earned:String(snapshot.points.total_awarded),
-  upstream:String(snapshot.points.total_impact_points),checkedAt:snapshot.completedAt});
+  upstream:String(snapshot.points.total_impact_points),checkedAt:snapshot.completedAt,
+  rows:model.contributions.map((c, i) => ({...c, submittedAt:records[i].evidence.claim_comment_created_at}))});
  $('count').textContent=fmt(snapshot.count);$('total').textContent=fmt(snapshot.points.total_awarded);$('impact').textContent=fmt(snapshot.points.total_impact_points);
  $('reserve-status').textContent=`${fmt(snapshot.points.total_award_budgets)} PNP in accepted result budgets; ${fmt(snapshot.points.total_reserved_points)} PNP awaiting attribution settlement.${data.deployment.predecessor?' Carried points are counted once.':''}`;
  renderFeed();renderGraph();renderLeaderboard();renderFederation();route();$('older').hidden=nextEnd===0;
@@ -377,7 +408,7 @@ async function refresh(){
   else $('status').textContent='Live ledger and validated published snapshot unavailable. No example records have been substituted.';
  }catch(error){console.warn('Research ledger read failed',error);$('status').textContent='Could not verify the research view. Any previously displayed records may be stale.';}finally{
   try{await refreshAccounts();await refreshFederation();}
-  finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;}
+  finally{busy=false;$('refresh').disabled=false;$('older').disabled=false;renderFeed();}
  }
 }
 async function earlier(){
@@ -388,6 +419,11 @@ async function earlier(){
  }catch(error){$('status').textContent='Could not load earlier records. '+String(error.message).slice(0,180);}finally{busy=false;$('older').disabled=false;$('refresh').disabled=false;}
 }
 $('filters').addEventListener('submit',event=>event.preventDefault());for(const id of ['search','filter-status','filter-kind'])$(id).addEventListener('input',renderFeed);
+$('refresh-feed').addEventListener('click', async event => {
+ const button = event.currentTarget; button.disabled = true;
+ try { await Promise.all([refresh(), ...Object.keys(otherTrackContracts).map(track => loadActivity(track, true))]); }
+ finally { button.disabled = false; renderFeed(); }
+});
 $('refresh').addEventListener('click',refresh);$('older').addEventListener('click',earlier);
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('agent-instructions').value);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('agent-instructions').focus();$('agent-instructions').select();$('copy-status').textContent='Select and copy the instructions above, or share the full guide.';}});
 try{
@@ -404,7 +440,7 @@ try{
  }
  if(data.githubAccounts){validateGitHubAccountsDeployment(data.githubAccounts,data);$('accounts-contract').href=`https://studio.genlayer.com/contracts?import-contract=${data.githubAccounts.contract}`;$('accounts-contract').hidden=false;}
  ({read,accountRead,trackReads}=createDashboardReaders({client:createClient({chain:studionet}),contract:d.contract,accountsContract:data.githubAccounts?.contract,trackContracts:otherTrackContracts}));
- route();
+ route(); renderFeed();
  if(data.preview){$('status').textContent='Local design preview. Live reads are disabled and no example results are presented as research.';$('refresh').disabled=true;route();}else{
   busy=true;$('refresh').disabled=true;$('older').disabled=true;await showPublishedViews();busy=false;await refresh();
  }

@@ -1,5 +1,6 @@
 import deployments from './wallet-tracks.json' with {type:'json'};
-import {validatePoints} from '../../src/open-snapshot.mjs';
+import {SNAPSHOT_RECORD_LIMIT, validatePoints, validateSnapshotRecord} from '../../src/open-snapshot.mjs';
+import {buildResearchView} from '../../src/open-research-view.mjs';
 
 export const trackNames = {
   'p-vs-np': 'P vs NP',
@@ -29,8 +30,59 @@ export async function readTrackActivity(id, read) {
   }
   const points = await read('get_points', [config.verifier]);
   validatePoints(points, {deployment: {problem: id}});
-  return {ledger, count: String(count), earned: String(points.total_awarded),
+  return {ledger, count: String(count), points, earned: String(points.total_awarded),
     upstream: String(points.total_impact_points), checkedAt: new Date().toISOString()};
+}
+
+// Fetch a bounded page on its own finalized ledger. Record IDs and point totals
+// have meaning only within that ledger.
+export async function readTrackPage(id, read, summary, end = Number(summary.count)) {
+  const total = Number(summary.count);
+  if (!Number.isSafeInteger(end) || end < 0 || end > total) throw Error('Invalid page boundary');
+  const size = Math.min(SNAPSHOT_RECORD_LIMIT, end), offset = end - size;
+  if (!size) return {offset, rows: []};
+  const {items, total: pageTotal} = await read('list_contributions', [offset, size]);
+  if (Number(pageTotal) !== total || !Array.isArray(items) || items.length !== size ||
+      new Set(items).size !== size || !items.every(key => typeof key === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$/.test(key))) {
+    throw Error('Ledger changed or returned an invalid contribution page');
+  }
+  const problem = {deployment: {problem: id, repository: 'MuncleUscles/' + id, branch: 'research',
+    contract: deployments[id].ledger}, policyHash: deployments[id].policy};
+  const records = [], impacts = [];
+  for (const key of items) {
+    const record = await read('get', [key]), impact = await read('get_impact', [key]);
+    validateSnapshotRecord(record, impact, key, problem);
+    records.push(record);
+    impacts.push(impact);
+  }
+  const view = buildResearchView({records, impacts, count: summary.count, points: summary.points});
+  const rows = view.contributions.map((c, index) => ({
+    id: c.id, title: c.title, claim: c.claim, pr: c.pr, status: c.status, stateLabel: c.stateLabel,
+    evidenceKind: c.evidenceKind, evidenceLabel: c.evidenceLabel, researchDirection: c.researchDirection,
+    wallet: c.wallet, githubAuthorId: c.githubAuthorId, authorPoints: c.authorPoints,
+    submittedAt: records[index].evidence.claim_comment_created_at,
+  }));
+  return {offset, rows};
+}
+
+export async function readTrackFeed(id, read) {
+  const summary = await readTrackActivity(id, read);
+  return {...summary, ...await readTrackPage(id, read, summary)};
+}
+
+export function combineTrackFeeds(activity) {
+  const covered = [], contributions = [];
+  let total = 0n;
+  for (const track of Object.keys(trackNames)) {
+    const value = activity.get(track);
+    if (!Array.isArray(value?.rows)) continue;
+    covered.push(track);
+    total += BigInt(value.count);
+    for (const row of value.rows) contributions.push({...row, track});
+  }
+  contributions.sort((a,b) => (Date.parse(b.submittedAt) || 0) - (Date.parse(a.submittedAt) || 0) ||
+    a.track.localeCompare(b.track) || b.id.localeCompare(a.id));
+  return {covered, contributions, total};
 }
 
 export function activityLabel({count, earned, upstream}) {

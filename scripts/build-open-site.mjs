@@ -5,7 +5,7 @@ import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot} from '..
 import {validateFederationDeployment,validateFederationSnapshot} from '../src/federation-snapshot.mjs';
 import {clientFor,read} from '../github/runtime.mjs';
 import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
-import {trackNames,trackResources,readTrackActivity,otherTrackContracts} from '../public/open/problem-directory.mjs';
+import {trackNames,trackResources,readTrackFeed,otherTrackContracts} from '../public/open/problem-directory.mjs';
 import {agentTracks,agentPrompt,platformGuide,studioNetwork} from '../public/open/agent-guide.mjs';
 import {createDashboardReaders} from '../src/dashboard-read.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -73,7 +73,7 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  if (snapshot && p.descriptor.repository === 'MuncleUscles/p-vs-np') {
   const {trackReads} = createDashboardReaders({client:clientFor(), contract:p.deployment.contract, trackContracts:otherTrackContracts});
   await Promise.all(Object.entries(trackReads).map(async ([id, readLedger]) => {
-   try { trackActivity[id] = await readTrackActivity(id, readLedger); }
+   try { trackActivity[id] = await readTrackFeed(id, readLedger); }
    catch (error) { console.warn('Could not publish activity for', id, error.message); }
   }));
  }
