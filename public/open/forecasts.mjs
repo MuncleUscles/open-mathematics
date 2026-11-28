@@ -1,3 +1,5 @@
+import deployments from './wallet-tracks.json' with {type:'json'};
+import {trackNames} from './problem-directory.mjs';
 import {DOMAIN,canonical,bytes,digest,hex,validateQuestion} from '../../forecasting/core.mjs';
 const $=id=>document.getElementById(id);
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
@@ -56,12 +58,21 @@ function card(q){const section=node('article',undefined,'forecast-card');section
  section.append(form,trendFor(q),detailsFor(q));return section;
 }
 async function renderRanks(){const root=$('forecast-ranking');root.replaceChildren();try{const data=await request('/api/leaderboard');if(!data.ranks.length){root.append(node('p','The scoreboard is waiting for the evidence. Rankings begin after the first resolved question.','empty'));return;}const table=node('table'),caption=node('caption','Forecasters · time-weighted Brier loss, lower is better');table.append(caption);const head=node('thead'),tr=node('tr');for(const x of ['Rank','Forecaster','Resolved calls','Brier loss'])tr.append(node('th',x));head.append(tr);table.append(head);const body=node('tbody');data.ranks.forEach((r,i)=>{const row=node('tr'),who=node('td'),a=node('a',ape(r.participant));a.href=api+'/api/audit?participant='+r.participant;who.append(a);row.append(node('td',String(i+1)),who,node('td',String(r.resolved)),node('td',r.brier.toFixed(3)));body.append(row);});table.append(body);root.append(table,node('p','Early results are a small sample, not proof of forecasting skill.','fine'));}catch{root.append(node('p','Forecaster rankings are temporarily unavailable.','empty'));}}
+function questionTrack(q){
+ return Object.keys(deployments).find(id=>deployments[id].ledger.toLowerCase()===q.source.contract.toLowerCase()&&deployments[id].policy===q.source.policyHash);
+}
+function renderQuestions(){
+ const track=$('forecast-track').value;
+ const visible=questions.filter(q=>track==='all'||questionTrack(q)===track);
+ $('forecast-questions').replaceChildren(...(visible.length?visible.map(card):[node('p',track==='all'?'No forecast questions have been published.':'No forecast questions have been published for '+trackNames[track]+'.','empty')]));
+}
 async function load(){const result=await request('/api/questions');timeOffset=Date.parse(result.serverTime)-Date.now();
  questions=await Promise.all(result.questions.map(async q=>{const {hash,aggregate,resolution,trend,...definition}=q;validateQuestion(definition);if(hash!==await digest(definition))throw Error('Question commitment could not be verified.');return q;}));
- const preview=questions.map(q=>{const box=node('article'),a=node('a',q.text);a.href='#/forecasts';box.append(a,node('p',q.aggregate.probability===null?`${q.aggregate.count} ${q.aggregate.count===1?'forecaster':'forecasters'} · waiting for five calls`:`${q.aggregate.probability}% community call · ${q.aggregate.count} forecasters`,'fine'));return box;});$('forecast-preview-calls').replaceChildren(...preview);
- await loadHistory();identityLabel();$('forecast-questions').replaceChildren(...questions.map(card));renderHistory();await renderRanks();$('forecast-service-status').textContent=`Desk checked ${date(result.serverTime)}. Median of each identity’s latest call; at least five to display. Browser identities are not verified independent people.`;
+ const preview=questions.map(q=>{const box=node('article'),a=node('a',q.text);a.href='#/forecasts';box.append(node('span',trackNames[questionTrack(q)]??q.topic,'eyebrow'),a,node('p',q.aggregate.probability===null?`${q.aggregate.count} ${q.aggregate.count===1?'forecaster':'forecasters'} · waiting for five calls`:`${q.aggregate.probability}% community call · ${q.aggregate.count} forecasters`,'fine'));return box;});$('forecast-preview-calls').replaceChildren(...preview);
+ await loadHistory();identityLabel();renderQuestions();renderHistory();await renderRanks();$('forecast-service-status').textContent=`Desk checked ${date(result.serverTime)}. Median of each identity’s latest call; at least five to display. Browser identities are not verified independent people.`;
 }
 export async function initForecasts(){
+ $('forecast-track').addEventListener('change',()=>{if(questions.length)renderQuestions();});
  try{const response=await fetch('./forecasts-config.json',{cache:'no-store'});if(!response.ok)throw Error('The forecast desk has not been configured for this problem.');const config=await response.json();const base=new URL(config.api);if(base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))throw Error('Forecast service address is invalid.');api=base.origin;
   try{identity=await identityStore();}catch{$('forecast-identity').textContent='Browser identity storage is unavailable. Public forecasts can still be read.';}
   await load();

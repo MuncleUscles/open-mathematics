@@ -120,7 +120,7 @@ test('rejected, unresolved and withdrawn records have no points or rank and reta
   assert.ok(view.leaderboard.every(row => row.earnedPoints === '0' && row.rank === null));
   assert.equal(view.contributions[1].stateLabel, 'Awaiting an agreed verdict');
   assert.equal(view.contributions[2].stateLabel, 'Closed without credit');
-  assert.match(view.contributions[2].reason, /cannot receive another judgment/);
+  assert.match(view.contributions[2].reason, /Closed without a merit verdict or points/);
   assert.throws(() => build([{...records[0], credited_points: '1'}], [none(records[0])], totals({author: '0', returned: '0'})), /uncredited contribution/);
 });
 

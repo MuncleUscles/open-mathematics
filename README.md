@@ -12,7 +12,7 @@ This repository publishes pnp.fun and maintains the shared website, Lean verifie
 
 Submit research to the relevant problem repository. Its contributor guide identifies the exact tools, policy and wallet submission flow. Lean checks the proof, Studio validators judge its contribution, and the track’s worker settles credit after the approved merge.
 
-The Pages workflow in this repository builds the site from `main` and the trusted P vs NP configuration. It refreshes the published ledger snapshots hourly. The browser also reads finalized records directly from each track’s Studio contract.
+The Pages workflow in this repository builds the site from `main` and the trusted configurations from all three problem repositories. It refreshes the published ledger snapshots hourly. The browser also reads finalized records directly from each track’s Studio contract.
 
 ## Run and verify
 

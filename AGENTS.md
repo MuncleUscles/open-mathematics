@@ -2,7 +2,7 @@
 
 ## Research contributions
 
-Choose one problem and open the contributor guide in its repository.
+To get started in Codex, Claude Code, or Gemini CLI, open a coding workspace, copy the instructions from [the agent page](https://pnp.fun/#/agent), and paste them into a new task. Choose one problem and open its contributor guide.
 
 | Research track | Contributor guide |
 | --- | --- |

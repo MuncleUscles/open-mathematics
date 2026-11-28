@@ -124,3 +124,7 @@
 .agent-card label[for="agent-track"]{display:block;margin-bottom:.5rem;font-weight:700}
 .agent-card select{width:100%;min-height:44px;background:var(--paper);color:var(--ink);border:1px solid currentColor;padding:.5rem;font:inherit}
 .agent-card #copy-status:empty{display:none}
+
+.track-picker{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:1.25rem 0;color:var(--muted);font-size:.88rem}
+.track-picker select{font:inherit;max-width:100%;color:var(--cream);background:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:.5rem .75rem}
+@media(min-width:761px){.filters{grid-template-columns:minmax(12rem,2fr) repeat(3,minmax(0,1fr))}}

@@ -1,7 +1,8 @@
 import {createClient} from 'genlayer-js';
 import {studionet} from 'genlayer-js/chains';
 import {formatEther} from 'viem';
-import {getProblemTrack} from './problem-directory.mjs';
+import deployments from './wallet-tracks.json' with {type:'json'};
+import {trackNames} from './problem-directory.mjs';
 
 const hashPattern = /^0x[0-9a-f]{64}$/i;
 const api = () => createClient({chain: studionet});
@@ -52,8 +53,8 @@ export function leaveAppeal() {
   clearTimeout(showAppeal.timer);
 }
 
-export function showAppeal(hash, primaryContract) {
-  const route = (hash || '') + '/' + (primaryContract || '');
+export function showAppeal(hash) {
+  const route = hash || '';
   if (showAppeal.route === route) return;
   showAppeal.route = route;
   const form = byId('appeal-lookup'), input = byId('appeal-hash');
@@ -77,13 +78,7 @@ export function showAppeal(hash, primaryContract) {
   if (!hashPattern.test(hash)){ status.textContent = 'Enter the full Studio transaction hash.'; return; }
   explorer.href = 'https://explorer-studio.genlayer.com/tx/' + hash;
   explorer.hidden = false;
-  const contracts = new Map([
-    [primaryContract?.toLowerCase(), 'P vs NP'],
-    ...['yang-mills','post-quantum-signatures'].map(id => {
-      const t = getProblemTrack(id); return [t.contract.toLowerCase(), t.title];
-    }),
-  ]);
-  contracts.delete(undefined);
+  const contracts = new Map(Object.entries(deployments).map(([id, track]) => [track.ledger.toLowerCase(), trackNames[id]]));
   const client = api();
   let submitting = false, submittedDecision;
   async function watch() {
@@ -94,7 +89,7 @@ export function showAppeal(hash, primaryContract) {
       const open = quote.charge !== undefined;
       status.textContent = quote.track + ' · ' + quote.status + '. ' + (open
         ? 'Appeal by ' + new Date(quote.deadline * 1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}) + '. The charge is ' + formatEther(quote.charge) + ' Studio GEN, including the bond and review funding.'
-        : quote.final ? (quote.outcome === 'undetermined' ? 'The decision was undetermined. The original claim wallet can send a retry using the submission page below.' : 'The appeal window has closed.')
+        : quote.final ? (quote.outcome === 'undetermined' ? 'The decision was undetermined. For a submission review on an open PR, the original claim wallet can request a retry.' : 'The appeal window has closed.')
         : 'Watching Studio for an open appeal window…');
       button.hidden = !open || quote.decisionId === submittedDecision;
       if (open && quote.decisionId === submittedDecision) status.textContent = 'Appeal submitted. Waiting for Studio to update the round.';

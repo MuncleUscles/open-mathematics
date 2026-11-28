@@ -14,6 +14,7 @@ export function validateQuestion(q){
  need(t.every(Number.isFinite)&&t.every((v,i)=>i===0||v>t[i-1]),'Question times must be ordered');
  need(q.scoring===SCORE_POLICY&&q.minimumCoverage===0.5&&q.minimumSample===MIN_SAMPLE,'Unknown scoring policy');
  need(['credited-formal-count','impact-points'].includes(q.predicate?.kind)&&Number.isSafeInteger(q.predicate.threshold)&&q.predicate.threshold>0,'Invalid predicate');
+ need(q.source?.problem===undefined||['p-vs-np','yang-mills','post-quantum-signatures'].includes(q.source.problem),'Invalid source problem');
  need(q.evidenceSources?.length>0&&q.source?.contract&&q.source.chainId===61999&&/^[a-f0-9]{64}$/.test(q.source.policyHash),'Invalid source');
  return q;
 }
@@ -48,7 +49,7 @@ export function leaderboard(questions,rows,resolutions){
  return [...people.values()].map(p=>({participant:p.participant,resolved:p.resolved,brier:p.totalLoss/p.resolved})).sort((a,b)=>a.brier-b.brier||b.resolved-a.resolved||a.participant.localeCompare(b.participant));
 }
 export function resolveCheckpoint(q,evidence){
- need(evidence.complete===true&&evidence.source.contract===q.source.contract&&evidence.source.chainId===q.source.chainId&&evidence.source.policyHash===q.source.policyHash,'Incomplete or mismatched native evidence');
+ need(evidence.complete===true&&evidence.source.problem===q.source.problem&&evidence.source.contract===q.source.contract&&evidence.source.chainId===q.source.chainId&&evidence.source.policyHash===q.source.policyHash,'Incomplete or mismatched native evidence');
  const start=Date.parse(evidence.startedAt),end=Date.parse(evidence.completedAt);
  need(start>=Date.parse(q.checkpointAt)&&end<=Date.parse(q.resolutionDeadline)&&end>=start,'Outside checkpoint interval');
  need(evidence.before.state_revision===evidence.after.state_revision,'Native state changed during capture');
