@@ -125,6 +125,7 @@ export async function recordOpenFailure({report,error,failure=String(error.messa
  // publication, never from a saved report. Stale-claim expiry still revokes it.
  const preserveFinalized=!registrationRejection&&finalizedCheck&&['approved','credited'].includes(report.record?.status);
  report.error=failure;
+ report.temporaryFailure=temporaryResearchFailure(error);
  if(preserveFinalized){
   report.operationalErrors??=[];
   report.operationalErrors.push({stage:'post-finalization',message:failure,at:new Date().toISOString(),
@@ -478,6 +479,7 @@ async function main(){
   report.points=await native('get_points',[claim.wallet]);
   report.completedAt=new Date().toISOString();
   delete report.error;
+  delete report.temporaryFailure;
   delete report.blockedConsensus;
   await save();
   console.log('Contribution outcome:',report.status,report.record.credited_points,'Upstream reserve allocation:',report.impact?.paid_points||'0');

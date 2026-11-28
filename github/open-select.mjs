@@ -204,7 +204,7 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
    if(typeof raw!=='string'||!/^[1-9][0-9]*$/.test(raw)||!positiveId(Number(raw)))return null;
    requested=Number(raw);
   }
- }else if(eventName!=='schedule')return null;
+ }else if(!['schedule','workflow_run','push'].includes(eventName))return null;
 
  async function byCommentId(commentId,options={}){
   let comment;
@@ -220,6 +220,34 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
   try{requireClaimAuthor(await readOpenClaimComment({comment,problem,commentId}),comment,pr,d);}
   catch{return recover();}
   return candidate(comment,pr,{commentId,...options});
+ }
+
+ // The recovery workflow receives only a default-branch completion event or
+ // its own deployment push. Rebind the saved comment through normal selection.
+ if(eventName==='workflow_run'||eventName==='push'){
+  if(event.repository?.full_name!==d.repository)return null;
+  let failedRun;
+  if(eventName==='workflow_run'){
+   const run=event.workflow_run;
+   if(event.action!=='completed'||!positiveId(run?.id)||run.head_repository?.full_name!==d.repository||
+      run.path!=='.github/workflows/research.yml'||run.head_branch!==problem.descriptor.configBranch||
+      !['failure','timed_out'].includes(run.conclusion))return null;
+   failedRun=`https://github.com/${d.repository}/actions/runs/${run.id}`;
+  }else if(event.ref!=='refs/heads/'+problem.descriptor.configBranch)return null;
+  const unfinished=entries.filter(entry=>entry.needsResume===true&&!terminalEntry(entry)&&
+   CONTRIBUTION_ID.test(entry.id)&&positiveId(entry.commentId)&&(!failedRun||entry.run===failedRun));
+  for(const entry of unfinished.slice(0,100)){
+   const report=await readEvidence(`reports/${entry.id}.json`);
+   if(!report||report.completedAt||report.blockedConsensus||report.commentId!==entry.commentId||
+      (failedRun&&report.run!==failedRun))continue;
+   // Older workers recorded only the error text. Match their known transport
+   // failures exactly; contract execution and disputed judgments stay fenced.
+   const interrupted=report.temporaryFailure ?? /^(fetch failed|GitHub (408|429|500|502|503|504))$/.test(report.error);
+   if(interrupted!==true&&event.workflow_run?.conclusion!=='timed_out')continue;
+   const item=await byCommentId(entry.commentId,{requireSaved:true});
+   if(item?.id===entry.id&&!item.recoveryOnly)return item;
+  }
+  return null;
  }
 
  if(retryRequest){

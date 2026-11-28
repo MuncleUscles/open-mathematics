@@ -672,3 +672,29 @@ test('periodic recovery checks for new wallet submissions ahead of a blocked mer
   readEvidence:async path=>path==='index.json'?{entries:[old]}:null,intake:{has:async()=>true}});
  assert.equal(result.id,candidate.id);
 });
+
+test('failed-run recovery rebinds only its own unfinished signed wallet request',async()=>{
+ const {problem,claim,candidate,comment,pr}=await fixture();
+ const repository={full_name:claim.repository};
+ const workflow_run={id:123,head_repository:repository,path:'.github/workflows/research.yml',head_branch:'main',conclusion:'failure'};
+ const event={action:'completed',repository,workflow_run};
+ const report={id:candidate.id,commentId:COMMENT,commentCreatedAt:CREATED,claim:candidate.envelope,contract:claim.contract,
+  chainId:claim.chainId,repository:claim.repository,pr:PR,head:claim.head,base:claim.base,transactions:{},status:'verifying',
+  run:'https://github.com/'+claim.repository+'/actions/runs/123',error:'fetch failed'};
+ const entry={...report,needsResume:true};
+ const github={repository:claim.repository,branchHead:async()=>claim.base,pr:async()=>pr,request:async()=>comment};
+ const select=(options={},patch={})=>selectOpenClaim({github,problem,event,eventName:'workflow_run',intake:{has:async()=>true},
+  readEvidence:async path=>path==='index.json'?{entries:[entry]}:{...report,...patch},...options});
+ assert.equal((await select()).commentId,COMMENT);
+ assert.equal((await select({eventName:'push',event:{repository,ref:'refs/heads/main'}})).id,candidate.id);
+ assert.equal((await select({}, {error:'service disconnected',temporaryFailure:true})).id,candidate.id);
+ for(const patch of [{id:124},{head_branch:'research'},{head_repository:{full_name:'Other/fork'}},
+  {path:'.github/workflows/other.yml'},{conclusion:'success'},{conclusion:'cancelled'}]){
+  assert.equal(await select({event:{...event,workflow_run:{...workflow_run,...patch}}}),null);
+ }
+ for(const patch of [{completedAt:CREATED},{blockedConsensus:true},{error:'execution failed'},{temporaryFailure:false},
+  {run:'https://github.com/'+claim.repository+'/actions/runs/999'},{head:commit('b')}]){
+  assert.equal(await select({},patch),null);
+ }
+ assert.equal(await select({intake:{has:async()=>false}}),null);
+});
