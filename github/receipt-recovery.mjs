@@ -54,6 +54,14 @@ export async function recoverReceipt(client, { address, sender, method, args, in
       throw Error('Malformed destination in Studio transaction history');
     }
     if (!matchesAddress(row?.to_address, address) || row.type === 0 || row.type === 1) continue;
+    // Studio records an in-place code upgrade in this same history, with no caller or call data.
+    if (row.type === 3) {
+      if (row.from_address !== null || !HASH.test(row.hash ?? '') ||
+          typeof row.data?.new_code !== 'string' || !row.data.new_code || Object.hasOwn(row.data, 'calldata')) {
+        throw Error('Malformed contract upgrade in Studio transaction history');
+      }
+      continue;
+    }
     if (typeof row.from_address !== 'string' || !ADDRESS.test(row.from_address)) {
       throw Error('Malformed sender in Studio transaction history');
     }
