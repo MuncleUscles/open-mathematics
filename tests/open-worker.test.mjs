@@ -698,3 +698,15 @@ test('failed-run recovery rebinds only its own unfinished signed wallet request'
  }
  assert.equal(await select({intake:{has:async()=>false}}),null);
 });
+
+test('the normal protected worker retrieves a failed run from its own repository before recovery',async()=>{
+ const {recoverySelectionEvent}=await import('../github/open-select.mjs');
+ const github={repository:'Owner/problem',request:async path=>{assert.equal(path,'/actions/runs/42');return {id:42,event:'issue_comment'};}};
+ const dispatch=(target,extra={})=>recoverySelectionEvent(github,'workflow_dispatch',{inputs:{recover_run:target,...extra}});
+ assert.deepEqual(await dispatch('42'),{eventName:'workflow_run',event:{repository:{full_name:'Owner/problem'},action:'completed',workflow_run:{id:42,event:'issue_comment'}}});
+ assert.deepEqual(await dispatch('deployment'),{eventName:'push',event:{repository:{full_name:'Owner/problem'},ref:'refs/heads/main'}});
+ for(const value of ['0','../runs/42','42.3','9007199254740992'])await assert.rejects(dispatch(value),/Invalid/);
+ await assert.rejects(dispatch('42',{comment_id:'1'}),/mutually exclusive/);
+ github.request=async()=>({id:42,event:'workflow_dispatch',display_title:'Automatic research recovery'});
+ await assert.rejects(dispatch('42'),/Invalid/);
+});
