@@ -296,13 +296,30 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
  return firstResumable(resumable.filter(entry=>entry.status==='credited'));
 }
 
+// The credential-free notifier passes only a run ID. The protected worker
+// retrieves the original run from its own repository before selecting a claim.
+export async function recoverySelectionEvent(github,eventName,event){
+ const target=eventName==='workflow_dispatch' && event.inputs?.recover_run;
+ if(!target)return {eventName,event};
+ if(event.inputs.comment_id)throw Error('Recovery run and explicit claim are mutually exclusive');
+ const repository={full_name:github.repository};
+ if(target==='deployment')return {eventName:'push',event:{repository,ref:'refs/heads/main'}};
+ if(typeof target!=='string'||!/^[1-9][0-9]*$/.test(target)||!positiveId(Number(target)))
+  throw Error('Invalid originating workflow run');
+ const run=await github.request('/actions/runs/'+target);
+ if(run?.id!==Number(target)||run.event==='workflow_dispatch'&&run.display_title==='Automatic research recovery')
+  throw Error('Invalid originating workflow run');
+ return {eventName:'workflow_run',event:{repository,action:'completed',workflow_run:run}};
+}
+
 async function main(){
  const problem=loadWorkflowOpenProblem(process.env);
  verifyOpenCheckout(problem,PROTOCOL_ROOT);
  const github=new GitHub({repository:problem.deployment.repository,token:process.env.GITHUB_TOKEN});
  const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
  async function readEvidence(file){return (await readEvidenceFile(github,file))?.data??null;}
- const selected=await selectOpenClaim({github,problem,event,eventName:process.env.GITHUB_EVENT_NAME,readEvidence,intake:walletIntake(problem)});
+ const trigger=await recoverySelectionEvent(github,process.env.GITHUB_EVENT_NAME,event);
+ const selected=await selectOpenClaim({github,problem,...trigger,readEvidence,intake:walletIntake(problem)});
  if(!process.env.GITHUB_OUTPUT)throw Error('GitHub output file required');
  const plan=selected?await openBuildPlan({github,problem,candidate:selected}):{needs_lean:true};
  fs.appendFileSync(process.env.GITHUB_OUTPUT,`comment_id=${selected?.commentId||''}\nretry_hash=${selected?.retryHash||''}\nneeds_lean=${plan.needs_lean===false?'false':'true'}\n`);
