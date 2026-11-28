@@ -127,6 +127,12 @@ const loadingPages = new Set(), pageErrors = new Map();
 function renderFeed(){
  const query=$('search').value.trim().toLowerCase(),status=$('filter-status').value,kind=$('filter-kind').value;
  const {covered, contributions:all, total} = combineTrackFeeds(activity);
+ const headline = $('directory-total');
+ const fullCoverage = covered.length === Object.keys(trackNames).length;
+ headline.hidden = covered.length === 0;
+ headline.textContent = fullCoverage
+  ? fmt(total) + (total === 1n ? ' contribution' : ' contributions') + ' across all three tracks'
+  : 'Contributions loaded for ' + covered.length + ' of ' + Object.keys(trackNames).length + ' tracks';
  const pages = $('other-pages');
  pages.replaceChildren();
  for (const track of Object.keys(otherTrackContracts)) {
@@ -419,11 +425,24 @@ async function earlier(){
  }catch(error){$('status').textContent='Could not load earlier records. '+String(error.message).slice(0,180);}finally{busy=false;$('older').disabled=false;$('refresh').disabled=false;}
 }
 $('filters').addEventListener('submit',event=>event.preventDefault());for(const id of ['search','filter-status','filter-kind'])$(id).addEventListener('input',renderFeed);
-$('refresh-feed').addEventListener('click', async event => {
- const button = event.currentTarget; button.disabled = true;
+const feedRefreshInterval = 5 * 60 * 1000;
+let lastFeedRefresh = Date.now();
+
+async function refreshFeed() {
+ if (!data || data.preview || !trackReads || $('refresh-feed').disabled) return;
+ lastFeedRefresh = Date.now();
+ $('refresh-feed').disabled = true;
  try { await Promise.all([refresh(), ...Object.keys(otherTrackContracts).map(track => loadActivity(track, true))]); }
- finally { button.disabled = false; renderFeed(); }
-});
+ finally { $('refresh-feed').disabled = false; renderFeed(); }
+}
+function refreshVisibleFeed() {
+ if (!document.hidden && ['', '#/', '#/problems', '#/contributions'].includes(location.hash)
+     && Date.now() - lastFeedRefresh >= feedRefreshInterval) void refreshFeed();
+}
+$('refresh-feed').addEventListener('click', refreshFeed);
+document.addEventListener('visibilitychange', refreshVisibleFeed);
+window.addEventListener('hashchange', refreshVisibleFeed);
+window.setInterval(refreshVisibleFeed, feedRefreshInterval);
 $('refresh').addEventListener('click',refresh);$('older').addEventListener('click',earlier);
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('agent-instructions').value);$('copy-status').textContent='Copied. Send these instructions to your agent.';}catch{$('agent-instructions').focus();$('agent-instructions').select();$('copy-status').textContent='Select and copy the instructions above, or share the full guide.';}});
 try{
