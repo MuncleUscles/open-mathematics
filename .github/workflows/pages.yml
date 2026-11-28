@@ -17,7 +17,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: protocol
@@ -31,6 +31,20 @@ jobs:
           repository: MuncleUscles/p-vs-np
           ref: main
           path: problem
+          persist-credentials: false
+      - name: Read the yang-mills configuration
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: MuncleUscles/yang-mills
+          ref: main
+          path: track-configs/yang-mills
+          persist-credentials: false
+      - name: Read the post-quantum-signatures configuration
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: MuncleUscles/post-quantum-signatures
+          ref: main
+          path: track-configs/post-quantum-signatures
           persist-credentials: false
       - name: Read the pinned protocol implementation
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -54,7 +68,7 @@ jobs:
         run: npm ci --ignore-scripts
         working-directory: renderer
       - name: Build dashboard with a dated finalized-native snapshot
-        run: node scripts/build-open-site.mjs ../problem ../site --snapshot --protocol-checkout ../protocol
+        run: node scripts/build-open-site.mjs ../problem ../site --snapshot --protocol-checkout ../protocol --track-configs ../track-configs
         working-directory: renderer
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b

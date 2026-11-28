@@ -33,11 +33,48 @@ const source=q.source;
 function evidence(){return {source,startedAt:q.checkpointAt,completedAt:new Date(Date.parse(q.checkpointAt)+1000).toISOString(),before:{state_revision:'2',research_records:2},after:{state_revision:'2',total_impact_points:'4'},records:[1,2].map(i=>({status:'credited',evidence:{id:String(i),evidence_kind:'formal',verification:'verified'}})),complete:true};}
 test('resolution requires complete stable finalized evidence inside the precommitted window',()=>{assert.equal(resolveCheckpoint(q,evidence()).outcome,1);const no=evidence();no.records[1].status='rejected';assert.equal(resolveCheckpoint(q,no).outcome,0);assert.equal(resolveCheckpoint(registry[1],evidence()).outcome,1);for(const e of [{...evidence(),complete:false},{...evidence(),source:{...source,contract:'other'}},{...evidence(),records:[]},{...evidence(),completedAt:'2027-01-01T00:00:00.000Z'},{...evidence(),after:{state_revision:'3'}}])assert.throws(()=>resolveCheckpoint(q,e));});
 test('missed checkpoint is inconclusive and immutable, never NO',async()=>{const h=harness(Date.parse(q.resolutionDeadline)+1);const tick=await h.request('/api/checkpoint',{});assert.equal(tick.status,200);assert.ok(tick.body.resolutions.every(r=>r.status==='inconclusive'&&!('outcome' in r)));assert.deepEqual((await h.request('/api/leaderboard')).body.ranks,[]);});
-test('native capture reads latest-final and refuses partial pages, configuration drift or revision drift',async()=>{const records=[{evidence:{id:'one',contract:source.contract,problem:'p-vs-np',policy:source.policyHash},status:'credited'}];let phase=0;const client={getChainId:async()=>61999,readContract:async options=>{assert.equal(options.transactionHashVariant,'latest-final');return options.functionName==='get_config'?{policy:source.policyHash}:options.functionName==='get_federation_state'?{state_revision:String(phase),research_records:1}:options.functionName==='list_contributions'?{items:['one'],total:1,next_offset:null}:records[0];}};assert.equal((await captureNative(source,{client})).records.length,1);const bad={...client,readContract:async opts=>opts.functionName==='list_contributions'?{items:[],total:1,next_offset:null}:client.readContract(opts)};await assert.rejects(captureNative(source,{client:bad}),/Incomplete/);phase=0;const drift={...client,readContract:async opts=>{const value=await client.readContract(opts);if(opts.functionName==='get_federation_state')phase++;return value;}};await assert.rejects(captureNative(source,{client:drift}),/changed/);});
+test('native capture reads latest-final and refuses partial pages, configuration drift or revision drift',async()=>{const records=[{evidence:{id:'one',contract:source.contract,problem:'p-vs-np',policy:source.policyHash},status:'credited'}];let phase=0;const client={getChainId:async()=>61999,readContract:async options=>{assert.equal(options.transactionHashVariant,'latest-final');return options.functionName==='get_config'?{policy:source.policyHash,problem:'p-vs-np',repository:'MuncleUscles/p-vs-np'}:options.functionName==='get_federation_state'?{state_revision:String(phase),research_records:1}:options.functionName==='list_contributions'?{items:['one'],total:1,next_offset:null}:records[0];}};assert.equal((await captureNative(source,{client})).records.length,1);const bad={...client,readContract:async opts=>opts.functionName==='list_contributions'?{items:[],total:1,next_offset:null}:client.readContract(opts)};await assert.rejects(captureNative(source,{client:bad}),/Incomplete/);phase=0;const drift={...client,readContract:async opts=>{const value=await client.readContract(opts);if(opts.functionName==='get_federation_state')phase++;return value;}};await assert.rejects(captureNative(source,{client:drift}),/changed/);});
 
 test('finalized checkpoint publishes evidence and deterministic rankings, ignoring caller-supplied outcome',async()=>{
  const h=harness(start+1,{capture:async()=>evidence()}),a=await signer();assert.equal((await h.request('/api/forecasts',await a.sign({probability:80}))).status,201);
  h.setTime(Date.parse(q.checkpointAt)+10);const resolved=await h.request('/api/checkpoint',{outcome:0,evidence:'attacker'});assert.equal(resolved.status,200);assert.equal(resolved.body.resolutions[0].outcome,1);assert.equal(resolved.body.resolutions[0].evidence.complete,true);assert.equal(resolved.body.resolutions[0].evidenceHash.length,64);
  const ranks=(await h.request('/api/leaderboard')).body.ranks;assert.equal(ranks.length,1);assert.equal(ranks[0].participant,a.participant);assert.ok(Math.abs(ranks[0].brier-.04)<1e-6);
  h.setTime(Date.parse(q.resolutionDeadline)+1);assert.equal((await h.request('/api/checkpoint',{})).body.resolutions[0].outcome,1);
+});
+
+test('each secondary checkpoint reads only the problem bound to its source contract and policy',async()=>{
+ const deployments=JSON.parse(fs.readFileSync(new URL('../public/open/wallet-tracks.json',import.meta.url)));
+ for(const track of ['yang-mills','post-quantum-signatures']){
+  const {ledger,policy}=deployments[track],source={chainId:61999,contract:ledger,policyHash:policy,problem:track};
+  let problem=track;
+  const client={getChainId:async()=>61999,readContract:async({functionName,address})=>{
+   assert.equal(address,ledger);
+   if(functionName==='get_config')return {problem:track,repository:'MuncleUscles/'+track,policy};
+   if(functionName==='get_federation_state')return {research_records:1,state_revision:'1'};
+   if(functionName==='list_contributions')return {total:1,items:['local'],next_offset:null};
+   return {evidence:{id:'local',problem,policy,contract:ledger}};
+  }};
+  assert.equal((await captureNative(source,{client})).records.length,1);
+  problem='p-vs-np';
+  await assert.rejects(captureNative(source,{client}),/scope mismatch/);
+ }
+});
+
+test('a missed read on one track leaves its call open for a later checkpoint and settles the other independently',async()=>{
+ const [ym,pqc]=registry.slice(2);
+ let offline=true;
+ const calls=[];
+ const h=harness(Date.parse(ym.checkpointAt)+1000,{capture:async source=>{
+  calls.push(source.problem);
+  if(source.problem===ym.source.problem&&offline)throw Error('unavailable');
+  return {...evidence(),source,startedAt:ym.checkpointAt,completedAt:new Date(Date.parse(ym.checkpointAt)+1000).toISOString()};
+ }});
+ const first=await h.request('/api/checkpoint',{});
+ assert.equal(first.status,200);
+ assert.deepEqual(first.body.waiting,[ym.id]);
+ assert.equal(first.body.resolutions.find(r=>r.questionId===pqc.id).outcome,1);
+ offline=false;
+ const second=await h.request('/api/checkpoint',{});
+ assert.equal(second.body.resolutions.find(r=>r.questionId===ym.id).outcome,0);
+ assert.deepEqual(calls,['yang-mills','post-quantum-signatures','yang-mills']);
 });

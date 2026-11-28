@@ -1,10 +1,10 @@
 # The Ape Forecasting Desk
 
-The existing pnp.fun dashboard now has a nonfinancial spectator layer: two fixed milestone questions, signed probability submissions and revisions, community medians and history, personal records, and a separate forecast scoreboard. Research submissions, Lean verification, native adjudication, protected merges, federation and PNP accounting are unchanged.
+The desk publishes research milestones for P vs NP, Yang–Mills and Post-Quantum Signature Aggregation. Visitors sign probabilities and revisions, see community medians and history, and earn a separate score for forecast accuracy. [Forecasts by track](https://pnp.fun/#/forecasts)
 
 ## Deployment boundary
 
-The renderer can ship independently using `build-open-site.mjs PROBLEM OUTPUT --protocol-checkout PINNED_PROTOCOL`. The consumer's `.open-math/forecasts.json` supplies the public API origin. The research protocol remains pinned to `93c7d3fce28163b281a33fcdfeab00aed06c46f4`; this feature does not activate the later attribution contract revision.
+The dashboard’s build reads the public API origin from `.open-math/forecasts.json`. Every question pins its own Studio chain ID, ledger address and research policy hash.
 
 `forecasting/` is a self-contained Cloudflare Worker service, with D1 migrations generated from `db/schema.ts`. Hosting provisions `DB`; migrations are applied before publication, never from a request handler. The deployed source copy uses the same files and lockfile. Question definitions are committed in `questions.json`, hashed and inserted once in D1. A changed hash or a removed question makes requests fail closed. Add new question IDs instead of rewriting published questions.
 
@@ -22,11 +22,13 @@ The service is a trusted timestamping and storage operator, not an onchain times
 
 The community call is the median of each identity's latest accepted probability, collected over the fixed open window. It appears only at five identities. Daily snapshots show how it changed. No participants, probabilities or performance are seeded in production.
 
-For binary outcome `y`, Brier loss is `(p-y)^2`. Integrate loss over the whole fixed open/close window. Before an identity's first submission, use `p=0.5`; revisions take effect at their server acceptance timestamps. At least 50% window coverage is required to rank. Average each participant's eligible resolved question losses equally; lower is better. Inconclusive questions have no score. Early rankings are explicitly provisional. Forecast scores never award PNP research points or other rewards.
+For binary outcome `y`, Brier loss is `(p-y)^2`. Integrate loss over the whole fixed open/close window. Before an identity's first submission, use `p=0.5`; revisions take effect at their server acceptance timestamps. At least 50% window coverage is required to rank. Average each participant's eligible resolved question losses equally; lower is better. Inconclusive questions have no score. Early rankings are explicitly provisional. Forecast scores never award research points or other rewards.
 
 ## Resolution
 
-The first two questions concern at least two credited formal records and a positive `total_impact_points` counter on the named existing Studio contract. Opening: November 24, 2026 14:00 UTC. Forecast close: November 30, 12:00 UTC. Resolution checkpoint: the first complete stable finalized read started December 1, 12:00 UTC and completed by 13:00 UTC. The native baseline at creation had one credited formal result and zero impact points.
+The two P vs NP questions concern at least two credited formal records and a positive `total_impact_points` counter on the named existing Studio contract. Opening: November 24, 2026 14:00 UTC. Forecast close: November 30, 12:00 UTC. Resolution checkpoint: the first complete stable finalized read started December 1, 12:00 UTC and completed by 13:00 UTC. The native baseline at creation had one credited formal result and zero impact points.
+
+The Yang–Mills question asks whether six formal results earn credit, up from four at publication. The post-quantum question asks whether the ledger settles its first point for reuse of an earlier proof. Both opened November 28, 2026 at 10:50 UTC. Calls close December 6 at 12:00 UTC. Each resolves independently from its own ledger during the December 7 checkpoint from 12:00 to 13:00 UTC.
 
 `POST /api/checkpoint` accepts no outcome or evidence from its caller. It reads the precommitted chain and contract itself with `latest-final`, verifies the policy and full bounded registry, and checks unchanged federation revision before/after. Only this complete native capture can yield YES or NO. The full evidence, capture interval, question hash, evidence hash, native state revision and method are published with the resolution. Missing the window, capacity overflow, configuration drift or an unavailable ledger cannot become NO; after the deadline the question becomes inconclusive. Stored resolutions are immutable.
 

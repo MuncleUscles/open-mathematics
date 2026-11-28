@@ -170,7 +170,7 @@ export function buildResearchView({records, impacts, count, points}) {
       wallet: wallet(e.wallet), githubAuthorId: authors.get(e.id), pr: String(e.pr), head: e.head, claim: plain(e.claim), formalStatement: plain(e.formal_statement),
       researchDirection: plain(e.research_direction, 160),
       reason: plain(record.status === 'expired' ? record.expiration_reason : record.verdict?.reason) ||
-        (record.status === 'expired' ? 'Closed without a merit verdict or points. Unresolved work cannot receive another judgment.' : 'No agreed merit verdict is recorded yet.'),
+        (record.status === 'expired' ? 'Closed without a merit verdict or points.' : 'No agreed merit verdict is recorded yet.'),
       authorPoints: String(authorPoints), awardBudget: credited ? String(budget) : null, returnedPoints: String(returned),
       reservePoints: String(outstanding), settledImpactPoints: String(settledImpact), dependencyIds: [...e.dependencies]});
   }

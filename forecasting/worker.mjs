@@ -38,13 +38,20 @@ async function latestAt(db,at){return (await all(db,'SELECT participant, questio
 async function resolutions(db){return (await all(db,'SELECT result FROM resolutions')).map(r=>JSON.parse(r.result));}
 async function tick(db,now,capture){
  const done=await resolutions(db),pending=questions.filter(q=>!done.some(r=>r.questionId===q.id)&&now>=Date.parse(q.checkpointAt));if(!pending.length)return {checkedAt:new Date(now).toISOString(),resolutions:done};
- let evidence;
+ const snapshots=new Map(),waiting=[];
  for(const q of pending){let result;
   if(now>Date.parse(q.resolutionDeadline))result={questionId:q.id,status:'inconclusive',reason:'The fixed checkpoint window passed without a complete stable native reading. No score.'};
-  else {evidence??=await capture(q.source);result=resolveCheckpoint(q,evidence);result.evidence=evidence;result.evidenceHash=await digest(evidence);}
+  else {
+   const scope=canonical(q.source);
+   try{
+    if(!snapshots.has(scope))snapshots.set(scope,capture(q.source));
+    const evidence=await snapshots.get(scope);
+    result=resolveCheckpoint(q,evidence);result.evidence=evidence;result.evidenceHash=await digest(evidence);
+   }catch{waiting.push(q.id);continue;}
+  }
   result.questionHash=await digest(q);result.resolvedAt=new Date().toISOString();await db.prepare('INSERT OR IGNORE INTO resolutions (question_id, result) VALUES (?, ?)').bind(q.id,canonical(result)).run();
  }
- return {checkedAt:new Date().toISOString(),resolutions:await resolutions(db)};
+ return {checkedAt:new Date().toISOString(),resolutions:await resolutions(db),waiting};
 }
 export function createWorker({clock=()=>Date.now(),capture=captureNative}={}){return {async fetch(request,env,ctx){
  const url=new URL(request.url),origin=request.headers.get('Origin'),cors=origin&&(ALLOWED_ORIGINS.has(origin)||origin===url.origin)?origin:null;

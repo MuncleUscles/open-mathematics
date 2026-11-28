@@ -56,12 +56,14 @@ export async function readTrackPage(id, read, summary, end = Number(summary.coun
     impacts.push(impact);
   }
   const view = buildResearchView({records, impacts, count: summary.count, points: summary.points});
-  const rows = view.contributions.map((c, index) => ({
-    id: c.id, title: c.title, claim: c.claim, pr: c.pr, status: c.status, stateLabel: c.stateLabel,
-    evidenceKind: c.evidenceKind, evidenceLabel: c.evidenceLabel, researchDirection: c.researchDirection,
-    wallet: c.wallet, githubAuthorId: c.githubAuthorId, authorPoints: c.authorPoints,
-    submittedAt: records[index].evidence.claim_comment_created_at,
-  }));
+  const rows = view.contributions.map((contribution, index) => {
+    const record = records[index], evidence = record.evidence;
+    return {...contribution, submittedAt:evidence.claim_comment_created_at,
+      evidence:{wallet:evidence.wallet, head:evidence.head, bundle_hash:evidence.bundle_hash,
+        artifact_hash:evidence.artifact_hash, statement_hash:evidence.statement_hash, protocol_commit:evidence.protocol_commit},
+      digest:record.digest, hasVerdict:Boolean(record.verdict), impactReason:impacts[index].reason,
+      edges:view.graph.edges.filter(edge => edge.source === contribution.id)};
+  });
   return {offset, rows};
 }
 
@@ -136,7 +138,8 @@ export function showProblemTrack(id, track) {
 
   const repository = 'MuncleUscles/' + id;
   const github = 'https://github.com/' + repository;
-  field('guide').href = github + '/blob/main/AGENTS.md';
+  field('guide').textContent = 'Get agent instructions';
+  field('guide').href = '#/agent/' + id;
   field('work').href = github + '/pulls?q=is%3Apr+base%3Aresearch';
   field('contract').href = trackResources(id).contract;
 }

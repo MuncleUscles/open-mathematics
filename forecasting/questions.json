@@ -24,5 +24,65 @@
     "source":{"chainId":61999,"contract":"0x3A8Be4AA97375e4E38E1b351722aE45454DE611e","policyHash":"e75a2e10e8fc196c8ea6ddaf2c2c6808f13025a0bcd9e87a9b2d13889f5e0755"},
     "evidenceSources":["https://github.com/MuncleUscles/p-vs-np/tree/evidence","https://studio.genlayer.com/contracts?import-contract=0x3A8Be4AA97375e4E38E1b351722aE45454DE611e"],
     "scoring":"time-weighted-brier-v1","minimumCoverage":0.5,"minimumSample":5
+  },
+  {
+    "id": "yang-mills-six-formal-dec-2026",
+    "version": 1,
+    "text": "Will Yang–Mills reach six credited formal results?",
+    "topic": "Yang–Mills · Formal proofs",
+    "opensAt": "2026-11-28T10:50:00.000Z",
+    "closesAt": "2026-12-06T12:00:00.000Z",
+    "checkpointAt": "2026-12-07T12:00:00.000Z",
+    "resolutionDeadline": "2026-12-07T13:00:00.000Z",
+    "criteria": "Count records with credited status, formal evidence and verified proof checks. Six or more resolves YES. The track had four at publication. This measures accepted partial results on the track. Use the first complete, stable finalized ledger reading begun on December 7, 2026 at or after 12:00 UTC and completed by 13:00 UTC. A complete reading below the threshold resolves NO.",
+    "predicate": {
+      "kind": "credited-formal-count",
+      "threshold": 6
+    },
+    "inconclusivePolicy": "If no complete stable reading is captured within the one-hour checkpoint, mark inconclusive and do not score. Missing data, an unreachable ledger, changed source configuration or an incomplete registry never implies NO. No replacement ledger or retrospective deadline extension is allowed.",
+    "verificationPolicy": "The track’s pinned policy requires independent Lean verification for formal proofs and finalized GenLayer credit decisions. The forecast uses only this track’s registered Studio ledger.",
+    "source": {
+      "chainId": 61999,
+      "contract": "0x983d27779dF7D495d4c881Ab0925B42A7bBf76d7",
+      "policyHash": "56e3d0e86958d1f5f36976c8eecf234a3f8117557e7c5d6f6f0395d59be6234d",
+      "problem": "yang-mills"
+    },
+    "evidenceSources": [
+      "https://github.com/MuncleUscles/yang-mills/tree/evidence",
+      "https://studio.genlayer.com/contracts?import-contract=0x983d27779dF7D495d4c881Ab0925B42A7bBf76d7"
+    ],
+    "scoring": "time-weighted-brier-v1",
+    "minimumCoverage": 0.5,
+    "minimumSample": 5
+  },
+  {
+    "id": "pqc-first-proof-reuse-dec-2026",
+    "version": 1,
+    "text": "Will a post-quantum proof earn credit for earlier work?",
+    "topic": "Post-quantum signatures · Proof reuse",
+    "opensAt": "2026-11-28T10:50:00.000Z",
+    "closesAt": "2026-12-06T12:00:00.000Z",
+    "checkpointAt": "2026-12-07T12:00:00.000Z",
+    "resolutionDeadline": "2026-12-07T13:00:00.000Z",
+    "criteria": "Read total_impact_points from the post-quantum signature ledger. One or more settled points resolves YES. The ledger had zero at publication. Reuse can come from the same contributor or a different contributor. Use the first complete, stable finalized ledger reading begun on December 7, 2026 at or after 12:00 UTC and completed by 13:00 UTC. A complete reading below the threshold resolves NO.",
+    "predicate": {
+      "kind": "impact-points",
+      "threshold": 1
+    },
+    "inconclusivePolicy": "If no complete stable reading is captured within the one-hour checkpoint, mark inconclusive and do not score. Missing data, an unreachable ledger, changed source configuration or an incomplete registry never implies NO. No replacement ledger or retrospective deadline extension is allowed.",
+    "verificationPolicy": "The track’s pinned policy requires independent Lean verification for formal proofs and finalized GenLayer credit decisions. The forecast uses only this track’s registered Studio ledger.",
+    "source": {
+      "chainId": 61999,
+      "contract": "0xEC885d69e74De9509938aAa732d1675161299E58",
+      "policyHash": "735cd5c67fbc660ca8dab7589222d409c8bc805662612eff10a0ab96309e6ed6",
+      "problem": "post-quantum-signatures"
+    },
+    "evidenceSources": [
+      "https://github.com/MuncleUscles/post-quantum-signatures/tree/evidence",
+      "https://studio.genlayer.com/contracts?import-contract=0xEC885d69e74De9509938aAa732d1675161299E58"
+    ],
+    "scoring": "time-weighted-brier-v1",
+    "minimumCoverage": 0.5,
+    "minimumSample": 5
   }
 ]

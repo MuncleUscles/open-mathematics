@@ -2,28 +2,30 @@ import fs from 'node:fs';import path from 'node:path';import {fileURLToPath,path
 import {execFileSync} from 'node:child_process';
 import {loadOpenProblem,verifyOpenCheckout,readProblemFile,parseProblemJSON} from '../src/open-research.mjs';
 import {validateGitHubAccountsDeployment,collectGitHubAccountsSnapshot} from '../src/github-accounts.mjs';
-import {validateFederationDeployment,validateFederationSnapshot} from '../src/federation-snapshot.mjs';
+import {collectFederationSnapshot,validateFederationDeployment,validateFederationSnapshot} from '../src/federation-snapshot.mjs';
 import {clientFor,read} from '../github/runtime.mjs';
 import {withStudioBatchPacing} from '../github/batch-studio-client.mjs';
+import deployments from '../public/open/wallet-tracks.json' with {type:'json'};
 import {trackNames,trackResources,readTrackFeed,otherTrackContracts} from '../public/open/problem-directory.mjs';
 import {agentTracks,agentPrompt,platformGuide,studioNetwork} from '../public/open/agent-guide.mjs';
 import {createDashboardReaders} from '../src/dashboard-read.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const usage='Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only] [--protocol-checkout PATH]';
+const usage='Usage: build-open-site.mjs TRUSTED_PROBLEM OUTPUT [--snapshot | --preview for local layout only] [--protocol-checkout PATH] [--track-configs PATH]';
 
 export function parseOpenSiteArgs(argv,{actions=Boolean(process.env.GITHUB_ACTIONS)}={}){
  const [directory,destination,...options]=argv;
  if(!directory||!destination||directory.startsWith('--')||destination.startsWith('--'))throw Error(usage);
- let preview=false,snapshot=false,protocolCheckout;
+ let preview=false,snapshot=false,protocolCheckout,trackConfigs;
  for(let index=0;index<options.length;index++){
   const option=options[index];
   if(option==='--snapshot'&&!snapshot&&!preview)snapshot=true;
   else if(option==='--preview'&&!preview&&!snapshot)preview=true;
   else if(option==='--protocol-checkout'&&protocolCheckout===undefined&&options[index+1]&&!options[index+1].startsWith('--'))protocolCheckout=options[++index];
+  else if(option==='--track-configs'&&!trackConfigs&&options[index+1]&&!options[index+1].startsWith('--'))trackConfigs=options[++index];
   else throw Error(usage);
  }
  if(preview&&(actions||protocolCheckout!==undefined))throw Error(usage);
- return {directory,destination,preview,snapshot,protocolCheckout};
+ return {directory,destination,preview,snapshot,protocolCheckout,...(trackConfigs?{trackConfigs}:{})};
 }
 
 function rendererCommit(directory,{preview}){
@@ -38,7 +40,7 @@ function rendererCommit(directory,{preview}){
 
 // Presentation may ship independently. The problem's protocol pin still owns
 // all submission tools and snapshot capture; a renderer release never replaces it.
-export async function buildOpenSite({directory,destination,preview=false,snapshot=false,protocolCheckout},{rendererRoot=root}={}){
+export async function buildOpenSite({directory,destination,preview=false,snapshot=false,protocolCheckout,trackConfigs},{rendererRoot=root}={}){
  if(preview&&(snapshot||protocolCheckout!==undefined||process.env.GITHUB_ACTIONS))throw Error(usage);
  const p=loadOpenProblem(directory),protocolRoot=protocolCheckout===undefined?rendererRoot:fs.realpathSync(protocolCheckout);
  if(!preview)verifyOpenCheckout(p,protocolRoot);
@@ -69,13 +71,30 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
   validateFederationSnapshot(captured,problem);
   fs.writeFileSync(path.join(destination,'federation-snapshot.json'),JSON.stringify(captured)+'\n');
  }
- const trackActivity = {};
+ const trackActivity = {}, trackProblems = {};
+ if (trackConfigs) {
+  for (const id of Object.keys(otherTrackContracts)) {
+   const {descriptor, deployment, policy, policyHash} = loadOpenProblem(path.join(trackConfigs,id));
+   if (descriptor.id!==id || descriptor.repository!=='MuncleUscles/'+id || deployment.contract!==deployments[id].ledger || policyHash!==deployments[id].policy) throw Error('Unrecognized track configuration for '+id);
+   trackProblems[id]={descriptor,deployment,policy,policyHash,federation:true};
+  }
+ }
  if (snapshot && p.descriptor.repository === 'MuncleUscles/p-vs-np') {
   const {trackReads} = createDashboardReaders({client:clientFor(), contract:p.deployment.contract, trackContracts:otherTrackContracts});
   await Promise.all(Object.entries(trackReads).map(async ([id, readLedger]) => {
    try { trackActivity[id] = await readTrackFeed(id, readLedger); }
    catch (error) { console.warn('Could not publish activity for', id, error.message); }
   }));
+  // Each bounded attribution capture gets its own interval on the shared RPC queue.
+  for(const [id,problem] of Object.entries(trackProblems)){
+    const file=path.join(destination,'tracks',id,'federation.json');
+    fs.mkdirSync(path.dirname(file),{recursive:true});
+    fs.rmSync(file,{force:true});
+    try {
+     const captured=await collectFederationSnapshot({problem,read:trackReads[id]});
+     fs.writeFileSync(file,JSON.stringify(captured)+'\n');
+    } catch(error) {console.warn('Could not publish current attribution for',id,error.message);}
+  }
  }
  const resources = Object.entries(trackNames).map(([id,name]) => {
   const links = trackResources(id, id === p.descriptor.id ? p.deployment.contract : undefined);
@@ -98,7 +117,7 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
   fs.writeFileSync(path.join(destination,'forecasts-config.json'),JSON.stringify(forecast)+'\n');
  }
  const presentation={commit,protocolCommit:p.descriptor.protocol.commit,readOnly:false,walletActions:["submit","request_retry","appealTransaction"]};
- fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,trackActivity,...(githubAccounts?{githubAccounts}:{}),...(federation?{federation:true}:{})},null,2)+'\n');
+ fs.writeFileSync(path.join(destination,'problem.json'),JSON.stringify({descriptor:p.descriptor,deployment:p.deployment,policyHash:p.policyHash,policy:p.policy,preview,presentation,trackActivity,trackProblems,...(githubAccounts?{githubAccounts}:{}),...(federation?{federation:true}:{})},null,2)+'\n');
  const review = {
   guide:'https://pnp.fun/#/appeals', pullRequestCheck:'open-mathematics/studio-review',
   network:studioNetwork.cli, lifecycleMethod:'gen_getTransactionLifecycle',
@@ -125,6 +144,10 @@ export async function buildOpenSite({directory,destination,preview=false,snapsho
  fs.writeFileSync(path.join(destination,'agent.json'),JSON.stringify(manifest,null,2)+'\n');
  if (platformSite) {
   fs.mkdirSync(path.join(destination,'agents'),{recursive:true});
+  for(const [id,problem] of Object.entries(trackProblems)) {
+   const manifest={...shared,version:5,objective:problem.policy.objective,guide:agentTracks.find(track=>track.id===id).guide,protocol:problem.descriptor.protocol,liveContract:problem.deployment.contract};
+   fs.writeFileSync(path.join(destination,'agents',id+'.json'),JSON.stringify(manifest,null,2)+'\n');
+  }
   fs.writeFileSync(path.join(destination,'agents/p-vs-np.json'),JSON.stringify(problemManifest,null,2)+'\n');
  }
  fs.writeFileSync(path.join(destination,'.nojekyll'),'');
