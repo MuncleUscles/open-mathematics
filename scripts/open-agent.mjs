@@ -110,7 +110,7 @@ export async function readOpenContributionStatus({index,number,problem,native,re
   return {archived:entry,worker:{status:report.status,error:report.error??report.registrationRejection?.reason??null,updatedAt:report.updatedAt},
    report:`https://github.com/${d.repository}/blob/evidence/${file}`,run:entry.run,
    native:null,nativeState:'not-registered-at-read',contract:d.contract,sourceContract:entry.contract,
-   next:'The finalized contract read found no registered contribution at this time. The worker report explains processing or verification failures; it is not a native merit decision and does not establish points. A transaction may still be pending. Inspect Actions or ask the operator to resume the original comment; do not repost it for a new judgment.'};
+   next:'The finalized contract read found no registered contribution at this time. The worker report explains processing or verification failures; it is not a native merit decision and does not establish points. A transaction may still be pending. Keep the original signed comment in place and follow the worker in Actions. Temporary service failures resume automatically.'};
  }
  const inheritance=await readOpenRecordInheritance(record,entry.id,problem,id=>native('get_inheritance',[id]));
  if(Number(record.evidence.pr)!==number||record.evidence.contract.toLowerCase()!==entry.contract.toLowerCase())throw Error('Indexed outcome differs from native contribution identity');
@@ -201,7 +201,7 @@ export async function run(argv=process.argv.slice(2)){
   }else if(command==='status'){
    const number=Number(rest[0]);if(!Number.isSafeInteger(number)||number<1)throw Error('PR number required');
    const index=await readEvidenceFile(gh,'index.json'),status=await readOpenContributionStatus({index:index?.data??{entries:[]},number,problem,native,readReport:async file=>(await readEvidenceFile(gh,file))?.data});
-   if(!status){out({pr:number,status:'No indexed outcome',next:'Check Actions or ask the operator to resume the original signed comment. Do not edit or repost it.'});return;}
+   if(!status){out({pr:number,status:'No indexed outcome',next:'Check the wallet transaction and follow the worker in Actions. The worker picks up finalized requests automatically. Keep the original signed comment in place.'});return;}
    out(status);
   }else if(command==='challenge'){
    const [id,file]=rest,isImpact=rest.includes('--impact'),evidence=fs.readFileSync(path.isAbsolute(file)?file:workFile(file),'utf8'),state=await native(isImpact?'get_impact':'get',[id]),method=isImpact?'challenge_impact':'challenge';

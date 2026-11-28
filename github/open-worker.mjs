@@ -1,6 +1,7 @@
 // Execute the reviewed open research protocol for one selected signed claim. All
 // transaction stages use the same exact-call journal as the historical pilot.
 import fs from 'node:fs';
+import {recoverResearchOperation,temporaryResearchFailure} from './research-recovery.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -106,6 +107,7 @@ function invalidateUnregisteredOpenReport(report){
 export function openClaimFailureOutcome(report,error){
  if(report.expiredBeforeRegistration===true&&!Object.hasOwn(report.transactions,'register'))return {status:'expired'};
  if(report.invalidBeforeRegistration===true&&!Object.hasOwn(report.transactions,'register'))return {status:'invalid'};
+ if(!report.record && !report.transactions.register && temporaryResearchFailure(error)) return {status:'verifying'};
  return claimFailureOutcome(report,error);
 }
 
@@ -204,6 +206,10 @@ function verifierRun(problem,candidate){
     OPEN_MATH_PROBLEM_DIR:problem.root,TRUSTED_LEAN_IMAGE:process.env.TRUSTED_LEAN_IMAGE,
     CLAIM_COMMENT_ID:String(candidate.commentId),CLAIM_CREATED_AT:candidate.createdAt},
   });
+  // Older pinned verifiers report transport failures as a single stderr line.
+  // Checker diagnostics have their own prefix and must stay terminal.
+  if(run.status!==0 && /^(fetch failed|GitHub (408|429|500|502|503|504)|GitHub public identity request timed out|GitHub public identity lookup failed|The operation was aborted due to timeout)$/.test(run.stderr?.trim()))
+   throw Object.assign(Error('Network unavailable during proof verification'),{code:'RESEARCH_NETWORK'});
   if(run.status!==0)throw Error('Proof verifier rejected: '+(run.stderr?.slice(-3000)||'isolated verification did not finish'));
   return JSON.parse(run.stdout);
  }finally{
@@ -482,10 +488,11 @@ async function main(){
    catch(recovery){failure+='\nStale-claim recovery: '+safeError(recovery);}
   }
   await recordOpenFailure({report,error,failure,save,check,finalizedCheck});
+  if(temporaryResearchFailure(error))throw error;
   throw Error(failure);
  }
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- main().catch(error=>{console.error(safeError(error));process.exitCode=1;});
+ recoverResearchOperation(main).catch(error=>{console.error(safeError(error));process.exitCode=1;});
 }

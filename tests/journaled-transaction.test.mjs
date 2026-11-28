@@ -270,3 +270,22 @@ test('a retry cannot replace an accepted, pending, unrelated or ambiguous transa
     assert.ok(!h.state.calls.includes('write'));
   }
 });
+
+test('automatic recovery reconciles a lost broadcast response without a second write', async () => {
+ const {recoverResearchOperation} = await import('../github/research-recovery.mjs');
+ const first = harness();
+ first.state.onWrite = () => {throw new TypeError('fetch failed');};
+ let saved, attempts = 0;
+ const runs = [];
+ const result = await recoverResearchOperation(async () => {
+  const worker = attempts === 0 ? first : harness(structuredClone(saved));
+  runs.push(worker);
+  if (++attempts === 3) worker.state.history = [historyRow()];
+  try { return await worker.run(); }
+  finally { saved = worker.state.saved.at(-1) ?? saved; }
+ }, {wait:async()=>{}, warn:()=>{}});
+ assert.equal(attempts,3);
+ assert.equal(result.hash,hash);
+ assert.equal(result.receipt.statusName,'FINALIZED');
+ assert.equal(runs.flatMap(run => run.state.calls).filter(call => call==='write').length,1);
+});

@@ -2,6 +2,8 @@
 // and verifier independently enforce the submission, receipt and merge gates.
 import fs from 'node:fs';
 import {fileURLToPath,pathToFileURL} from 'node:url';
+import {setTimeout as delay} from 'node:timers/promises';
+import {recoverResearchOperation} from './research-recovery.mjs';
 import {recoverMessageAddress} from 'viem';
 import {GitHub} from '../src/github.mjs';
 import {readEvidenceFile} from './evidence-file.mjs';
@@ -134,13 +136,24 @@ export function eligibleOpenClaim({candidate,pr,deployment,canonicalHead,report,
   pr.head?.sha===candidate.claim.head&&pr.base.sha===candidate.claim.base&&canonicalHead===candidate.claim.base;
 }
 
-export async function selectOpenClaim({github,problem,event={},eventName,readEvidence,intake}){
+export async function selectOpenClaim({github,problem,event={},eventName,readEvidence,intake,wait=delay}){
  const {deployment:d}=problem;
  if(d.protocolVersion!==5||github.repository!==d.repository)throw Error('Reviewed open research deployment required');
  const index=await readEvidence('index.json');
  if(index&&(!Array.isArray(index.entries)||index.entries.some(e=>!e||typeof e.id!=='string')))throw Error('Malformed evidence index');
  const entries=(index?.entries||[]).filter(entry=>openIndexScope(entry,d));
  const canonicalHead=await github.branchHead(d.branch);
+
+ async function finalizedRequest(item,hash,poll){
+  let ready=await intake.has(item,hash);
+  // The contributor may broadcast immediately after posting the signed comment.
+  // Limit polling to the exact foreground event so background scans stay fast.
+  for(let attempt=0;poll && !ready && attempt<4;attempt++){
+   await wait(20000);
+   ready=await intake.has(item,hash);
+  }
+  return ready;
+ }
 
  async function candidate(comment,pr,{commentId=comment?.id,requireSaved=false,explicit=false}={}){
   let item;
@@ -156,14 +169,19 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
   if(intake&&current&&report&&!report.completedAt&&exactOpenReport(item,report,d)&&
      ['submitted','challenged'].includes(report.record?.status)){
    const round=Number(report.record.round),hash=report.transactions?.[`adjudicate-r${round}`]?.hash;
-   if(/^0x[a-f0-9]{64}$/.test(hash)&&await intake.has(item,hash)&&await intake.canRetry(item,hash,round)){
+   const poll=retryRequest && retryRequest.hash===hash && retryRequest.pr===pr.number && retryRequest.author===pr.user.id;
+   if(/^0x[a-f0-9]{64}$/.test(hash)&&await finalizedRequest(item,hash,poll)&&await intake.canRetry(item,hash,round)){
     item.retryHash=hash;
     explicit=true;
    }
   }
   if(!eligibleOpenClaim({candidate:item,pr,deployment:d,canonicalHead,report,entries,explicit}))return null;
   if(!report&&await github.branchHead(d.branch)!==canonicalHead)return null;
-  if(intake&&!report?.transactions?.register&&!await intake.has(item))return null;
+  if(intake&&!report?.transactions?.register){
+   const poll=current && eventName==='issue_comment' && event.issue?.number===item.claim.pr &&
+    (event.comment?.id===item.commentId || (wakePR===item.claim.pr && requested===item.commentId));
+   if(!await finalizedRequest(item,undefined,poll))return null;
+  }
   return item;
  }
 
@@ -224,10 +242,17 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
  // disappears. Normal selection remains blocked by the saved failure journal.
  const resumable=entries.filter(e=>(e.needsResume===true||['submitted','provisional','challenged','approved','registration-pending'].includes(e.status))&&!terminalEntry(e)&&positiveId(e.commentId))
   .sort((a,b)=>Date.parse(a.updatedAt)-Date.parse(b.updatedAt)||a.commentId-b.commentId).slice(0,100);
- for(const entry of resumable){
-  const item=await byCommentId(entry.commentId,{requireSaved:true});
-  if(item&&item.id===entry.id)return item;
+ async function firstResumable(entries){
+  for(const entry of entries){
+   const item=await byCommentId(entry.commentId,{requireSaved:true});
+   if(item&&item.id===entry.id)return item;
+  }
+  return null;
  }
+ // A merged result can wait on another attribution case indefinitely. It
+ // should not consume every sweep while new contributor requests are ready.
+ const active=await firstResumable(resumable.filter(entry=>entry.status!=='credited'));
+ if(active)return active;
  const prs=await github.request(`/pulls?state=open&base=${encodeURIComponent(d.branch)}&sort=created&direction=asc&per_page=100&page=1`);
  if(!Array.isArray(prs))throw Error('Malformed PR queue');
  for(const item of prs.slice(0,100).sort(oldest)){
@@ -240,7 +265,7 @@ export async function selectOpenClaim({github,problem,event={},eventName,readEvi
    if(selected)return selected;
   }
  }
- return null;
+ return firstResumable(resumable.filter(entry=>entry.status==='credited'));
 }
 
 async function main(){
@@ -257,7 +282,7 @@ async function main(){
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- main().catch(()=>{
+ recoverResearchOperation(main).catch(()=>{
   console.error('Claim selection failed. Verification and execution did not start.');
   process.exitCode=1;
  });

@@ -610,7 +610,7 @@ test('wallet request gates comment events, wake hints and scheduled retries at s
  const wakeEvent={...signedEvent,comment:{id:COMMENT+1,body:'Open-Mathematics-Process: '+COMMENT}};
  const intake={has:async()=>false,canRetry:async()=>false,contract:address('7')};
  const input={github,problem,intake,eventName:'issue_comment',readEvidence:async()=>null};
- for(const event of [signedEvent,wakeEvent])assert.equal(await selectOpenClaim({...input,event}),null);
+ for(const event of [signedEvent,wakeEvent])assert.equal(await selectOpenClaim({...input,event,wait:async()=>{}}),null);
  await assert.rejects(authorizeWalletWork({intake,candidate,report:{transactions:{}}}),/finalized Studio submission/);
  intake.has=async item=>item.claim.wallet===claim.wallet;
  assert.equal((await selectOpenClaim({...input,event:wakeEvent})).id,candidate.id);
@@ -627,4 +627,48 @@ test('wallet request gates comment events, wake hints and scheduled retries at s
  const scheduled=await selectOpenClaim({...input,eventName:'schedule',readEvidence});
  assert.equal(scheduled.retryHash,prior);
  assert.equal((await selectOpenClaim({...input,event:wakeEvent,readEvidence})).retryHash,prior);
+});
+
+test('a signed comment wakes its own worker even when the wallet transaction finalizes later',async()=>{
+ const {problem,claim,candidate,comment,pr}=await fixture();
+ const github={repository:claim.repository,branchHead:async()=>claim.base,pr:async()=>pr,request:async()=>comment};
+ let reads=0,waits=0;
+ const selected=await selectOpenClaim({github,problem,eventName:'issue_comment',
+  event:{action:'created',issue:{pull_request:{},number:PR},comment:{id:COMMENT}},
+  readEvidence:async()=>null,intake:{has:async item=>{assert.equal(item.id,candidate.id);return ++reads===3;}},
+  wait:async ms=>{assert.equal(ms,20000);waits++;}});
+ assert.equal(selected.commentId,COMMENT);
+ assert.deepEqual([reads,waits],[3,2]);
+});
+
+test('worker restarts only for temporary failures and preserves pre-verification work for the periodic sweep',async()=>{
+ const {recoverResearchOperation}=await import('../github/research-recovery.mjs');
+ const report={transactions:{}};
+ const transport=new TypeError('fetch failed');
+ assert.equal(openClaimFailureOutcome(report,transport).status,'verifying');
+ assert.equal(openClaimFailureOutcome(report,Error('Isolated verifier rejected: invalid proof')).status,'invalid');
+ const waits=[];
+ await assert.rejects(recoverResearchOperation(async()=>{throw transport;},{wait:async ms=>waits.push(ms),warn:()=>{}}),/fetch failed/);
+ assert.deepEqual(waits,[15000,45000]);
+ for(const err of [Error('UNDETERMINED'),Error('Finalized execution failed'),Error('GitHub 403'),
+  Error('Claim digest, signature or comment identity mismatch'),Error('Isolated verifier rejected: fetch failed'),
+  Object.assign(Error('Rate limited'),{code:-32029,data:{retry_after_seconds:3600}})]){
+  let attempts=0;
+  await assert.rejects(recoverResearchOperation(async()=>{attempts++;throw err;},{wait:()=>assert.fail('unexpected wait')}));
+  assert.equal(attempts,1);
+ }
+});
+
+test('periodic recovery checks for new wallet submissions ahead of a blocked merged reserve',async()=>{
+ const {problem,claim,candidate,comment,pr}=await fixture();
+ const old={id:'pr-1-aaaaaaaaaaaa-bbbbbbbbbbbb',status:'credited',needsResume:true,commentId:1,
+  chainId:claim.chainId,contract:claim.contract,repository:claim.repository};
+ const github={repository:claim.repository,branchHead:async()=>claim.base,pr:async()=>pr,request:async path=>{
+  if(path.startsWith('/pulls?'))return [pr];
+  if(path.startsWith('/issues/'+PR+'/comments?'))return [comment];
+  assert.fail('Unexpected request: '+path);
+ }};
+ const result=await selectOpenClaim({github,problem,eventName:'schedule',
+  readEvidence:async path=>path==='index.json'?{entries:[old]}:null,intake:{has:async()=>true}});
+ assert.equal(result.id,candidate.id);
 });

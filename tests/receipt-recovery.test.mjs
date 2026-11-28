@@ -84,6 +84,23 @@ test('returns null only for a history snapshot with no exact call', async () => 
   assert.deepEqual(fetched, []);
 });
 
+test('a senderless Studio code upgrade cannot shadow or impersonate an operator call', async () => {
+  const upgrade = { type: 3, hash: secondHash, from_address: null, to_address: address, data: { new_code: '# updated contract' } };
+  const onlyUpgrade = provider([upgrade]);
+  assert.equal(await recoverReceipt(onlyUpgrade.client, expected), null);
+  assert.deepEqual(onlyUpgrade.fetched, []);
+  const mixed = provider([upgrade, historyRow()]);
+  assert.equal((await recoverReceipt(mixed.client, expected)).hash, hash);
+  assert.deepEqual(mixed.fetched, [hash]);
+  for (const row of [
+    { ...upgrade, hash: '' }, { ...upgrade, data: {} }, { ...upgrade, from_address: sender },
+    { ...upgrade, data: { ...upgrade.data, calldata: historyRow().data.calldata } },
+  ]) {
+    await assert.rejects(recoverReceipt(provider([row]).client, expected), /Malformed contract upgrade/);
+  }
+  await assert.rejects(recoverReceipt(provider([{ ...historyRow(), from_address: null }]).client, expected), /Malformed sender/);
+});
+
 test('flags multiple distinct exact broadcasts without choosing a receipt', async () => {
   const { client, fetched } = provider([historyRow(), historyRow({ transaction: secondHash })]);
   await assert.rejects(recoverReceipt(client, expected), /Ambiguous Studio history/);
